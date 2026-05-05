@@ -1,0 +1,11 @@
+{
+  "name": "blog-craft",
+  "version": "0.1.0",
+  "description": "Portable teaching-blog scaffolding and authoring skills (Hugo + Hextra).",
+  "author": {
+    "name": "Yiannis Dermitzakis"
+  },
+  "repository": "https://github.com/derio-net/blog-craft",
+  "license": "MIT",
+  "keywords": ["skills", "blog", "hugo", "hextra", "teaching", "scaffolding"]
+}

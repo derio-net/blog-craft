@@ -1,0 +1,11 @@
+# Plugin-repo gitignore. Each bootstrapped blog ships its own .gitignore.
+
+.DS_Store
+*.swp
+__pycache__/
+.venv/
+*.pyc
+
+# Test artifacts
+/tmp/
+tests/golden-output*/
