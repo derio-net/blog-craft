@@ -1,0 +1,13 @@
+base_style: |
+{{ indent 2 .metaphor.base_style }}
+
+reference_guidance: |
+{{ indent 2 .metaphor.reference_guidance }}
+
+images:
+{{- range .series }}
+  - key: overview-{{ .key }}
+    output: {{ $.image_gen.output_dir }}/overview-{{ .key }}-cover.png
+    description: "Cover for the {{ .title }} series overview"
+    prompt: ""    # filled in by user post-bootstrap, or auto-composed by /blog-post
+{{- end }}

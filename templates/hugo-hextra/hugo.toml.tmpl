@@ -1,0 +1,58 @@
+baseURL = "{{ .project.base_url }}"
+languageCode = "en-us"
+title = "{{ .project.name }}"
+
+[module]
+  [[module.imports]]
+    path = "github.com/imfing/hextra"
+
+[params]
+  description = "{{ .project.tagline }}"
+
+  [params.navbar]
+    displayTitle = true
+    displayLogo = false
+
+  [params.footer]
+    displayPoweredBy = false
+
+  [params.editURL]
+    enable = false
+
+  [params.search]
+    enable = true
+    type = "flexsearch"
+    [params.search.flexsearch]
+      index = "content"
+
+{{ range $i, $s := .series -}}
+[[menu.main]]
+  name = "{{ $s.title }}"
+  pageRef = "/docs/{{ $s.key }}"
+  weight = {{ add $i 1 }}
+
+{{ end -}}
+[[menu.main]]
+  name = "Search"
+  weight = {{ add (len .series) 1 }}
+  [menu.main.params]
+    type = "search"
+
+[markup]
+  [markup.goldmark]
+    [markup.goldmark.renderer]
+      unsafe = true
+  [markup.highlight]
+    codeFences = true
+    lineNos = false
+    style = "monokai"
+
+[outputs]
+  home = ["HTML", "RSS", "JSON"]
+
+# Hugo 0.158+ default security.http.urls excludes URLs containing "@", which
+# blocks Hextra's flexsearch CDN load (cdn.jsdelivr.net/npm/flexsearch@<ver>).
+# Override removes that exclusion. Drop this block entirely if you disable search.
+[security]
+  [security.http]
+    urls = ['(?i)^https?://[a-z]', '! (?i)localhost']

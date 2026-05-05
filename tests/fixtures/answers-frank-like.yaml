@@ -1,0 +1,43 @@
+project:
+  name: "Test Blog"
+  tagline: "A teaching blog"
+  base_url: "https://example.com/test/"
+  base_path: "/test/"
+  module_path: "example.com/test"
+
+metaphor:
+  persona: |
+    A friendly test persona — chibi style, blue accents.
+    Speaks in short sentences and likes diagrams.
+  visual_constants:
+    - "constant one"
+    - "constant two"
+  reference_image: "static/images/reference.png"
+  base_style: |
+    test base style line one
+    test base style line two
+  reference_guidance: |
+    test reference guidance
+
+series:
+  - key: tutorials
+    title: "Tutorials"
+    description: "Step-by-step"
+  - key: recipes
+    title: "Recipes"
+    description: "Atomic how-tos"
+
+voice: |
+  test voice paragraph
+  spans two lines
+
+image_gen:
+  provider: gemini
+  model: gemini-3-pro-image-preview
+  api_key_env: GEMINI_API_KEY
+  output_dir: static/images
+  prompts_file: prompt_for_images.yaml
+
+features:
+  roadmap_shortcode: false
+  series_overview_posts: true

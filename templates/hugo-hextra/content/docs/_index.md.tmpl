@@ -1,0 +1,9 @@
+---
+title: "{{ .project.name }}"
+---
+
+{{ .project.tagline }}
+
+{{ range .series }}
+- **[{{ .title }}](/docs/{{ .key }}/)** — {{ .description }}
+{{- end }}

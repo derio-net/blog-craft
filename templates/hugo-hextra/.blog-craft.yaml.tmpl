@@ -1,0 +1,44 @@
+version: 1
+
+project:
+  name: "{{ .project.name }}"
+  tagline: "{{ .project.tagline }}"
+  base_url: "{{ .project.base_url }}"
+  module_path: "{{ .project.module_path }}"
+  base_path: "{{ .project.base_path }}"
+
+metaphor:
+  persona: |
+{{ indent 4 .metaphor.persona }}
+  visual_constants:
+{{- range .metaphor.visual_constants }}
+    - {{ . | quote }}
+{{- end }}
+{{- if .metaphor.reference_image }}
+  reference_image: "{{ .metaphor.reference_image }}"
+{{- end }}
+  base_style: |
+{{ indent 4 .metaphor.base_style }}
+  reference_guidance: |
+{{ indent 4 .metaphor.reference_guidance }}
+
+series:
+{{- range .series }}
+  - key: {{ .key }}
+    title: "{{ .title }}"
+    description: "{{ .description }}"
+{{- end }}
+
+voice: |
+{{ indent 2 .voice }}
+
+image_gen:
+  provider: {{ .image_gen.provider }}      # only "gemini" supported in v1
+  model: {{ .image_gen.model }}
+  api_key_env: {{ .image_gen.api_key_env }}
+  output_dir: {{ .image_gen.output_dir }}
+  prompts_file: {{ .image_gen.prompts_file }}
+
+features:
+  roadmap_shortcode: {{ .features.roadmap_shortcode }}
+  series_overview_posts: {{ .features.series_overview_posts }}

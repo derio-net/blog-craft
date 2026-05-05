@@ -1,0 +1,49 @@
+# {{ .project.name }}
+
+{{ .project.tagline }}
+
+This blog was scaffolded with [blog-craft](https://github.com/derio-net/blog-craft) and uses [Hugo](https://gohugo.io/) + [Hextra](https://imfing.github.io/hextra/).
+
+## Local development
+
+```bash
+hugo mod get -u                 # first time only
+hugo server --buildDrafts       # serves at http://localhost:1313{{ .project.base_path }}
+```
+
+## Writing a new post
+
+```
+/blog-post series=<key> number=<NN> slug=<kebab-case> title="..."
+```
+
+`<key>` must match a `series[].key` in `.blog-craft.yaml`. Available series: {{ range $i, $s := .series }}{{ if $i }}, {{ end }}`{{ $s.key }}`{{ end }}.
+
+The skill creates the page bundle, prompts you for a one-paragraph cover-image brief, composes a Gemini prompt from your central metaphor, generates the cover, and updates the relevant series overview.
+
+## Capturing media
+
+While drafting a post, embed `<!-- MEDIA: ... -->` placeholders for each screenshot, recording, or photo you'll need. See [`MEDIA-GUIDE.md`](MEDIA-GUIDE.md) for the placeholder syntax.
+
+When you're ready to fill them:
+
+```
+/media post=<series-key>/<NN>-<slug>
+```
+
+Or omit the `post=` arg to list all posts with remaining placeholders.
+
+## Generating cover images
+
+The image-generation pipeline is in `scripts/generate-images.py`, with prompts in `prompt_for_images.yaml`. To regenerate one image:
+
+```bash
+export {{ .image_gen.api_key_env }}=...
+python scripts/generate-images.py --reference {{ .metaphor.reference_image }} --only <key>
+```
+
+Or `--list` to see all available image keys, `--dry-run` to see what would be generated without calling the API.
+
+## Deploy
+
+blog-craft does not ship a deploy pipeline. Pick whatever fits — GitHub Pages, Netlify, Cloudflare Pages, or container-into-cluster (Frank's pattern). The static site is whatever `hugo --minify` produces in `public/`.
