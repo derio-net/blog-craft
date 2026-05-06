@@ -120,17 +120,24 @@ Capture into `voice:`.
 
 ### Step 8: Initial image (optional)
 
-If `features.series_overview_posts` is `true` AND a reference image was supplied:
+Skip silently if either of these is false: `features.series_overview_posts` is `true`, OR a reference image was supplied.
 
-> "Want me to generate the cover image for the first series-overview post now? (about 30s, costs one Gemini call)"
+Otherwise, defer to the same prompt-composition logic the `blog-post` skill uses for per-post covers. Ask the user:
 
-If yes, edit `<target_dir>/prompt_for_images.yaml` to fill in the empty `prompt:` field for the first series's `overview-<key>` entry (compose from `metaphor.persona`, `metaphor.visual_constants`, and a one-line scene the user provides), then run:
+> "Want me to generate the cover image for the first series-overview post now? It costs one Gemini call (~30s). I'll need:
+>   1. A one-paragraph scene description for the overview cover
+>   2. Your `<api_key_env>` value if it's not already exported"
 
-```bash
-( cd <target_dir> && export <api_key_env>=$(read it from the user) && python scripts/generate-images.py --reference static/images/reference.png --only overview-<first-series-key> )
-```
+If yes:
 
-Skip silently if either condition is false.
+1. Compose the full prompt by concatenating, in order: `metaphor.base_style`, `metaphor.persona`, the bullets in `metaphor.visual_constants` (one per line), the user's scene description, `metaphor.reference_guidance`. Show the composed prompt to the user for approval before proceeding.
+2. Edit `<target_dir>/prompt_for_images.yaml` and replace the empty `prompt: ""` value on the `overview-<first-series-key>` entry with the approved composed prompt.
+3. Confirm `<api_key_env>` is in the environment (read from `os.environ` if running interactively; if missing, ask the user to paste it and `export` it just for this step).
+4. Run image generation:
+   ```bash
+   ( cd <target_dir> && python scripts/generate-images.py --reference static/images/reference.png --only overview-<first-series-key> )
+   ```
+5. Display the resulting PNG path. Offer to regen if the user is unhappy.
 
 ### Step 9: Verify
 
