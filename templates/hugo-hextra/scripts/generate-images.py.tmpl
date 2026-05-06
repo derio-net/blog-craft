@@ -19,13 +19,18 @@ import time
 from pathlib import Path
 
 import yaml
-from PIL import Image
 
 MODEL = "{{ .image_gen.model }}"
 API_KEY_ENV = "{{ .image_gen.api_key_env }}"
 BLOG_ROOT = Path(__file__).resolve().parent.parent
 PROMPTS_FILE = BLOG_ROOT / "{{ .image_gen.prompts_file }}"
 TEST_MODE = os.environ.get("BLOG_CRAFT_TEST_MODE") == "1"
+
+# Hardcoded 1x1 black PNG (67 bytes). Used by TEST_MODE to avoid pulling in Pillow.
+_TINY_PNG = bytes.fromhex(
+    "89504e470d0a1a0a0000000d49484452000000010000000108020000009077"
+    "53de0000000c4944415408d763606000000004000139c8a4660000000049454e44ae426082"
+)
 
 
 def load_prompts(path: Path) -> dict:
@@ -35,6 +40,7 @@ def load_prompts(path: Path) -> dict:
 
 def post_process(source_path: Path, steps: list) -> None:
     """Run post-processing steps: resize, crop_resize, or ICO conversion."""
+    from PIL import Image  # lazy: only needed for real generation
     img = Image.open(source_path)
 
     for step in steps:
@@ -86,9 +92,9 @@ def post_process(source_path: Path, steps: list) -> None:
 
 
 def write_test_image(output_path: Path) -> bool:
-    """In test mode, write a 1x1 PNG instead of calling the API."""
+    """In test mode, write a 1x1 PNG instead of calling the API. No PIL needed."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    Image.new("RGB", (1, 1), color=(0, 0, 0)).save(str(output_path), format="PNG")
+    output_path.write_bytes(_TINY_PNG)
     print(f"  [TEST_MODE] Wrote 1px PNG: {output_path.relative_to(BLOG_ROOT)}")
     return True
 
@@ -201,6 +207,7 @@ def main() -> None:
             print("Error: --reference is required (omit only when BLOG_CRAFT_TEST_MODE=1)", file=sys.stderr)
             sys.exit(1)
         from google import genai
+        from PIL import Image
         client = genai.Client(api_key=api_key)
         reference = Image.open(args.reference)
         print(f"Model: {args.model}")
