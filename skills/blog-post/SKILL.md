@@ -80,7 +80,15 @@ Show the full composed prompt to the user and ask:
 
 Repeat until the user approves. Save the final approved text to `/tmp/blog-post-prompt-<timestamp>.txt`.
 
-### Step 6: Run the helper
+### Step 6: Confirm the API key is in the environment
+
+Read `image_gen.api_key_env` from `.blog-craft.yaml` (default `GEMINI_API_KEY`). Check whether it's set in the current shell (e.g. `printenv $api_key_env` returns non-empty). If missing:
+
+> I need your `<api_key_env>` value for image generation. Paste it here and I'll export it for this session only — I will not write it to disk.
+
+Capture and `export <api_key_env>=<value>` for the helper invocation.
+
+### Step 7: Run the helper
 
 ```bash
 bash <plugin_root>/tools/blog-post-create.sh \
@@ -90,12 +98,12 @@ bash <plugin_root>/tools/blog-post-create.sh \
 The helper:
 1. Creates the page bundle at `<blog_root>/content/docs/<series>/<number>-<slug>/index.md` with weight `<number>+1` (preserves leading zeros for parsing) and a media-placeholder reminder comment.
 2. Appends a `key: <series>-<number>` entry to `<blog_root>/prompt_for_images.yaml`, copying the approved prompt under `prompt: |`.
-3. Runs `python scripts/generate-images.py --only <series>-<number>` (set `<api_key_env>` first if it isn't already in the env).
+3. Runs `python scripts/generate-images.py --only <series>-<number>`. Requires PyYAML + Pillow + google-genai installed (see the blog's `README.md` for venv setup). Honors the `<api_key_env>` from Step 6.
 4. If `features.series_overview_posts: true`: inserts a numbered list line under `## Series Index` in `00-overview/index.md` and a row under `## Topic / Evolution Map`.
 
 If the helper exits non-zero, surface the error and stop.
 
-### Step 7: Show the cover and offer regen
+### Step 8: Show the cover and offer regen
 
 Display the generated cover at `<blog_root>/static/images/<series>-<number>-cover.png`. Ask:
 
@@ -106,7 +114,7 @@ Display the generated cover at `<blog_root>/static/images/<series>-<number>-cove
 >   ( cd <blog_root> && python scripts/generate-images.py --only <series>-<number> )
 >   ```
 
-### Step 8: Print the preview command and stop
+### Step 9: Print the preview command and stop
 
 Tell the user:
 

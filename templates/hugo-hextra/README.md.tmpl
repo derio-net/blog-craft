@@ -11,6 +11,18 @@ hugo mod get -u                 # first time only
 hugo server --buildDrafts       # serves at http://localhost:1313{{ .project.base_path }}
 ```
 
+## Python dependencies (image generation)
+
+The image-generation pipeline (`scripts/generate-images.py`) needs Python deps. Set up a venv once:
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install pyyaml pillow google-genai
+source .venv/bin/activate       # or use .venv/bin/python explicitly
+```
+
+If you only run image-gen with `BLOG_CRAFT_TEST_MODE=1` (e.g. in tests), only `pyyaml` is required.
+
 ## Writing a new post
 
 ```
