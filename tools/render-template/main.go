@@ -33,20 +33,42 @@ import (
 )
 
 func main() {
-	src := flag.String("src", "", "Source template directory (required)")
-	dst := flag.String("dst", "", "Destination directory (required)")
+	src := flag.String("src", "", "Source template directory (required for render modes)")
+	dst := flag.String("dst", "", "Destination directory (required for render modes)")
 	answers := flag.String("answers", "", "Path to wizard-answers YAML (required)")
 	perSeries := flag.Bool("per-series", false, "Render src once per series, output to <dst>/<series.key>/")
+	checkOnly := flag.Bool("check", false, "Just parse --answers and exit 0/1; no rendering")
+	getBool := flag.String("get-bool", "", "Print 'true'/'false' for the dotted key (e.g. features.series_overview_posts) and exit")
 	flag.Parse()
 
-	if *src == "" || *dst == "" || *answers == "" {
-		fmt.Fprintln(os.Stderr, "usage: render-template --src <dir> --dst <dir> --answers <yaml> [--per-series]")
+	if *answers == "" {
+		fmt.Fprintln(os.Stderr, "usage: render-template --answers <yaml> [render flags] | [--check] | [--get-bool <key>]")
 		os.Exit(2)
 	}
 
 	data, err := loadAnswers(*answers)
 	if err != nil {
 		log.Fatalf("load answers: %v", err)
+	}
+
+	if *checkOnly {
+		// loadAnswers already parsed it.
+		return
+	}
+
+	if *getBool != "" {
+		v, ok := digBool(data, strings.Split(*getBool, "."))
+		if !ok {
+			fmt.Fprintf(os.Stderr, "key %q not found or not a bool\n", *getBool)
+			os.Exit(1)
+		}
+		fmt.Println(v)
+		return
+	}
+
+	if *src == "" || *dst == "" {
+		fmt.Fprintln(os.Stderr, "render mode requires --src and --dst")
+		os.Exit(2)
 	}
 
 	if !*perSeries {
@@ -159,6 +181,22 @@ func copyFile(in, out string) error {
 		_ = os.Chmod(out, srcInfo.Mode())
 	}
 	return nil
+}
+
+func digBool(m map[string]interface{}, path []string) (bool, bool) {
+	var cur interface{} = m
+	for _, p := range path {
+		mm, ok := cur.(map[string]interface{})
+		if !ok {
+			return false, false
+		}
+		cur, ok = mm[p]
+		if !ok {
+			return false, false
+		}
+	}
+	b, ok := cur.(bool)
+	return b, ok
 }
 
 func funcs() template.FuncMap {
