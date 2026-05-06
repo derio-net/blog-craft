@@ -128,7 +128,7 @@ Confirm exit code 0 and no `ERROR` lines. Tell the user to preview with `hugo se
 - **PNG screenshots/photos**: max 500KB after optimization
 - **`.cast` files**: valid asciinema v2 JSON, under 60 seconds preferred
 - **Filenames**: kebab-case, descriptive (`grafana-node-metrics.png`, not `screenshot-1.png`)
-- **Captions**: required for screenshots — the helper's regex requires both `src=` and `caption=` in the shortcode args
+- **Captions**: strongly recommended for screenshots, but not enforced. The Hugo `screenshot` shortcode renders no `<figcaption>` element when `caption=` is absent. The helper only requires `src=`
 - **Dark mode**: preferred for screenshots; light is acceptable
 - **Recording dimensions**: default 120×30 unless content needs more
 
