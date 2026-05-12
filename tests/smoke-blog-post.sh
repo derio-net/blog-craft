@@ -16,6 +16,23 @@ if [[ ! -f "$TARGET/.blog-craft.yaml" ]]; then
   "$REPO_ROOT/tools/bootstrap-render.sh" "$ANSWERS" "$TARGET" >/dev/null
 fi
 
+# Seed a reference image. In real use the bootstrap-blog SKILL.md (Step 7) copies
+# the operator's chosen reference image; the bootstrap helper itself doesn't, so
+# the smoke test has to place a stub. Use a 1px PNG written via stdlib only.
+REF="$TARGET/static/images/reference.png"
+if [[ ! -f "$REF" ]]; then
+  python3 - "$REF" <<'PY'
+import struct, zlib, sys
+sig = b'\x89PNG\r\n\x1a\n'
+def chunk(t, d):
+    return struct.pack('>I', len(d)) + t + d + struct.pack('>I', zlib.crc32(t + d) & 0xffffffff)
+ihdr = chunk(b'IHDR', struct.pack('>IIBBBBB', 1, 1, 8, 2, 0, 0, 0))
+idat = chunk(b'IDAT', zlib.compress(b'\x00\x00\x00\x00'))
+iend = chunk(b'IEND', b'')
+open(sys.argv[1], 'wb').write(sig + ihdr + idat + iend)
+PY
+fi
+
 # Set up test venv with PyYAML (cached across runs)
 TEST_VENV=/tmp/blog-craft-test-venv
 if [[ ! -d "$TEST_VENV" ]]; then
@@ -38,8 +55,11 @@ rm -rf "$TARGET/content/docs/tutorials/01-hello-world" "$TARGET/static/images/tu
 
 echo "=== Run blog-post-create ==="
 echo "Test prompt for hello-world cover image" > /tmp/test-blog-post-prompt.txt
+echo "Test body for hello-world. The body is composed by the agent in real use; here we provide a fixture file to drive the helper non-interactively." > /tmp/test-blog-post-body.md
+echo -n "Test summary for hello-world." > /tmp/test-blog-post-summary.txt
 BLOG_CRAFT_TEST_MODE=1 "$REPO_ROOT/tools/blog-post-create.sh" \
-  "$TARGET" tutorials 01 hello-world "Hello World" /tmp/test-blog-post-prompt.txt >/dev/null
+  "$TARGET" tutorials 01 hello-world "Hello World" \
+  /tmp/test-blog-post-prompt.txt /tmp/test-blog-post-body.md /tmp/test-blog-post-summary.txt >/dev/null
 
 echo
 echo "=== Assertions ==="
