@@ -146,7 +146,7 @@ Pick a free TCP port:
 PORT=$(python3 -c "import socket; s=socket.socket(); s.bind(('',0)); print(s.getsockname()[1])")
 ```
 
-Start `hugo server --port $PORT --buildDrafts` in the background, wait until `localhost:$PORT<base_path>` returns 200 (timeout 30s), then kill it. Print the URL the user can open.
+Start `bash scripts/hugo-serve.sh --port $PORT --buildDrafts` in the background (the wrapper handles the Go-on-PATH requirement — see `scripts/hugo-serve.sh` header), wait until `localhost:$PORT<base_path>` returns 200 (timeout 30s), then kill it. Print the URL the user can open.
 
 ### Step 10: Optional git steps
 

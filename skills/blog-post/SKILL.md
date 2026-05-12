@@ -156,7 +156,7 @@ Tell the user:
 > Draft created at `<blog_root>/content/docs/<series>/<number>-<slug>/index.md`. Preview with:
 >
 > ```bash
-> cd <blog_root> && hugo server --buildDrafts
+> cd <blog_root> && bash scripts/hugo-serve.sh --buildDrafts
 > ```
 
 Do **not** auto-launch the server.

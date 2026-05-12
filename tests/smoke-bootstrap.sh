@@ -69,8 +69,10 @@ else
   fail "A2 missing: ${missing[*]}"
 fi
 
-# A3: hugo server returns 200 on configured baseURL path
-( cd "$TARGET" && PATH=/usr/local/bin:$PATH hugo server --port "$PORT" --buildDrafts > /tmp/hugo-smoke-bootstrap.log 2>&1 ) &
+# A3: hugo server returns 200 on configured baseURL path.
+# Use the bootstrapped scripts/hugo-serve.sh wrapper instead of inlining the
+# PATH workaround — this also serves as a smoke test of the wrapper itself.
+( cd "$TARGET" && bash scripts/hugo-serve.sh --port "$PORT" --buildDrafts > /tmp/hugo-smoke-bootstrap.log 2>&1 ) &
 HUGO_PID=$!
 # poll for up to 15s
 for i in {1..15}; do

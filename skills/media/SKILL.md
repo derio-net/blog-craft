@@ -121,7 +121,7 @@ The helper is idempotent: re-running it after some assets are added will fill th
 ( cd "<blog_root>" && hugo --minify --quiet )
 ```
 
-Confirm exit code 0 and no `ERROR` lines. Tell the user to preview with `hugo server --buildDrafts` if they want to see the rendered output.
+Confirm exit code 0 and no `ERROR` lines. Tell the user to preview with `bash scripts/hugo-serve.sh --buildDrafts` if they want to see the rendered output (the wrapper handles Hextra's Go-module PATH requirement — see `scripts/hugo-serve.sh` header).
 
 ## Standards
 

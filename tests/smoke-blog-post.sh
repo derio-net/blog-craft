@@ -19,6 +19,12 @@ fi
 # Seed a reference image. In real use the bootstrap-blog SKILL.md (Step 7) copies
 # the operator's chosen reference image; the bootstrap helper itself doesn't, so
 # the smoke test has to place a stub. Use a 1px PNG written via stdlib only.
+#
+# Note: this is a separately-rolled PNG from the one hardcoded in
+# templates/hugo-hextra/scripts/generate-images.py.tmpl's TEST_MODE
+# (_TINY_PNG bytes). The two paths never meet — this seeds reference.png
+# for the helper's pre-flight check; that one writes the per-post cover —
+# so byte-equality is not load-bearing. Don't compare-by-bytes between them.
 REF="$TARGET/static/images/reference.png"
 if [[ ! -f "$REF" ]]; then
   python3 - "$REF" <<'PY'
