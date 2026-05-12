@@ -115,5 +115,5 @@ fi
 
 echo
 echo "POST CREATED."
-echo "  Preview: cd $BLOG_ROOT && hugo server --buildDrafts"
+echo "  Preview: cd $BLOG_ROOT && bash scripts/hugo-serve.sh --buildDrafts"
 echo "  Edit:    \$EDITOR $BUNDLE_DIR/index.md"
