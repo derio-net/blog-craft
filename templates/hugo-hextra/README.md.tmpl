@@ -7,9 +7,11 @@ This blog was scaffolded with [blog-craft](https://github.com/derio-net/blog-cra
 ## Local development
 
 ```bash
-hugo mod get -u                 # first time only
-hugo server --buildDrafts       # serves at http://localhost:1313{{ .project.base_path }}
+hugo mod get -u                                 # first time only
+bash scripts/hugo-serve.sh --buildDrafts        # serves at http://localhost:1313{{ .project.base_path }}
 ```
+
+The `scripts/hugo-serve.sh` wrapper is a one-line PATH shim around `hugo server` that prepends brew's `bin` directory. **Use it instead of invoking `hugo server` directly.** Hextra is a Hugo Module whose `go.mod` requires Go ≥ 1.21; if an older system Go (e.g. macOS's `/usr/local/go` pinned at 1.19) sits earlier on your `PATH`, plain `hugo server` fails with `invalid go version '1.24.2': must match format 1.23`. The wrapper sidesteps this without polluting your shell. See the file's header for the one-line edit if your modern Go isn't at `/usr/local/bin/go`.
 
 ## Python dependencies (image generation)
 

@@ -51,4 +51,4 @@ echo "[4] hugo build smoke check"
 ( cd "$TARGET" && hugo --buildDrafts --quiet 2>&1 | grep -v "^WARN" || true )
 echo
 echo "BOOTSTRAPPED OK -> $TARGET"
-echo "  Next: cd $TARGET && hugo server --buildDrafts"
+echo "  Next: cd $TARGET && bash scripts/hugo-serve.sh --buildDrafts"
