@@ -1,0 +1,31 @@
+---
+title: "{{ .project.name }}"
+layout: hextra-home
+---
+
+<img src="{{ .project.base_path }}images/tile-landing.png" alt="{{ .project.name }}" class="hx:w-full hx:rounded-2xl hx:mb-8" />
+
+<div class="hx-mt-6 hx-mb-6">
+{{ "{{" }}< hextra/hero-headline >{{ "}}" }}
+  {{ .project.name }}
+{{ "{{" }}< /hextra/hero-headline >{{ "}}" }}
+</div>
+
+<div class="hx-mb-12">
+{{ "{{" }}< hextra/hero-subtitle >{{ "}}" }}
+  {{ .project.tagline }}
+{{ "{{" }}< /hextra/hero-subtitle >{{ "}}" }}
+</div>
+
+<div class="blog-series-cards">
+{{ "{{" }}< cards cols="2" >{{ "}}" }}
+{{- range .series }}
+  {{ "{{" }}< card
+    link="docs/{{ .key }}/"
+    title="{{ .title }}"
+    subtitle="{{ .description }}"
+    image="/images/tile-{{ .key }}.png"
+  >{{ "}}" }}
+{{- end }}
+{{ "{{" }}< /cards >{{ "}}" }}
+</div>
