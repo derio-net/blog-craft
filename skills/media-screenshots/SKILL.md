@@ -83,7 +83,7 @@ replacement expects it:
 SHOT_URL="<confirmed url>" \
 SHOT_OUT="<post-bundle>/<src-from-placeholder>" \
 SHOT_MODE="viewport" SHOT_WIDTH=1200 SHOT_DARK=1 \
-  browser-harness < ~/.claude/skills/browser-screenshot/scripts/capture.py
+  browser-harness < ~/.agents/skills/browser-screenshot/scripts/capture.py
 ```
 
 For `element` mode add `SHOT_MODE=element SHOT_SELECTOR="<css>"`; for full-page
