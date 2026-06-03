@@ -58,6 +58,12 @@ Branch by type:
 2. Remind them: dark mode preferred, ~1200px window width, PNG, crop to relevant area, kebab-case filename matching the placeholder's `src=`.
 3. Wait for them to capture and confirm the file is at `<post-bundle>/<filename>`.
 
+> **Auto-capture instead of waiting for a manual screenshot:** when the
+> placeholder's instructions point at a URL/web-UI, use the `media-screenshots`
+> skill — it drives a real browser (via `browser-screenshot`) to capture each
+> screenshot placeholder, drops the PNG at the `src=` filename, and runs the
+> same fill step. This `/media` flow still handles asciinema, photos, and youtube.
+
 #### CLI animations (asciinema)
 
 The skill can record these for the user automatically when they have a scripted command:
