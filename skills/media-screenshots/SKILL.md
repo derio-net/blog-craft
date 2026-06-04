@@ -73,6 +73,13 @@ This human-in-the-loop step is deliberate: the post's instructions describe
 intent, but the exact route/panel/state is a judgement call the author should
 make. Confirm all of them up front so the capture run is unattended.
 
+**Same target, different posts → differentiate the framing.** When two
+placeholders (e.g. a building post and its operating companion) resolve to the
+same URL, do NOT ship the same image twice — vary the mode (full dashboard vs.
+an `element` crop of one panel), the route, or the state, and make each caption
+describe what *its* framing shows. Identical twins read as a mistake to the
+reader and will come back as review feedback.
+
 ### Step 3 — Capture each via the browser-screenshot skill
 
 Use the **browser-screenshot** skill for the actual capture. Set `SHOT_OUT` to
@@ -94,7 +101,26 @@ use `SHOT_MODE=full`. For auth-walled targets pass the `SHOT_LOGIN_*` params
 If a capture returns `AUTH_WALL` (exit 3), stop and tell the user which target
 needs credentials or a richer login recipe; don't fill that placeholder.
 
-### Step 4 — Optimize each PNG (500KB budget)
+### Step 4 — Review each capture, then optimize (500KB budget)
+
+**Look at every PNG before accepting it** (Read the image, don't just `file`
+it). A capture can be a valid PNG of plausible size and still be wrong:
+
+- **Blank/spinner captures** — async-rendering dashboards (Grafana et al.)
+  produce a dark empty rectangle if shot before panels render. `file` and
+  `wc -c` both pass; only eyeballing catches it. Recapture with a
+  `SHOT_WAIT_SELECTOR` on a data-bearing element (see browser-screenshot's
+  gotchas).
+- **Third-party / private names** — list-style views (repo explorers, secret
+  folder listings, org pickers) can expose names that must not be published.
+  Check every list view. If a narrower route can't avoid it, redact in-image
+  (e.g. PIL rectangle fill matching the row background) *before* the file
+  enters the repo — and capture secret-bearing UIs to `/tmp` first, verify the
+  crop, then copy into the bundle.
+- **Masked values** — UIs that claim to mask secrets (`****`) usually do, but
+  verify on the actual capture, not the claim.
+
+Then optimize:
 
 ```bash
 asset="<post-bundle>/<src>"
