@@ -42,7 +42,9 @@ SHORTCODE_RE = re.compile(
 )
 
 # Matches the instruction comment: <!-- MEDIA: <type> | ... -->
-MEDIA_INSTRUCTION_RE = re.compile(r'^\s*<!--\s*MEDIA:\s*[^>]+-->\s*$')
+# The body may legitimately contain ">" (URLs like http://<svc>:8429, UI paths
+# like "Dashboards > Node Exporter") — only the full "-->" ends the comment.
+MEDIA_INSTRUCTION_RE = re.compile(r'^\s*<!--\s*MEDIA:\s*.*?-->\s*$')
 
 # Pull a src="..." (or src='...') value out of shortcode args
 SRC_RE = re.compile(r'''src\s*=\s*["']([^"']+)["']''')
