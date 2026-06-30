@@ -1,0 +1,89 @@
+schema_version: 2
+phase:
+  number: 1
+  title: Papers opt-in content-type (templates, validators, shortcodes, skill)
+  tag: agentic
+  depends_on: []
+  tracking_issue: null
+tasks:
+- number: 1
+  title: Content-type gating + templates (TDD)
+  steps:
+  - id: P1.T1.S1
+    text: |-
+      Write failing `tests/unit/test_papers_gating.py`: with a series whose content_type==papers AND content_types.papers.enabled, the render materializes templates/content-type-papers/* (paper bundle skeleton + dossier template); with the stoa config (no content_types.papers) NOTHING under content-type-papers materializes. Run → fails.
+  - id: P1.T1.S2
+    text: |-
+      Add `templates/content-type-papers/` (paper page-bundle skeleton: frontmatter + TL;DR + §1–§7 stubs with budget comments; dossier template) and gate it in the renderer on a series.content_type==papers. Re-run → green.
+  - id: P1.T1.S3
+    text: |-
+      Port frank's scaffold-paper as `tools/scaffold-paper.sh`, reading content_types.papers (dossier_dir, weight_offset). Test: scaffolding paper NN writes the bundle + dossier with weight==paper_number+weight_offset. green.
+- number: 2
+  title: Papers validators (config-driven, TDD)
+  steps:
+  - id: P1.T2.S1
+    text: |-
+      Write failing `tests/unit/test_papers_validators.py`: validate-dossier enforces the gate thresholds FROM config (min_vendors/sources/source_types/artefacts/artefact_kinds/ gaps/counterargs); validate-papers checks frontmatter + weight==paper_number+weight_offset; sync-dossier-to-data mirrors a dossier into data_dir. Use fixtures (passing + each failing threshold). Run → fails.
+  - id: P1.T2.S2
+    text: |-
+      Port the three validators into `tools/` driven by content_types.papers (no hardcoded thresholds/source_types/artefact_kinds). Re-run → green.
+- number: 3
+  title: Shortcodes + cross-linking (TDD)
+  steps:
+  - id: P1.T3.S1
+    text: |-
+      Write failing test: the 6 papers shortcodes (landscape, capability-matrix, scar, pullquote, dossier-link, references-index) + cross-link partials (papers-forwardlinks, papers-backlink, papers-prev-next) materialize when papers enabled; a paper with related_building renders a backlink chip at Hugo build. Run → fails.
+  - id: P1.T3.S2
+    text: |-
+      Add the shortcodes/partials under templates/content-type-papers/ + the single.html injection; cross-linking driven by crosslink_fields (frontmatter is source of truth). `hugo --buildDrafts` on a fixture paper renders the chip. green.
+- number: 4
+  title: smoke-papers + papers skill (TDD gate)
+  steps:
+  - id: P1.T4.S1
+    text: |-
+      Write `tests/smoke-papers.sh`: scaffold a paper → fill a minimal passing dossier → assert gate PASS; a deliberately-short dossier → assert gate FAIL; run validators; `hugo --buildDrafts` builds clean with shortcodes; AND assert the stoa config (papers off) materializes none of content-type-papers. Run → fails where unimplemented.
+  - id: P1.T4.S2
+    text: |-
+      Port frank's `papers` skill into `skills/papers/` (dormant unless a series uses the content-type). Run `tests/smoke-papers.sh` → green.
+state:
+  steps:
+    P1.T1.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T1.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T1.S3:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T2.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T2.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T3.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T3.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T4.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T4.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+  completion:
+    at: null
+    note: null
+    observed_prs: []
