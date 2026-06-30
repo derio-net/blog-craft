@@ -1,0 +1,86 @@
+schema_version: 2
+phase:
+  number: 1
+  title: Config v2 schema, real validator, path-ownership manifest, stoa migration
+  tag: agentic
+  depends_on: []
+  tracking_issue: null
+tasks:
+- number: 1
+  title: v2 schema validator (TDD)
+  steps:
+  - id: P1.T1.S1
+    text: |-
+      Write failing tests `tests/unit/test_config_schema.py` (pytest): (a) a valid v2 fixture (project/image/series/content_types/features/voice/ci) parses OK; (b) missing required key (e.g. image.composition_order) fails with a named error; (c) a composition_order naming a layer absent from image.layers fails; (d) an indexed-table layer (torso/mood) without a per-image selector field is flagged. Run `pytest tests/unit/test_config_schema.py` → expect failures (no validator yet).
+  - id: P1.T1.S2
+    text: |-
+      Implement `tools/validate_config.py` (CLI `--check <path>`): load YAML, assert version==2, required blocks present, and the layer-resolution invariants from spec §4.1 (every composition_order name resolves in image.layers; 'scene' reserved). Re-run the tests → all green. Wire it as `render-template --check` reuse if cleaner.
+  - id: P1.T1.S3
+    text: |-
+      Add `templates/hugo-hextra/.blog-craft.yaml.tmpl` v2 form (version:2, image.* with composition_order+layers, content_types, features, ci) and a `docs/CONFIG.md` documenting the schema + the layer-resolution rule. Run `tools/validate_config.py --check` against the new template's rendered example → exit 0.
+- number: 2
+  title: Path-ownership manifest + classifier (TDD)
+  steps:
+  - id: P1.T2.S1
+    text: |-
+      Write failing test `tests/unit/test_path_manifest.py`: every path produced by the template render is classified exactly once as framework|content|merged, and assert "no unclassified materialized path" (spec §11). Run → fails (no manifest yet).
+  - id: P1.T2.S2
+    text: |-
+      Author `templates/manifest.yaml`: classify each materialized path (framework = generator script, shortcode scaffolds, validators, CSS base; content = content/**, static/images/** bytes, data/roadmap.yaml, prompt entries, .blog-craft.yaml; merged = config-templated files an operator may tweak). Cover the current templates/hugo-hextra + per-series outputs.
+  - id: P1.T2.S3
+    text: |-
+      Implement `tools/path_ownership.py` (load manifest, classify a path, list by class), used by tests now and the reproduction harness in P5. Re-run test → green.
+- number: 3
+  title: stoa v1→v2 config migration (TDD)
+  steps:
+  - id: P1.T3.S1
+    text: |-
+      Add fixture `tests/fixtures/stoa-v1.blog-craft.yaml` (copy of stoa's live v1 config) and `tests/fixtures/stoa-v2.expected.yaml` (hand-derived v2: metaphor.* → image.layers with a composition_order matching stoa's [base_style,persona,visual_constants,scene,reference_guidance]). Write failing `tests/unit/test_migrations.py` asserting migrate(v1)==v2.expected.
+  - id: P1.T3.S2
+    text: |-
+      Implement `migrations/001_to_002.py` (pure config-in→config-out: lift metaphor.* into image.layers, synthesize composition_order, set version:2, preserve project/series/voice/image_gen→image). Re-run test → green.
+  - id: P1.T3.S3
+    text: |-
+      Run the existing `tests/smoke-bootstrap.sh` against the migrated frank-like fixture (now v2) → still green (Hugo 200). Confirms v2 doesn't regress the existing bootstrap path.
+state:
+  steps:
+    P1.T1.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T1.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T1.S3:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T2.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T2.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T2.S3:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T3.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T3.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T3.S3:
+      state: ' '
+      ticked_at: null
+      note: null
+  completion:
+    at: null
+    note: null
+    observed_prs: []

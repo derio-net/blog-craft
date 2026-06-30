@@ -1,0 +1,66 @@
+schema_version: 2
+phase:
+  number: 2
+  title: 'Approach-A image engine: generic concatenator, reference-pool, curation'
+  tag: agentic
+  depends_on:
+  - 1
+  tracking_issue: null
+tasks:
+- number: 1
+  title: Generic layer concatenator (TDD)
+  steps:
+  - id: P2.T1.S1
+    text: |-
+      Write failing `tests/unit/test_compose.py`: given an image.layers + composition_order + a per-image entry, the composed prompt equals the expected concatenation — covering scalar (verbatim), list (`- ` bullets), indexed-table (torso by entry.series+index, mood by name), reserved 'scene' (entry.prompt), and skip-on-missing-selector. Run → fails.
+  - id: P2.T1.S2
+    text: |-
+      Port frank's generate-all-images.py into `scripts/generate-images.py` (canonical), replacing the hardcoded composition order with a generic concatenator driven by image.composition_order + image.layers per spec §4.1. Keep --only/--list/--dry-run/--count. Re-run test → green. Retire the old single-prompt generate-images.py.
+- number: 2
+  title: Prompt-equality smoke (smoke-image-compose, TDD)
+  steps:
+  - id: P2.T2.S1
+    text: |-
+      Capture legacy goldens: run frank's CURRENT generate-all-images.py --dry-run/--print-prompt for ~3 frank entries and stoa's generate-images.py for ~2 stoa entries; store under tests/fixtures/prompt-goldens/. Write failing `tests/smoke-image-compose.sh` asserting the new generator's `--print-prompt` is byte-identical to each golden.
+  - id: P2.T2.S2
+    text: |-
+      Add a `--print-prompt <key>` mode to the generator (compose only, no API). Make the frank + stoa configs (image.composition_order/layers) reproduce the goldens exactly. Run `tests/smoke-image-compose.sh` → green. This proves Approach A (spec §7.3).
+- number: 3
+  title: Reference-pool resolution + curation (TDD)
+  steps:
+  - id: P2.T3.S1
+    text: |-
+      Write failing `tests/unit/test_reference_pool.py`: the 5-step resolution (CLI -r override → entry.series → key prefix → reference-<series>.png → generic fallback) returns the expected path; and under BLOG_CRAFT_TEST_MODE --count N writes a contact sheet + N archive entries with FIFO cap=archive_cap. Run → fails.
+  - id: P2.T3.S2
+    text: |-
+      Port the reference-pool resolution + curation (.regen-archive FIFO, contact_sheet, provenance sidecars) from frank's generator, driven by image.reference_pool + image.curation. Re-run → green. Verify `tests/smoke-blog-post.sh` still green under TEST_MODE.
+state:
+  steps:
+    P2.T1.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T1.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T2.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T2.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T3.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T3.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+  completion:
+    at: null
+    note: null
+    observed_prs: []
