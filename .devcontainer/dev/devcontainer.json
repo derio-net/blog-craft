@@ -1,0 +1,23 @@
+{
+  "name": "bc-blog-craft-config-migration — dev",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/go:1": {},
+    "ghcr.io/devcontainers/features/node:1": {},
+    "ghcr.io/devcontainers/features/python:1": {}
+  },
+  "postCreateCommand": "pipx install uv 2>/dev/null || true; uv tool install 'git+https://github.com/derio-net/super-fr#subdirectory=packages/fr' || true",
+  "workspaceMount": "source=${localWorkspaceFolder},target=${localWorkspaceFolder},type=bind",
+  "workspaceFolder": "${localWorkspaceFolder}",
+  "runArgs": [
+    "--env-file",
+    "${localEnv:HOME}/.config/fr/secrets/bc-blog-craft-config-migration/dev.env"
+  ],
+  "customizations": {
+    "fr": {
+      "profile": "dev",
+      "purpose": "blog-craft dev: render-template (go>=1.22), image-gen+validators (python3 pyyaml/google-genai/pillow), Hugo-extended build/serve, mermaid validation (node); tests=tests/smoke-*.sh under BLOG_CRAFT_TEST_MODE (offline)"
+    }
+  }
+}

@@ -1,0 +1,10 @@
+profiles:
+  dev:
+    purpose: 'blog-craft dev: render-template (go>=1.22), image-gen+validators (python3
+      pyyaml/google-genai/pillow), Hugo-extended build/serve, mermaid validation (node);
+      tests=tests/smoke-*.sh under BLOG_CRAFT_TEST_MODE (offline)'
+    secrets:
+    - GEMINI_API_KEY
+    notes:
+    - "tool 'hugo' has no known devcontainer feature \u2014 wire it via postCreateCommand"
+default: dev
