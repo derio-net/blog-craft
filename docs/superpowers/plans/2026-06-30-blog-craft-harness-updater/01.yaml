@@ -1,0 +1,89 @@
+schema_version: 2
+phase:
+  number: 1
+  title: Validation/CI + reproduction harness (frank + stoa golden tests)
+  tag: agentic
+  depends_on: []
+  tracking_issue: null
+tasks:
+- number: 1
+  title: Reproduction harness core (TDD)
+  steps:
+  - id: P1.T1.S1
+    text: |-
+      Write failing `tests/reproduction/test_harness.py`: a helper applies blog-craft + a given .blog-craft.yaml into a scratch dir and returns the materialized tree; a structural-diff helper compares only framework+merged paths (via tools/path_ownership.py from Group 1) against a reference tree, ignoring content paths; and asserts "no unclassified materialized path". Run → fails.
+  - id: P1.T1.S2
+    text: |-
+      Implement the apply-to-scratch runner + manifest-driven structural diff. Green on a trivial fixture blog (bootstrap → diff against its own output = zero drift).
+- number: 2
+  title: Frank golden reproduction — the parity proof (TDD)
+  steps:
+  - id: P1.T2.S1
+    text: |-
+      Author `tests/fixtures/frank.blog-craft.yaml` by reverse-engineering frank's blog: image.composition_order + layers (base_character, base_atmosphere, reference_guidance, torso per-series, moods, scene) reproducing frank's prompt order; series building/operating/ papers; content_types.papers enabled; features roadmap(data)/read_tracker/analytics/css. Write failing `tests/reproduction/test_frank_golden.sh`: apply → structural diff vs frank's blog/ tree → zero drift on framework+merged paths.
+  - id: P1.T2.S2
+    text: |-
+      Iterate config + templates until ZERO structural drift vs frank's current blog/ (content excluded by manifest). This closes every remaining template gap surfaced by the diff. Green = frank reproducible from blog-craft + config (spec §12.1).
+  - id: P1.T2.S3
+    text: |-
+      Cross-check with `tests/smoke-image-compose.sh` (Group 1): the frank fixture's composed prompts stay byte-identical to the legacy goldens. Green.
+- number: 3
+  title: Stoa golden reproduction (regression guard, TDD)
+  steps:
+  - id: P1.T3.S1
+    text: |-
+      Apply the Group-1-migrated stoa v2 config → write failing `tests/reproduction/test_stoa_golden.sh` asserting zero structural drift vs the stoa-blog tree (framework+merged; papers off → content-type-papers must be absent). Run → fails where drift exists.
+  - id: P1.T3.S2
+    text: |-
+      Close drift; green. This guards that frank-driven template changes never regress stoa (spec §12.2).
+- number: 4
+  title: CI template + blog-craft CI
+  steps:
+  - id: P1.T4.S1
+    text: |-
+      Ship a CI workflow template materializing the validation core (frontmatter+dossier+mermaid +hugo --minify, pruned by which content_types are present) with a config-selected deploy tail (ci.deploy.kind: container_pages|pages|none). Test: rendering it for frank vs stoa configs yields the expected steps.
+  - id: P1.T4.S2
+    text: |-
+      Add blog-craft's own `.github/workflows/ci.yml` running the full suite (unit + all smokes + frank/stoa golden reproduction) on PR. Verify the job definition runs the suite green in the devcontainer toolchain.
+state:
+  steps:
+    P1.T1.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T1.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T2.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T2.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T2.S3:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T3.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T3.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T4.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T4.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+  completion:
+    at: null
+    note: null
+    observed_prs: []

@@ -1,0 +1,66 @@
+schema_version: 2
+phase:
+  number: 2
+  title: Updater — schema migration ladder + 3-way-merge update flow
+  tag: agentic
+  depends_on:
+  - 1
+  tracking_issue: null
+tasks:
+- number: 1
+  title: Schema migration ladder (TDD)
+  steps:
+  - id: P2.T1.S1
+    text: |-
+      Write failing `tests/unit/test_migration_ladder.py`: a version-gated runner applies migrations/00N_to_00M.py in order from the config's `version:` to latest; each transform is pure + idempotent + has a golden fixture (vN→vN+1); non-destructive (writes new config + .bak). Include a 002_to_003 example fixture to prove the ladder (beyond P1's 001_to_002). Run → fails.
+  - id: P2.T1.S2
+    text: |-
+      Implement the ladder runner (reusing 001_to_002 from Group 1) + the 002_to_003 example. Re-run → green.
+- number: 2
+  title: 3-way-merge update flow (TDD)
+  steps:
+  - id: P2.T2.S1
+    text: |-
+      Write failing `tests/unit/test_update_flow.py`: render to a STAGING tree (never in place); classify each path via manifest (framework→replace, content→leave, merged→3-way merge); recover the merge BASE by re-rendering at the recorded blog_craft_version (via git tag), local=on-disk, incoming=staging, diff3 surfaces conflicts (never auto-resolves); emit a dry-run diff. Run → fails.
+  - id: P2.T2.S2
+    text: |-
+      Implement `bootstrap-render.sh --update` (+ a /blog-craft:update skill entry): staging render, manifest classify, base-by-re-render, diff3, dry-run diff, apply-on-confirm, bump blog_craft_version. Re-run → green.
+- number: 3
+  title: Update smoke — end-to-end vN→vN+1 (TDD gate)
+  steps:
+  - id: P2.T3.S1
+    text: |-
+      Write `tests/smoke-update.sh`: bootstrap a blog at blog-craft vN; evolve a fixture to vN+1 (a changed shortcode + a new schema field via the ladder); run `update --dry-run` and assert the diff equals a golden; apply; assert Hugo still builds AND the reproduction harness passes. Run → fails where unimplemented.
+  - id: P2.T3.S2
+    text: |-
+      Make it green. Proves the non-destructive, testable v2→v3 path end-to-end before any real blog is touched (spec §8.3, §12.5).
+state:
+  steps:
+    P2.T1.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T1.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T2.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T2.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T3.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T3.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+  completion:
+    at: null
+    note: null
+    observed_prs: []
