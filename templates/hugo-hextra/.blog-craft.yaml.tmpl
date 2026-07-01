@@ -1,44 +1,32 @@
-version: 1
+version: 2
+{{- if .blog_craft_version }}
+blog_craft_version: {{ .blog_craft_version | quote }}
+{{- end }}
 
 project:
-  name: "{{ .project.name }}"
-  tagline: "{{ .project.tagline }}"
-  base_url: "{{ .project.base_url }}"
-  module_path: "{{ .project.module_path }}"
-  base_path: "{{ .project.base_path }}"
+{{ toYaml .project | indent 2 }}
 
-metaphor:
-  persona: |
-{{ indent 4 .metaphor.persona }}
-  visual_constants:
-{{- range .metaphor.visual_constants }}
-    - {{ . | quote }}
-{{- end }}
-{{- if .metaphor.reference_image }}
-  reference_image: "{{ .metaphor.reference_image }}"
-{{- end }}
-  base_style: |
-{{ indent 4 .metaphor.base_style }}
-  reference_guidance: |
-{{ indent 4 .metaphor.reference_guidance }}
+# Image composition — config-declared order (see docs/CONFIG.md §4.1).
+# The generator concatenates `composition_order` layers; each layer in `layers`
+# is a scalar (verbatim), a list ("- " bullets), or an indexed-table (torso/mood,
+# selected per-image). `scene` is reserved -> the per-image entry's `prompt`.
+image:
+{{ toYaml .image | indent 2 }}
 
 series:
-{{- range .series }}
-  - key: {{ .key }}
-    title: "{{ .title }}"
-    description: "{{ .description }}"
+{{ toYaml .series }}
+{{- if .content_types }}
+
+# Opt-in content types (e.g. papers). Absent => not materialized.
+content_types:
+{{ toYaml .content_types | indent 2 }}
 {{- end }}
+
+features:
+{{ toYaml .features | indent 2 }}
 
 voice: |
 {{ indent 2 .voice }}
 
-image_gen:
-  provider: {{ .image_gen.provider }}      # only "gemini" supported in v1
-  model: {{ .image_gen.model }}
-  api_key_env: {{ .image_gen.api_key_env }}
-  output_dir: {{ .image_gen.output_dir }}
-  prompts_file: {{ .image_gen.prompts_file }}
-
-features:
-  roadmap_shortcode: {{ .features.roadmap_shortcode }}
-  series_overview_posts: {{ .features.series_overview_posts }}
+ci:
+{{ toYaml .ci | indent 2 }}

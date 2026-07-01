@@ -14,7 +14,7 @@
 //        - all other top-level keys from <yaml> are also available
 //      Output goes to <dst>/<series.key>/<rest-of-path>.
 //
-// Funcs registered: add, indent, quote.
+// Funcs registered: add, indent, quote, toYaml.
 package main
 
 import (
@@ -212,6 +212,15 @@ func funcs() template.FuncMap {
 		},
 		"quote": func(s string) string {
 			return strconv.Quote(s)
+		},
+		// toYaml marshals an arbitrary value to YAML (used to pass structured v2
+		// config blocks — image.layers, content_types, features — through verbatim).
+		"toYaml": func(v interface{}) string {
+			out, err := yaml.Marshal(v)
+			if err != nil {
+				return fmt.Sprintf("# toYaml error: %v", err)
+			}
+			return strings.TrimRight(string(out), "\n")
 		},
 	}
 }

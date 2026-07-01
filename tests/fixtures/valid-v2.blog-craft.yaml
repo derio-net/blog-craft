@@ -1,0 +1,44 @@
+version: 2
+blog_craft_version: "0.1.0"
+
+project:
+  name: "Test Blog"
+  tagline: "A teaching blog"
+  base_url: "https://example.com/test/"
+  base_path: "/test/"
+  module_path: "example.com/test"
+
+image:
+  provider: gemini
+  model: gemini-3-pro-image-preview
+  api_key_env: GEMINI_API_KEY
+  output_dir: static/images
+  prompts_file: prompt_for_images.yaml
+  reference_pool: .reference-pool
+  curation: { count_default: 1, archive_cap: 30, contact_sheet: true }
+  composition_order: [base_style, persona, visual_constants, scene, reference_guidance]
+  layers:
+    base_style: |
+      painterly illustration, warm palette
+    persona: |
+      a friendly test persona
+    visual_constants:
+      - "constant one"
+      - "constant two"
+    reference_guidance: |
+      use the reference for proportions only
+
+series:
+  - { key: tutorials, title: "Tutorials", description: "Step-by-step", content_type: posts }
+  - { key: recipes,   title: "Recipes",   description: "Atomic how-tos", content_type: posts }
+
+features:
+  series_overview_posts: true
+  read_tracker: false
+
+voice: |
+  Technical but approachable.
+
+ci:
+  validators: [frontmatter, hugo_build]
+  deploy: { kind: none }
