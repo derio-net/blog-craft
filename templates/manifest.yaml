@@ -1,0 +1,27 @@
+# Path-ownership manifest — classifies every materialized path (spec §3).
+#   framework : reproduce + overwrite on update (structural: layouts, scripts, guides)
+#   merged    : config-templated; operator may tweak → 3-way merge on update
+#   content   : operator-owned; never touch (authored posts, images, config, data)
+# Globs: `*` matches within a path segment, `**` matches across segments.
+# Rules must be non-overlapping — every materialized path matches exactly one class.
+
+framework:
+  - "layouts/**"
+  - "scripts/**"
+  - ".gitignore"
+  - "MEDIA-GUIDE.md"
+  - "static/images/.gitkeep"
+
+merged:
+  - "hugo.toml"
+  - "go.mod"
+  - "go.sum"
+  - "README.md"
+  - "assets/css/**"
+
+content:
+  - ".blog-craft.yaml"
+  - "prompt_for_images.yaml"
+  - "content/**"
+  - "data/**"
+  - "static/images/*.png"
