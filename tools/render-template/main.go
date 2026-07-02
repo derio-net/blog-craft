@@ -14,7 +14,7 @@
 //        - all other top-level keys from <yaml> are also available
 //      Output goes to <dst>/<series.key>/<rest-of-path>.
 //
-// Funcs registered: add, indent, quote, toYaml.
+// Funcs registered: add, indent, quote, toYaml, default.
 package main
 
 import (
@@ -221,6 +221,14 @@ func funcs() template.FuncMap {
 				return fmt.Sprintf("# toYaml error: %v", err)
 			}
 			return strings.TrimRight(string(out), "\n")
+		},
+		// default returns def when val is nil or an empty string (config
+		// palette tokens with fallbacks). Usage: {{ default "#fff" .x }}
+		"default": func(def, val interface{}) interface{} {
+			if val == nil || val == "" {
+				return def
+			}
+			return val
 		},
 	}
 }
