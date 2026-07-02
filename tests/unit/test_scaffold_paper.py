@@ -24,7 +24,7 @@ def test_scaffold_paper(tmp_path):
     fm = parse_frontmatter(idx.read_text())
     assert fm["paper_number"] == 7
     assert fm["weight"] == 8          # 7 + weight_offset(1)
-    assert fm["series"] == "papers"
+    assert fm["series"] == ["papers"]
     # weight invariant + required fields hold on a fresh scaffold
     assert validate_paper(fm, weight_offset=1) == []
 

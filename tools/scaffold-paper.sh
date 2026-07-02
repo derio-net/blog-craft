@@ -53,7 +53,7 @@ title: "TODO: Paper title"
 date: ${TODAY}
 draft: true
 weight: ${WEIGHT}
-series: ${PAPERS_KEY}
+series: [${PAPERS_KEY}]
 layer: TODO
 paper_number: ${NN}
 publish_order: TODO
