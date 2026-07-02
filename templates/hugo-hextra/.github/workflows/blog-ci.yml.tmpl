@@ -1,0 +1,45 @@
+name: blog
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: peaceiris/actions-hugo@v3
+        with:
+          hugo-version: '0.157.0'
+          extended: true
+      - name: Install deps
+        run: python3 -m pip install --quiet pyyaml
+{{- with .content_types }}{{- with .papers }}
+      # Papers content-type present -> validate dossiers + paper frontmatter.
+      - name: Validate papers
+        run: |
+          for d in {{ .dossier_dir }}/*/dossier.md; do
+            python3 tools/validate_dossier.py --config .blog-craft.yaml "$d"
+          done
+          python3 tools/validate_papers.py --config .blog-craft.yaml content/docs/*/*/index.md
+{{- end }}{{- end }}
+      - name: Hugo build
+        run: hugo --minify
+{{- with .ci }}
+{{- if eq .deploy.kind "pages" }}
+
+  deploy:
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Deploy via GitHub Pages — wire actions/upload-pages-artifact + actions/deploy-pages."
+{{- else if eq .deploy.kind "container_pages" }}
+
+  deploy:
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Build a container image + publish — wire your registry + cluster manifest bump."
+{{- end }}
+{{- end }}
