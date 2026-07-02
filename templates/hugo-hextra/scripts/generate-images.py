@@ -20,6 +20,7 @@ Env BLOG_CRAFT_TEST_MODE=1 writes a 1x1 PNG instead of calling the API (tests).
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import os
 import sys
@@ -33,9 +34,8 @@ from compose import compose  # shipped alongside this script
 
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp"}
 TEST_MODE = os.environ.get("BLOG_CRAFT_TEST_MODE") == "1"
-_ONE_PX_PNG = bytes.fromhex(
-    "89504e470d0a1a0a0000000d494844520000000100000001080600000"
-    "01f15c4890000000d49444154789c6360000002000154a24f7f0000000049454e44ae426082"
+_ONE_PX_PNG = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
 )
 
 

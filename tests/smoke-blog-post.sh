@@ -90,7 +90,13 @@ grep -q "Test prompt for hello-world cover image" "$PROMPTS" && pass "B2.b promp
 COVER="$TARGET/static/images/tutorials-01-cover.png"
 if [[ -f "$COVER" ]]; then
   pass "B3.a cover PNG exists"
-  file "$COVER" | grep -q "PNG image data" && pass "B3.b cover is a valid PNG" || fail "B3.b cover not a PNG"
+  # PNG magic bytes (\x89PNG\r\n\x1a\n) — no dependency on file(1), which is
+  # absent on minimal images (audit M5).
+  if [[ "$(head -c8 "$COVER" | od -An -tx1 | tr -d ' \n')" == "89504e470d0a1a0a" ]]; then
+    pass "B3.b cover is a valid PNG"
+  else
+    fail "B3.b cover not a PNG"
+  fi
 else
   fail "B3.a cover PNG missing"
 fi
