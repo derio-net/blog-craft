@@ -1,55 +1,31 @@
 <!--
-  Generic roadmap shortcode. Customize the layer entries for your blog.
+  Data-driven roadmap shortcode. Renders from data/roadmap.yaml:
 
-  Frank's full ~21KB cluster-roadmap.html is preserved at
-  https://github.com/derio-net/frank/blob/main/blog/layouts/shortcodes/cluster-roadmap.html
-  if you want a richer reference (CSS variables, light/dark themes, dashed
-  "upcoming" layers, fan-shaped layout). What ships here is the minimal
-  skeleton — copy fragments in as you grow your roadmap.
+    layers:
+      - {name: "1. Hardware", desc: "Physical machines, networking, power"}
+      - {name: "N. Future thing", desc: "Not done yet", upcoming: true}
+
+  Keeping the roadmap in data/ (a content path) means blog-specific entries
+  live with the blog, not baked into this shipped template.
 -->
 <style>
-.roadmap {
-  --rm-bg: #f8f9fa;
-  --rm-border: #dee2e6;
-  --rm-text: #212529;
-  --rm-muted: #6c757d;
-  --rm-accent: #0d6efd;
-  font-family: inherit;
-  max-width: 720px;
-  margin: 1.5rem auto;
-}
-.dark .roadmap {
-  --rm-bg: #1a1a2e;
-  --rm-border: #333;
-  --rm-text: #e0e0e0;
-  --rm-muted: #999;
-  --rm-accent: #4dabf7;
-}
-.roadmap-layer {
-  border-left: 4px solid var(--rm-accent);
-  background: var(--rm-bg);
-  color: var(--rm-text);
-  padding: 0.75rem 1rem;
-  margin-bottom: 0.5rem;
-  border-radius: 0 4px 4px 0;
-}
+.roadmap { --rm-bg: #f8f9fa; --rm-border: #dee2e6; --rm-text: #212529; --rm-muted: #6c757d; --rm-accent: #0d6efd; font-family: inherit; max-width: 720px; margin: 1.5rem auto; }
+.dark .roadmap { --rm-bg: #1a1a2e; --rm-border: #333; --rm-text: #e0e0e0; --rm-muted: #999; --rm-accent: #4dabf7; }
+.roadmap-layer { border-left: 4px solid var(--rm-accent); background: var(--rm-bg); color: var(--rm-text); padding: 0.75rem 1rem; margin-bottom: 0.5rem; border-radius: 0 4px 4px 0; }
 .roadmap-layer .layer-name { font-weight: 600; }
 .roadmap-layer .layer-desc { color: var(--rm-muted); font-size: 0.9rem; }
 .layer-upcoming { border-left-style: dashed; opacity: 0.55; }
 </style>
 
 <div class="roadmap">
-  <!--
-    Add your roadmap entries here. Pattern:
-
-    <div class="roadmap-layer">
-      <div class="layer-name">1. Hardware</div>
-      <div class="layer-desc">Physical machines, networking, power</div>
-    </div>
-    <div class="roadmap-layer layer-upcoming">
-      <div class="layer-name">N. Future thing</div>
-      <div class="layer-desc">Not done yet</div>
-    </div>
-  -->
-  <em>Customize this shortcode at <code>layouts/shortcodes/roadmap.html</code>.</em>
+{{- with .Site.Data.roadmap }}
+  {{- range .layers }}
+  <div class="roadmap-layer{{ if .upcoming }} layer-upcoming{{ end }}">
+    <div class="layer-name">{{ .name }}</div>
+    {{- with .desc }}<div class="layer-desc">{{ . }}</div>{{ end }}
+  </div>
+  {{- end }}
+{{- else }}
+  <em>Add roadmap entries to <code>data/roadmap.yaml</code> (a <code>layers:</code> list of <code>{name, desc, upcoming?}</code>).</em>
+{{- end }}
 </div>

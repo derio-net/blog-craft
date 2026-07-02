@@ -44,22 +44,22 @@ state:
       ticked_at: '2026-07-02T13:06:07+00:00'
       note: null
     P2.T2.S1:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-07-02T13:22:52+00:00'
       note: null
     P2.T2.S2:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-07-02T13:22:52+00:00'
       note: null
     P2.T3.S1:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-07-02T13:22:53+00:00'
       note: null
     P2.T3.S2:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-07-02T13:22:53+00:00'
       note: null
   completion:
-    at: null
+    at: '2026-07-02T13:22:53+00:00'
     note: null
     observed_prs: []

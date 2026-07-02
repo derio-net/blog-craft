@@ -8,3 +8,11 @@
 <link rel="stylesheet" href="https://unpkg.com/asciinema-player@3.9.0/dist/bundle/asciinema-player.css" />
 <script src="https://unpkg.com/asciinema-player@3.9.0/dist/bundle/asciinema-player.min.js"></script>
 {{- end }}
+{{- /* read-tracker.js — present only when features.read_tracker materialized it */}}
+{{- with resources.Get "js/read-tracker.js" }}
+<script src="{{ .RelPermalink }}" defer></script>
+{{- end }}
+{{- /* goatcounter — partial present only when features.analytics materialized it */}}
+{{- if templates.Exists "partials/custom/goatcounter.html" }}
+{{- partial "custom/goatcounter.html" . }}
+{{- end }}

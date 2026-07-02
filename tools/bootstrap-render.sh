@@ -57,6 +57,21 @@ else
   echo "[3b] content-type-papers: SKIPPED (content_types.papers.enabled != true)"
 fi
 
+# Optional feature assets, gated on features.*
+rt_value=$(cd "$RENDERER_DIR" && go run . --answers "$ANSWERS" --get-bool features.read_tracker 2>/dev/null || echo "false")
+if [[ "$rt_value" == "true" ]]; then
+  echo "[3c] read-tracker"
+  ( cd "$RENDERER_DIR" && go run . --src "$PLUGIN_ROOT/templates/features/read-tracker" --dst "$TARGET" --answers "$ANSWERS" )
+else
+  echo "[3c] read-tracker: SKIPPED (features.read_tracker != true)"
+fi
+if ( cd "$RENDERER_DIR" && go run . --answers "$ANSWERS" --has features.analytics ) 2>/dev/null; then
+  echo "[3d] analytics"
+  ( cd "$RENDERER_DIR" && go run . --src "$PLUGIN_ROOT/templates/features/analytics" --dst "$TARGET" --answers "$ANSWERS" )
+else
+  echo "[3d] analytics: SKIPPED (no features.analytics)"
+fi
+
 # Hugo smoke build — fails fast on template/config errors before the user sees them.
 echo "[4] hugo build smoke check"
 ( cd "$TARGET" && hugo --buildDrafts --quiet 2>&1 | grep -v "^WARN" || true )
