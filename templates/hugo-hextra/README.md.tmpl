@@ -52,11 +52,11 @@ Or omit the `post=` arg to list all posts with remaining placeholders.
 The image-generation pipeline is in `scripts/generate-images.py`, with prompts in `prompt_for_images.yaml`. To regenerate one image:
 
 ```bash
-export {{ .image_gen.api_key_env }}=...
-python scripts/generate-images.py --reference {{ .metaphor.reference_image }} --only <key>
+export {{ .image.api_key_env }}=...
+python scripts/generate-images.py --only <key>
 ```
 
-Or `--list` to see all available image keys, `--dry-run` to see what would be generated without calling the API.
+The reference image is resolved automatically from `.blog-craft.yaml` (`image.reference_image` or the `image.reference_pool`); pass `--reference <path>` to override. Use `--list` to see all image keys, `--dry-run` to preview without calling the API, and `--print-prompt <key>` to see the composed prompt.
 
 ## Deploy
 

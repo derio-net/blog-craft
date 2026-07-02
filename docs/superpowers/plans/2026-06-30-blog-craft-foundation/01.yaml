@@ -77,10 +77,9 @@ state:
       ticked_at: '2026-07-01T22:39:19+00:00'
       note: null
     P1.T3.S3:
-      state: '-'
-      ticked_at: '2026-07-01T22:39:19+00:00'
-      note: smoke-bootstrap green requires the v2 image-template migration (prompt_for_images/generate-images/README);
-        folded into P2 which shares the render pipeline
+      state: x
+      ticked_at: '2026-07-02T10:48:38+00:00'
+      note: null
   completion:
     at: null
     note: null
