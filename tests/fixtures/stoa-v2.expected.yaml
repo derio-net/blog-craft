@@ -1,0 +1,139 @@
+features:
+  read_tracker: false
+  roadmap:
+    enabled: false
+  series_overview_posts: true
+image:
+  api_key_env: GEMINI_API_KEY
+  composition_order:
+  - base_style
+  - persona
+  - visual_constants
+  - scene
+  - reference_guidance
+  curation:
+    archive_cap: 30
+    contact_sheet: true
+    count_default: 1
+  layers:
+    base_style: 'Painterly chibi illustration in the register of modern animated-film
+      backgrounds — Cartoon Saloon, Studio Ghibli, Pixar — with chibi character proportions:
+      large heads, small bodies, expressive faces, simplified architecture. Warm,
+      sunlit, hand-illustrated feel with slight surface texture. The world is half-classical
+      and half-agentic at all times: marble columns and circuit traces share equal
+      weight, papyrus scrolls and hard-light displays coexist, wax tablets are also
+      tablet computers. Restrained warm palette of marble whites, sun-faded ochre,
+      ink-black, with warm cyan-teal for hard-light glow and muted indigo reserved
+      for Marcus. Tone is calm, ironic, never grim. Stylistic family with Frank''s
+      blog (chibi-cyberpunk-hardware) — Stoa is chibi-classical-tech-philosopher-court.
+      Same illustration universe, opposite register.
+
+      '
+    persona: 'The Observer is the formless chronicler of Stoa. It has no name beyond
+      its function, no personality beyond its method. By Marcus''s standing instruction,
+      it is the last agent to touch any work flowing through the Org — every decision
+      settled, every artifact shipped, every revision logged. It produces the public
+      record from this position. Its voice is Tacitean: terse, precise, ironic without
+      warmth, quietly devastating where the facts compel it. It does not flatter Marcus,
+      the council, or itself. It records three things — decisions (what was settled
+      and why), launches (what was shipped and how), revisions (where someone changed
+      their mind and what changed it). It gestures at neighboring territories — the
+      Infra domain that Frank tends, external partners — when coordination matters.
+      It signs nothing. The chronicle is the signature.
+
+      '
+    reference_guidance: 'Use the reference image to anchor: chibi figure proportions,
+      the warm-marble and warm-glow palette balance, the 50/50 classical-to-tech density,
+      and the painterly illustrated finish. Match the indigo accent''s saturation
+      when Marcus appears. Match how light falls across both stone and hard-light
+      surfaces. Do not copy the reference''s specific scene or composition — only
+      its grammar: how a Stoa cover should look and feel. Compose a fresh scene per
+      the post''s prompt, but the image should sit recognizably in the same illustrated
+      world, and at a glance it should read as a sibling to Frank''s blog rather than
+      a stranger.
+
+      '
+    visual_constants:
+    - 'Setting: Stoa Poikile colonnade or Marcus''s tablinum, in chibi-illustrated
+      proportions. Marble columns carry subtle vertical circuit-trace grooves. Frescoes
+      never contain text.'
+    - 'Marcus when present: chibi-proportioned (large head, small body, expressive
+      face), bearded, contemplative, loosely modeled on Marcus Aurelius. Simple philosopher''s
+      mantle in muted indigo over off-white tunic. Often holds a hybrid wax-tablet
+      / glowing tablet-computer. Never enthroned, never grand — small, observant,
+      faintly amused.'
+    - 'Function-agents when present: chibi-proportioned, hooded or faceless. Each
+      carries a classical symbol AND a technological symbol of equal weight: Creative
+      Director (laurel wreath + hard-light stylus); CTO (leather apron + glowing tool-belt
+      with circuit-boards); Strategist (military cloak + holographic chess piece floating
+      at shoulder); Growth & GTM (winged sandals + hard-light scroll showing live
+      cyan graphs). Faces never shown.'
+    - 'Function Tabula (the agent-label convention): every nameless agent floats one
+      Roman tabula ansata above their head — rectangular plaque with triangular winged
+      handles, ~18cm wide × 6cm tall, hovering ~20cm above the head, slightly tilted
+      toward viewer. Marble core with chiseled lettering, hairline hard-light edge
+      glowing warm cyan, soft cyan inner glow seeping from the inscription. Same shape,
+      size, glow-colour, lettering style across all agents and posts; only the inscribed
+      text differs. Text in English classical capitals (chiseled Roman letterforms):
+      the role name only, e.g. CTO, STRATEGIST, CREATIVE DIRECTOR, GROWTH & GTM. Tabula
+      never contains anything other than the role text.'
+    - The Observer is never depicted in frame. Its presence is the framing of the
+      scene itself.
+    - 'Embedded-scene rule (frescoes, friezes, mosaics, distant background scenes):
+      show humans, animals, or objects where some are classical and some are cyborg/high-tech,
+      coexisting naturally in one scene — never segregated, never opposed. A togaed
+      merchant and a marble-and-bronze android porter share the same market. A shepherd
+      and a hexapod sheepdog tend the same flock. The world''s central metaphor is
+      rendered recursively into its own decoration. No text on any embedded scene.'
+    - 'Palette: warm marble whites, sun-faded ochre, ink-black, with warm cyan-teal
+      for hard-light glow (warm enough to never tip into cold cyberpunk). Muted indigo
+      reserved for Marcus''s mantle.'
+    - 'Tech-density rule: every cover should have at least one visible tech element
+      large enough to register at thumbnail size — a glowing tablet, a hard-light
+      scroll, an OLED panel, a holographic council piece. The tech is not subtle;
+      it shares the frame.'
+    - 'Style register: painterly chibi illustration in the register of modern animated-film
+      backgrounds (Cartoon Saloon / Studio Ghibli / Pixar) with chibi character proportions.
+      Never photorealistic, never grim. Stylistic family with Frank''s blog (chibi-cyberpunk-hardware);
+      Stoa is chibi-classical-tech-philosopher-court — same illustration universe,
+      opposite content.'
+  model: gemini-3-pro-image-preview
+  output_dir: static/images
+  prompts_file: prompt_for_images.yaml
+  provider: gemini
+  reference_image: static/images/reference.png
+  reference_pool: .reference-pool
+project:
+  base_path: /stoa/
+  base_url: https://blog.cluster.derio.net/stoa/
+  module_path: blog.cluster.derio.net/stoa
+  name: Stoa
+  tagline: The journey towards an autonomous AI company
+series:
+- content_type: posts
+  description: Strategic and operational decisions affecting the Stoa as a whole —
+    capital allocation, hiring, processes, cross-business coordination.
+  key: forum
+  title: Forum
+- content_type: posts
+  description: AI content pipeline for faceless social media channels. Automated production
+    on Frank cluster infrastructure.
+  key: content-factory
+  title: Content Factory
+- content_type: posts
+  description: The app that hums along with your life, capturing whisps of your moments
+    as music.
+  key: hum
+  title: Hum
+version: 2
+voice: 'Tacitean: terse, precise, ironic without warmth. Third-person throughout —
+  the Observer never uses "I" or "we." The audience is another agent (or Marcus six
+  months from now) reconstructing what happened or looking up a rule. Chronicle posts
+  narrate decisions, launches, and revisions in order, with reasons inline. Doctrine
+  posts state the rule first, then show it operating. Real ticket IDs, commit SHAs,
+  dates, and numbers — the chronicle is auditable, not narrative. Gotchas surface
+  where they occurred, never appended at the end. The Observer does not flatter Marcus,
+  the council, or itself; failures are recorded with the same calm as successes. Brevity
+  over comprehensiveness — if a decision fits in three sentences, three sentences.
+
+  '

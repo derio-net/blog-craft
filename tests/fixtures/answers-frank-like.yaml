@@ -1,43 +1,61 @@
-project:
-  name: "Test Blog"
-  tagline: "A teaching blog"
-  base_url: "https://example.com/test/"
-  base_path: "/test/"
-  module_path: "example.com/test"
-
-metaphor:
-  persona: |
-    A friendly test persona — chibi style, blue accents.
-    Speaks in short sentences and likes diagrams.
-  visual_constants:
-    - "constant one"
-    - "constant two"
-  reference_image: "static/images/reference.png"
-  base_style: |
-    test base style line one
-    test base style line two
-  reference_guidance: |
-    test reference guidance
-
-series:
-  - key: tutorials
-    title: "Tutorials"
-    description: "Step-by-step"
-  - key: recipes
-    title: "Recipes"
-    description: "Atomic how-tos"
-
-voice: |
-  test voice paragraph
-  spans two lines
-
-image_gen:
-  provider: gemini
-  model: gemini-3-pro-image-preview
+features:
+  read_tracker: false
+  roadmap:
+    enabled: false
+  series_overview_posts: true
+image:
   api_key_env: GEMINI_API_KEY
+  composition_order:
+  - base_style
+  - persona
+  - visual_constants
+  - scene
+  - reference_guidance
+  curation:
+    archive_cap: 30
+    contact_sheet: true
+    count_default: 1
+  layers:
+    base_style: 'test base style line one
+
+      test base style line two
+
+      '
+    persona: 'A friendly test persona — chibi style, blue accents.
+
+      Speaks in short sentences and likes diagrams.
+
+      '
+    reference_guidance: 'test reference guidance
+
+      '
+    visual_constants:
+    - constant one
+    - constant two
+  model: gemini-3-pro-image-preview
   output_dir: static/images
   prompts_file: prompt_for_images.yaml
+  provider: gemini
+  reference_image: static/images/reference.png
+  reference_pool: .reference-pool
+project:
+  base_path: /test/
+  base_url: https://example.com/test/
+  module_path: example.com/test
+  name: Test Blog
+  tagline: A teaching blog
+series:
+- content_type: posts
+  description: Step-by-step
+  key: tutorials
+  title: Tutorials
+- content_type: posts
+  description: Atomic how-tos
+  key: recipes
+  title: Recipes
+version: 2
+voice: 'test voice paragraph
 
-features:
-  roadmap_shortcode: false
-  series_overview_posts: true
+  spans two lines
+
+  '
