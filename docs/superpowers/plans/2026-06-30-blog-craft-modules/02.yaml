@@ -1,0 +1,65 @@
+schema_version: 2
+phase:
+  number: 2
+  title: Theme / layout / CSS parameterization
+  tag: agentic
+  depends_on: []
+  tracking_issue: null
+tasks:
+- number: 1
+  title: custom.css split (TDD)
+  steps:
+  - id: P2.T1.S1
+    text: |-
+      Write failing `tests/unit/test_css_split.py`: the rendered custom.css always contains the structural base classes (.post-cover, .screenshot, .asciinema-container, .site-track-banner, .blog-series-cards, .paper-post family) AND the mermaid palette values come from features.css.mermaid_palette. Run → fails.
+  - id: P2.T1.S2
+    text: |-
+      Split custom.css into a shipped structural base (verbatim) + a config-injected palette template (mermaid_palette + color tokens). Re-run → green.
+- number: 2
+  title: read-tracker + analytics gating (TDD)
+  steps:
+  - id: P2.T2.S1
+    text: |-
+      Write failing test: read-tracker.js materializes iff features.read_tracker; the goatcounter partial materializes iff features.analytics (code from features.analytics.code_env). Run → fails.
+  - id: P2.T2.S2
+    text: |-
+      Ship read-tracker.js + goatcounter.html, gated by features. Re-run → green; `hugo --buildDrafts` clean with both on and both off.
+- number: 3
+  title: roadmap-as-data + banners + weight-zero guard (TDD)
+  steps:
+  - id: P2.T3.S1
+    text: |-
+      Write failing test: the roadmap shortcode renders from data/roadmap.yaml (a content path — frank's specifics live in data, not the template); the site-banner partial injects banner-<series>.png per section; the weight-zero hookify guard ships as an asset. Run → fails.
+  - id: P2.T3.S2
+    text: |-
+      Ship the roadmap scaffold shortcode (data-driven), the per-series site-banner partial, and the weight-zero guard asset. With a sample data/roadmap.yaml, `hugo --buildDrafts` renders the roadmap. green.
+state:
+  steps:
+    P2.T1.S1:
+      state: x
+      ticked_at: '2026-07-02T13:06:07+00:00'
+      note: null
+    P2.T1.S2:
+      state: x
+      ticked_at: '2026-07-02T13:06:07+00:00'
+      note: null
+    P2.T2.S1:
+      state: x
+      ticked_at: '2026-07-02T13:22:52+00:00'
+      note: null
+    P2.T2.S2:
+      state: x
+      ticked_at: '2026-07-02T13:22:52+00:00'
+      note: null
+    P2.T3.S1:
+      state: x
+      ticked_at: '2026-07-02T13:22:53+00:00'
+      note: null
+    P2.T3.S2:
+      state: x
+      ticked_at: '2026-07-02T13:22:53+00:00'
+      note: null
+  completion:
+    at: '2026-07-02T13:22:53+00:00'
+    note: null
+    observed_prs: []

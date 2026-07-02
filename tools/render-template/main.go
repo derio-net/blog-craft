@@ -14,7 +14,7 @@
 //        - all other top-level keys from <yaml> are also available
 //      Output goes to <dst>/<series.key>/<rest-of-path>.
 //
-// Funcs registered: add, indent, quote, toYaml.
+// Funcs registered: add, indent, quote, toYaml, default.
 package main
 
 import (
@@ -39,6 +39,7 @@ func main() {
 	perSeries := flag.Bool("per-series", false, "Render src once per series, output to <dst>/<series.key>/")
 	checkOnly := flag.Bool("check", false, "Just parse --answers and exit 0/1; no rendering")
 	getBool := flag.String("get-bool", "", "Print 'true'/'false' for the dotted key (e.g. features.series_overview_posts) and exit")
+	has := flag.String("has", "", "Exit 0 if the dotted key exists and is non-nil, else 1")
 	flag.Parse()
 
 	if *answers == "" {
@@ -64,6 +65,14 @@ func main() {
 		}
 		fmt.Println(v)
 		return
+	}
+
+	if *has != "" {
+		v, ok := dig(data, strings.Split(*has, "."))
+		if ok && v != nil {
+			return
+		}
+		os.Exit(1)
 	}
 
 	if *src == "" || *dst == "" {
@@ -199,6 +208,22 @@ func digBool(m map[string]interface{}, path []string) (bool, bool) {
 	return b, ok
 }
 
+// dig walks a dotted path, returning the value and whether it resolved.
+func dig(m map[string]interface{}, path []string) (interface{}, bool) {
+	var cur interface{} = m
+	for _, p := range path {
+		mm, ok := cur.(map[string]interface{})
+		if !ok {
+			return nil, false
+		}
+		cur, ok = mm[p]
+		if !ok {
+			return nil, false
+		}
+	}
+	return cur, true
+}
+
 func funcs() template.FuncMap {
 	return template.FuncMap{
 		"add": func(a, b int) int { return a + b },
@@ -221,6 +246,14 @@ func funcs() template.FuncMap {
 				return fmt.Sprintf("# toYaml error: %v", err)
 			}
 			return strings.TrimRight(string(out), "\n")
+		},
+		// default returns def when val is nil or an empty string (config
+		// palette tokens with fallbacks). Usage: {{ default "#fff" .x }}
+		"default": func(def, val interface{}) interface{} {
+			if val == nil || val == "" {
+				return def
+			}
+			return val
 		},
 	}
 }

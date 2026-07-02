@@ -9,3 +9,4 @@ __pycache__/
 # Test artifacts
 /tmp/
 tests/golden-output*/
+.devcontainer/*/devcontainer-lock.json

@@ -1,0 +1,3 @@
+{{/* GoatCounter analytics — production only. The endpoint/code is read at Hugo
+     build from the env var named by features.analytics.code_env (baked below). */}}
+{{ printf "{{ if eq hugo.Environment \"production\" }}{{ with getenv %q }}\n<script data-goatcounter=\"{{ . }}/count\" async src=\"{{ . }}/count.js\"></script>\n{{ end }}{{ end }}" .features.analytics.code_env }}

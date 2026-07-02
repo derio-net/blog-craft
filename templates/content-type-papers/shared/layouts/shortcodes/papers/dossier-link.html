@@ -1,0 +1,13 @@
+{{ $paper := .Get "paper" }}
+{{/* Repo-specific dossier base URL; set params.papersDossierBaseURL in hugo.toml
+     (from content_types.papers.dossier_dir + the repo's blob URL). */}}
+{{ $baseURL := .Site.Params.papersDossierBaseURL | default "/docs/papers-dossiers" }}
+{{ $dir := .Site.Params.papersDossierDir | default "docs/papers-dossiers" }}
+<div class="paper-dossier-link">
+  📋 <strong>Research dossier:</strong>
+  <a href="{{ $baseURL }}/{{ $paper }}/dossier.md" target="_blank" rel="noopener">
+    {{ $dir }}/{{ $paper }}/dossier.md
+  </a>
+  — primary sources, artefacts, named gaps, and counter-arguments
+  reviewed before this paper was drafted.
+</div>

@@ -1,0 +1,52 @@
+/* === STRUCTURAL BASE (shipped verbatim) === */
+
+/* Site-wide track banner injected by baseof.html */
+.site-track-banner { width: 100%; overflow: hidden; line-height: 0; }
+.site-track-banner img { width: 100%; height: auto; display: block; }
+
+/* Cover image at the top of individual posts */
+.post-cover { margin-bottom: 1.5rem; line-height: 0; border-radius: 0.5rem; overflow: hidden; }
+.post-cover img { width: 100%; max-height: 400px; object-fit: cover; object-position: center; display: block; }
+
+/* Track cards on the homepage — 2 per row */
+.blog-series-cards { margin-bottom: 1.5rem; }
+.blog-series-cards .hextra-card { height: auto; display: flex; flex-direction: column; }
+.blog-series-cards .hextra-card-image { width: 100%; height: auto; object-fit: cover; object-position: center top; display: block; aspect-ratio: 16 / 9; }
+.blog-series-cards .hextra-card-subtitle { font-size: 0.9rem !important; line-height: 1.5 !important; -webkit-line-clamp: unset !important; }
+
+/* Screenshots (screenshot shortcode) */
+.screenshot { margin: 1.5rem 0; text-align: center; }
+.screenshot a { display: block; line-height: 0; }
+.screenshot img { max-width: 100%; height: auto; border: 1px solid rgba(0,0,0,0.1); border-radius: 0.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: zoom-in; transition: box-shadow 0.2s ease; }
+.screenshot img:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.2); }
+.screenshot figcaption { margin-top: 0.5rem; font-size: 0.85rem; font-style: italic; color: var(--tw-prose-captions, #6b7280); }
+
+/* Asciinema player container */
+.asciinema-container { margin: 1.5rem 0; border-radius: 0.5rem; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+
+:is(html.dark) .screenshot img { border-color: rgba(255,255,255,0.1); box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+:is(html.dark) .screenshot img:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.5); }
+
+/* === Papers content-type (scoped under .paper-post) === */
+.paper-post .paper-tldr { background: rgba(0,0,0,0.03); border-left: 4px solid #4dabf7; padding: 1rem 1.25rem; border-radius: 0.25rem; margin: 1.5rem 0; }
+.paper-post .paper-pullquote { border-left: 4px solid #51cf66; padding-left: 1rem; font-style: italic; margin: 1.5rem 0; }
+.paper-post .paper-pullquote cite { display: block; font-size: 0.85rem; font-style: normal; margin-top: 0.5rem; opacity: 0.8; }
+.paper-post .paper-scar { background: #fff8e1; border: 1px solid #ffe08a; border-radius: 0.5rem; padding: 1rem 1.25rem; margin: 1.5rem 0; }
+.paper-post .paper-scar-date { font-weight: 600; margin-bottom: 0.25rem; }
+.paper-post .paper-capability-matrix { overflow-x: auto; margin: 1.5rem 0; }
+.paper-post .paper-capability-matrix th { background: #1f3a5f; color: #fff; }
+.paper-post .paper-cross-links { display: flex; gap: 0.5rem; align-items: center; margin: 1rem 0; font-size: 0.9rem; }
+:is(html.dark) .paper-post .paper-scar { background: #2a2410; border-color: #5a4a1a; }
+:is(html.dark) .paper-post .paper-tldr { background: rgba(255,255,255,0.05); }
+
+/* === CONFIG-INJECTED PALETTE (features.css.mermaid_palette) === */
+{{- $node := "#1f3a5f" }}{{- $stroke := "#4dabf7" }}{{- $edge := "#51cf66" }}{{- $label := "#eaf2ff" }}
+{{- with .features }}{{- with .css }}{{- with .mermaid_palette }}
+{{- $node = default $node .node }}{{- $stroke = default $stroke .stroke }}{{- $edge = default $edge .edge }}{{- $label = default $label .label }}
+{{- end }}{{- end }}{{- end }}
+.paper-post .mermaid .node rect,
+.paper-post .mermaid .node polygon { fill: {{ $node }}; stroke: {{ $stroke }}; }
+.paper-post .mermaid .edgePath .path,
+.paper-post .mermaid .flowchart-link { stroke: {{ $edge }}; }
+.paper-post .mermaid .nodeLabel,
+.paper-post .mermaid .edgeLabel { color: {{ $label }}; }

@@ -8,8 +8,10 @@
 framework:
   - "layouts/**"
   - "scripts/**"
+  - "assets/js/**"
   - ".gitignore"
   - "MEDIA-GUIDE.md"
+  - ".hookify.warn-hextra-weight-zero.md"
   - "static/images/.gitkeep"
 
 merged:
