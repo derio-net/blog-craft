@@ -25,6 +25,14 @@ title = "{{ .project.name }}"
     [params.search.flexsearch]
       index = "content"
 
+# `series` must be a taxonomy or Hextra's opengraph partial fails on
+# series-tagged pages (`first 6 $series.Pages`). capabilities/references
+# back the papers content-type's cross-referencing.
+[taxonomies]
+  series = "series"
+  capabilities = "capabilities"
+  references = "references"
+
 {{ range $i, $s := .series -}}
 [[menu.main]]
   name = "{{ $s.title }}"
