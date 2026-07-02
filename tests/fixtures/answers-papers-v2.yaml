@@ -1,0 +1,39 @@
+version: 2
+project:
+  name: "Papers Test"
+  tagline: "t"
+  base_url: "https://example.com/pt/"
+  base_path: "/pt/"
+  module_path: "example.com/pt"
+image:
+  provider: gemini
+  model: gemini-3-pro-image-preview
+  api_key_env: GEMINI_API_KEY
+  output_dir: static/images
+  prompts_file: prompt_for_images.yaml
+  composition_order: [base_character, scene]
+  layers:
+    base_character: "a test character"
+series:
+  - { key: building, title: "Building", description: "d", content_type: posts }
+  - { key: papers,   title: "Papers",   description: "d", content_type: papers }
+content_types:
+  papers:
+    enabled: true
+    dossier_dir: docs/papers-dossiers
+    data_dir: blog/data/papers
+    gate: { min_vendors: 3, min_sources: 5, min_source_types: 3,
+            min_artefacts: 3, min_artefact_kinds: 2, min_gaps: 1, min_counterargs: 1 }
+    source_types:   [vendor-docs, paper, postmortem, talk, benchmark]
+    artefact_kinds: [grafana-screenshot, asciinema, yaml, commit, incident]
+    shortcodes:     [landscape, capability-matrix, scar, pullquote, dossier-link, references-index]
+    crosslink_fields: [related_building, related_operating]
+    weight_offset: 1
+features:
+  series_overview_posts: true
+  read_tracker: false
+voice: |
+  Terse.
+ci:
+  validators: [frontmatter, dossier]
+  deploy: { kind: none }
