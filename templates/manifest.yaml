@@ -20,6 +20,7 @@ merged:
   - "go.sum"
   - "README.md"
   - "assets/css/**"
+  - ".github/**"
 
 content:
   - ".blog-craft.yaml"

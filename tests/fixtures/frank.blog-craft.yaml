@@ -1,0 +1,79 @@
+version: 2
+blog_craft_version: "0.3.0"
+
+project:
+  name: "Frank"
+  tagline: "Building a Talos cluster, one layer at a time"
+  base_url: "https://derio-net.github.io/frank/"
+  base_path: "/frank/"
+  module_path: "derio-net.github.io/frank"
+
+# NOTE: the image-layer PROSE below is representative. Structural reproduction
+# (framework/merged paths) does NOT depend on it — .blog-craft.yaml is a content
+# path. The canonical prose is reverse-engineered from frank's actual
+# blog/prompt_for_images.yaml during the P7 cutover; smoke-image-compose proves
+# byte-identity there.
+image:
+  provider: gemini
+  model: gemini-3-pro-image-preview
+  api_key_env: GEMINI_API_KEY
+  output_dir: static/images
+  prompts_file: prompt_for_images.yaml
+  reference_pool: .reference-pool
+  curation: { count_default: 1, archive_cap: 30, contact_sheet: true }
+  composition_order: [base_character, base_atmosphere, reference_guidance, torso, mood, scene]
+  layers:
+    base_character: |
+      Frank — a chibi-proportioned green Frankenstein-monster cluster mascot:
+      stitched patches, RJ45 neck bolts, black-circle eyes with white pupils.
+    base_atmosphere: |
+      Dark server-room lighting, blue electrical arcs, warm overhead glow.
+    reference_guidance: |
+      Use the reference for face/proportions only; redraw the scene fresh.
+    torso:
+      building: ["work clothes", "overalls", "overalls under lab coat", "work apron with tools", "torso-deep in server hardware"]
+      operating: ["open access panel on a workbench", "hoodie + sunglasses", "t-shirt, sleeves rolled"]
+      papers: ["white shirt + black tie + reading glasses", "lab coat over shirt+tie+glasses", "leather overalls over shirt+tie+glasses"]
+      generic: ["follows the scene"]
+    mood:
+      curious: "curious, head slightly tilted"
+      weighing: "weighing options, considered"
+      determined: "determined, focused"
+      focused: "focused, concentrating"
+      skeptical: "skeptical, one brow raised"
+      approving: "approving, faint nod"
+
+series:
+  - { key: building,  title: "Building Frank",     description: "Assembling the cluster, layer by layer.", content_type: posts }
+  - { key: operating, title: "Operating on Frank", description: "Running and maintaining the cluster.",     content_type: posts }
+  - { key: papers,    title: "The Frank Papers",   description: "Vendor analysis + decision narratives.",   content_type: papers }
+
+content_types:
+  papers:
+    enabled: true
+    dossier_dir: docs/papers-dossiers
+    data_dir: blog/data/papers
+    gate: { min_vendors: 3, min_sources: 5, min_source_types: 3,
+            min_artefacts: 3, min_artefact_kinds: 2, min_gaps: 1, min_counterargs: 1 }
+    source_types:   [vendor-docs, paper, postmortem, talk, benchmark]
+    artefact_kinds: [grafana-screenshot, asciinema, yaml, commit, incident]
+    shortcodes:     [landscape, capability-matrix, scar, pullquote, dossier-link, references-index]
+    crosslink_fields: [related_building, related_operating]
+    weight_offset: 1
+
+features:
+  series_overview_posts: true
+  read_tracker: true
+  banners:   { operator_generated: true }
+  roadmap:   { enabled: true, data: data/roadmap.yaml }
+  analytics: { provider: goatcounter, code_env: GOATCOUNTER_CODE }
+  css:       { mermaid_palette: { node: "#1f3a5f", stroke: "#4dabf7", edge: "#51cf66", label: "#eaf2ff" } }
+
+voice: |
+  Frank speaks as the cluster itself — conversational, technically precise,
+  darkly self-aware. Teach through story; admit failures with the same weight
+  as successes.
+
+ci:
+  validators: [frontmatter, dossier, mermaid, hugo_build]
+  deploy: { kind: container_pages }

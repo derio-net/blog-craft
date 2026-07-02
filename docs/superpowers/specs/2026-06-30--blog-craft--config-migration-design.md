@@ -236,3 +236,4 @@ P1–P6 never touch frank's blog. P7 = lowest-risk cutover, guarded by P5's harn
 |------|----------------|--------|-------|
 | 2026-06-30-blog-craft-foundation | `derio-net/blog-craft` | `2026-06-30-blog-craft-foundation` | — |
 | 2026-06-30-blog-craft-modules | `derio-net/blog-craft` | `2026-06-30-blog-craft-modules` | — |
+| 2026-06-30-blog-craft-harness-updater | `derio-net/blog-craft` | `2026-06-30-blog-craft-harness-updater` | — |
