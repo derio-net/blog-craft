@@ -2,11 +2,13 @@ version: 2
 blog_craft_version: "0.3.0"
 
 project:
-  name: "Frank"
-  tagline: "Building a Talos cluster, one layer at a time"
+  name: "Frank"                                   # slug: drives the read-tracker storage key
+  title: "Frank, the Talos Cluster"               # display title (navbar / <title>)
+  tagline: "Building, operating, and deciding: an AI-hybrid Kubernetes homelab with Talos Linux, Cilium, Longhorn, ArgoCD, and GPU compute"
   base_url: "https://derio-net.github.io/frank/"
   base_path: "/frank/"
   module_path: "derio-net.github.io/frank"
+  repo_url: "https://github.com/derio-net/frank"  # adds a GitHub nav link
 
 # NOTE: the image-layer PROSE below is representative. Structural reproduction
 # (framework/merged paths) does NOT depend on it — .blog-craft.yaml is a content
