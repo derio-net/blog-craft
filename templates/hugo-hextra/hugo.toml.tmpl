@@ -8,6 +8,7 @@ title = "{{ default .project.name .project.title }}"
 
 [params]
   description = "{{ .project.tagline }}"
+  projectSlug = "{{ .project.name }}"
 {{- with .content_types }}{{- with .papers }}
   papersDossierDir = "{{ .dossier_dir }}"
 {{- with .dossier_base_url }}
@@ -47,20 +48,19 @@ title = "{{ default .project.name .project.title }}"
   weight = {{ add $i 1 }}
 
 {{ end -}}
-{{- with .project.repo_url }}
+[[menu.main]]
+  name = "Search"
+  weight = {{ add $n 1 }}
+  [menu.main.params]
+    type = "search"
+{{ with .project.repo_url }}
 [[menu.main]]
   name = "GitHub"
   url = "{{ . }}"
-  weight = {{ add $n 1 }}
+  weight = {{ add $n 2 }}
   [menu.main.params]
     icon = "github"
-
 {{ end -}}
-[[menu.main]]
-  name = "Search"
-  weight = {{ if .project.repo_url }}{{ add $n 2 }}{{ else }}{{ add $n 1 }}{{ end }}
-  [menu.main.params]
-    type = "search"
 
 [markup]
   [markup.goldmark]

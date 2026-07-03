@@ -15,7 +15,7 @@
   <a href="{{ $baseURL }}/{{ . }}/dossier.md" target="_blank" rel="noopener">
     {{ $ddir }}/{{ . }}/dossier.md
   </a>
-  — primary sources, artefacts, named gaps, and counter-arguments
+  — primary sources, {{ with site.Params.projectSlug }}{{ . }} {{ end }}artefacts, named gaps, and counter-arguments
   reviewed before this paper was drafted.
 </div>
 {{ end }}

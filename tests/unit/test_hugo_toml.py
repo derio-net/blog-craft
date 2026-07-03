@@ -37,6 +37,11 @@ def test_title_overrides_name_when_set(tmp_path):
     # the slug (project.name) is unchanged and still drives other identifiers
 
 
+def test_project_slug_param(tmp_path):
+    # projectSlug (from project.name) backs per-blog captions e.g. the dossier chip
+    assert 'projectSlug = "Frank"' in _render(BASE, tmp_path)
+
+
 def test_github_nav_gated_on_repo_url(tmp_path):
     assert 'name = "GitHub"' not in _render(BASE, tmp_path)
     cfg = {**BASE, "project": {**BASE["project"], "repo_url": "https://github.com/derio-net/frank"}}
@@ -44,13 +49,15 @@ def test_github_nav_gated_on_repo_url(tmp_path):
     assert 'name = "GitHub"' in toml
     assert 'url = "https://github.com/derio-net/frank"' in toml
     assert 'icon = "github"' in toml
-    # GitHub sits after the series menus, before Search
-    assert toml.index('name = "GitHub"') < toml.index('name = "Search"')
-    assert toml.index('name = "Papers"') < toml.index('name = "GitHub"')
+    # the repo link sits LAST — after Search (matches frank's nav order)
+    assert toml.index('name = "Search"') < toml.index('name = "GitHub"')
+    assert toml.index('name = "Papers"') < toml.index('name = "Search"')
 
 
-def test_search_weight_accounts_for_github(tmp_path):
-    # 2 series -> Search at weight 3 without GitHub, 4 with it
+def test_search_weight_is_stable(tmp_path):
+    # 2 series -> Search always at weight 3 (n+1); GitHub, when present, is n+2
     assert "weight = 3\n  [menu.main.params]\n    type = \"search\"" in _render(BASE, tmp_path)
     cfg = {**BASE, "project": {**BASE["project"], "repo_url": "x"}}
-    assert "weight = 4\n  [menu.main.params]\n    type = \"search\"" in _render(cfg, tmp_path)
+    toml = _render(cfg, tmp_path)
+    assert "weight = 3\n  [menu.main.params]\n    type = \"search\"" in toml
+    assert "weight = 4\n  [menu.main.params]\n    icon = \"github\"" in toml

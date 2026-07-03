@@ -213,15 +213,17 @@
 {{- range .layers }}
   <div class="roadmap-layer">
     <div class="roadmap-card layer-{{ .key }}">
-      <div class="layer-title"><span class="layer-num">{{ .num }}</span> {{ .title }}</div>
+      {{/* safeHTML: data may embed inline markup (e.g. <code>…</code>) and raw
+           &/+ that must pass through verbatim, not be auto-escaped. */}}
+      <div class="layer-title"><span class="layer-num">{{ .num | safeHTML }}</span> {{ .title | safeHTML }}</div>
       <div class="sub-items">
       {{- range .sub_items }}
-        <span class="sub-item">{{ . }}</span>
+        <span class="sub-item">{{ . | safeHTML }}</span>
       {{- end }}
       </div>
       <div class="tags">
       {{- range .tags }}
-        <span class="tag">{{ . }}</span>
+        <span class="tag">{{ . | safeHTML }}</span>
       {{- end }}
       </div>
     </div>
