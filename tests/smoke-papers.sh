@@ -35,29 +35,32 @@ else
   pass "P3 short dossier FAILS the gate (as expected)"
 fi
 
-# A filled dossier passes.
+# A filled dossier passes (H2-section format).
 cat > "$DOSSIER" <<'D'
----
-paper: 01-test-paper
-status: ready
-vendors:
-  - {name: A}
-  - {name: B}
-  - {name: C}
-primary_sources:
-  - {title: s1, type: vendor-docs, url: "http://e/1"}
-  - {title: s2, type: paper, url: "http://e/2"}
-  - {title: s3, type: postmortem, url: "http://e/3"}
-  - {title: s4, type: talk, url: "http://e/4"}
-  - {title: s5, type: benchmark, url: "http://e/5"}
-artefacts:
-  - {kind: yaml}
-  - {kind: commit}
-  - {kind: incident}
-gaps: ["a gap"]
-counter_arguments: ["a counter"]
----
-# filled
+# Dossier: 01-test-paper
+
+## Vendors in scope (>=3)
+- {name: A}
+- {name: B}
+- {name: C}
+
+## Primary sources (>=5, >=3 distinct type values)
+- {title: s1, type: vendor-docs, url: "http://e/1"}
+- {title: s2, type: paper, url: "http://e/2"}
+- {title: s3, type: postmortem, url: "http://e/3"}
+- {title: s4, type: talk, url: "http://e/4"}
+- {title: s5, type: benchmark, url: "http://e/5"}
+
+## Artefacts (>=3, >=2 distinct kind values)
+- {kind: yaml}
+- {kind: commit}
+- {kind: incident}
+
+## Named gaps (>=1)
+- a gap
+
+## Counter-arguments considered (>=1)
+- a counter
 D
 if "$PY" "$REPO_ROOT/tools/validate_dossier.py" --config "$CFG" "$DOSSIER" >/dev/null 2>&1; then
   pass "P2 filled dossier PASSES the gate"
