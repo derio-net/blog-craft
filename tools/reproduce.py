@@ -74,6 +74,36 @@ def structural_diff(generated: str | Path, reference: str | Path, manifest: dict
     return drift
 
 
+def render_and_diff(root_a: str | Path, root_b: str | Path) -> list[str]:
+    """Hugo-build two blog trees and diff their rendered HTML — the
+    render-identity check (spec: prove zero VISUAL change).
+
+    Used to prove a generalization renders identically to the original: build
+    the blog before vs after the change (same content), diff public/**/*.html.
+    Any diff is a real appearance change. Returns [] == pixel-identical markup.
+    """
+    a, b = Path(root_a), Path(root_b)
+    for r in (a, b):
+        subprocess.run(["hugo", "--buildDrafts", "--quiet"], cwd=str(r), check=True, capture_output=True, text=True)
+    diffs: list[str] = []
+    pa, pb = a / "public", b / "public"
+
+    def _html(root):
+        return {os.path.relpath(os.path.join(dp, f), root)
+                for dp, _, fs in os.walk(root) for f in fs if f.endswith(".html")}
+
+    ha, hb = _html(pa), _html(pb)
+    for f in sorted(ha | hb):
+        fa, fb = pa / f, pb / f
+        if not fa.exists():
+            diffs.append(f"only in B: {f}")
+        elif not fb.exists():
+            diffs.append(f"only in A: {f}")
+        elif fa.read_bytes() != fb.read_bytes():
+            diffs.append(f"render differs: {f}")
+    return diffs
+
+
 def default_manifest() -> dict:
     return load_manifest(str(_PLUGIN_ROOT / "templates" / "manifest.yaml"))
 
