@@ -255,5 +255,8 @@ func funcs() template.FuncMap {
 			}
 			return val
 		},
+		// lower lowercases a string — used to derive per-blog identifiers
+		// (e.g. the read-tracker localStorage key from project.name).
+		"lower": strings.ToLower,
 	}
 }

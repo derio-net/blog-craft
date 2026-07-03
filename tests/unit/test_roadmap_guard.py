@@ -28,8 +28,12 @@ def test_roadmap_renders_from_data(tmp_path):
     blog = _bootstrap(tmp_path)
     (blog / "data").mkdir(exist_ok=True)
     (blog / "data" / "roadmap.yaml").write_text(yaml.safe_dump(
-        {"layers": [{"name": "L1 Alpha", "desc": "first layer"},
-                    {"name": "L9 Omega", "desc": "future", "upcoming": True}]}))
+        {"layers": [
+            {"num": 1, "key": "hw", "title": "Hardware — Nodes",
+             "sub_items": ["3x NUC", "2x Pi"], "tags": ["x86", "arm64"]},
+            {"num": "—", "key": "upcoming", "title": "Virtual Machines — upcoming",
+             "sub_items": ["KubeVirt"], "tags": ["KVM"]},
+        ]}))
     page = blog / "content" / "docs" / "forum" / "99-roadmap"
     page.mkdir(parents=True)
     (page / "index.md").write_text("---\ntitle: RM\nseries: [forum]\nweight: 99\n---\n{{< roadmap >}}\n")
@@ -39,6 +43,8 @@ def test_roadmap_renders_from_data(tmp_path):
     hits = glob.glob(str(blog / "public" / "**" / "99-roadmap" / "index.html"), recursive=True)
     assert hits, "roadmap page not built"
     html = open(hits[0]).read()
-    assert "roadmap-layer" in html
-    assert "L1 Alpha" in html and "L9 Omega" in html
-    assert "layer-upcoming" in html   # the upcoming flag rendered
+    assert "roadmap-card layer-hw" in html          # per-layer accent class
+    assert "Hardware — Nodes" in html
+    assert "sub-item" in html and "3x NUC" in html   # sub-items rendered
+    assert "tag" in html and "arm64" in html          # tags rendered
+    assert "layer-upcoming" in html                   # upcoming key -> dashed class

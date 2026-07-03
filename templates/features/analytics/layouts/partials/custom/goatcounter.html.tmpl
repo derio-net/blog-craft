@@ -1,3 +1,11 @@
-{{/* GoatCounter analytics — production only. The endpoint/code is read at Hugo
-     build from the env var named by features.analytics.code_env (baked below). */}}
-{{ printf "{{ if eq hugo.Environment \"production\" }}{{ with getenv %q }}\n<script data-goatcounter=\"{{ . }}/count\" async src=\"{{ . }}/count.js\"></script>\n{{ end }}{{ end }}" .features.analytics.code_env }}
+{{- /* Emits partials/custom/goatcounter.html. The beacon endpoint is a literal
+   URL from features.analytics.url (baked at bootstrap) — NOT a Hugo getenv,
+   which Hugo's default security.funcs allowlist (^HUGO_/^CI$) blocks. */ -}}
+{{- $u := .features.analytics.url -}}
+{{ printf `{{/* GoatCounter analytics — emitted only in production builds, never in
+     the local hugo server. Beacon endpoint baked from features.analytics.url. */ -}}
+{{ if eq hugo.Environment "production" -}}
+<script data-goatcounter="%s/count"
+        async src="%s/count.js"></script>
+{{- end }}
+` $u $u }}

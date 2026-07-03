@@ -22,7 +22,7 @@ from path_ownership import classify, load_manifest  # noqa: E402
 
 _PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 # Build artifacts + VCS — never part of the materialized template surface.
-_IGNORE_DIRS = {"public", "resources", ".git", ".hugo_build.lock", "node_modules"}
+_IGNORE_DIRS = {"public", "resources", ".git", ".hugo_build.lock", "node_modules", "__pycache__"}
 _IGNORE_FILES = {".hugo_build.lock", "hugo_stats.json"}
 
 
@@ -72,6 +72,47 @@ def structural_diff(generated: str | Path, reference: str | Path, manifest: dict
         if cls in ("framework", "merged"):
             drift.append(f"missing in generated: {p} [{cls}]")
     return drift
+
+
+def _normalize_html(b: bytes) -> bytes:
+    """Collapse insignificant whitespace so a data-driven loop compares equal to
+    hand-formatted markup — appearance is a VISUAL guarantee, not byte-for-byte
+    indentation. Drops inter-tag whitespace and collapses whitespace runs."""
+    import re
+    s = b.decode("utf-8", "replace")
+    s = re.sub(r">\s+<", "><", s)
+    s = re.sub(r"[ \t\r\n]+", " ", s)
+    return s.strip().encode()
+
+
+def render_and_diff(root_a: str | Path, root_b: str | Path) -> list[str]:
+    """Hugo-build two blog trees and diff their rendered HTML — the
+    render-identity check (prove zero VISUAL change).
+
+    Used to prove a generalization renders identically to the original: build
+    the blog before vs after the change (same content), diff public/**/*.html
+    with whitespace normalized. Any diff is a real appearance change.
+    """
+    a, b = Path(root_a), Path(root_b)
+    for r in (a, b):
+        subprocess.run(["hugo", "--buildDrafts", "--quiet"], cwd=str(r), check=True, capture_output=True, text=True)
+    diffs: list[str] = []
+    pa, pb = a / "public", b / "public"
+
+    def _html(root):
+        return {os.path.relpath(os.path.join(dp, f), root)
+                for dp, _, fs in os.walk(root) for f in fs if f.endswith(".html")}
+
+    ha, hb = _html(pa), _html(pb)
+    for f in sorted(ha | hb):
+        fa, fb = pa / f, pb / f
+        if not fa.exists():
+            diffs.append(f"only in B: {f}")
+        elif not fb.exists():
+            diffs.append(f"only in A: {f}")
+        elif _normalize_html(fa.read_bytes()) != _normalize_html(fb.read_bytes()):
+            diffs.append(f"render differs: {f}")
+    return diffs
 
 
 def default_manifest() -> dict:

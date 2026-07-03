@@ -29,12 +29,16 @@ def _bootstrap(cfg, tmp_path, name):
 def test_features_on_materialize(tmp_path):
     cfg = _base()
     cfg["features"] = {"read_tracker": True,
-                       "analytics": {"provider": "goatcounter", "code_env": "GOATCOUNTER_CODE"}}
+                       "analytics": {"provider": "goatcounter", "url": "https://counter.example/x"}}
     b = _bootstrap(cfg, tmp_path, "on")
     assert (b / RT).exists()
     gc = b / GC
     assert gc.exists()
-    assert "GOATCOUNTER_CODE" in gc.read_text()   # code from features.analytics.code_env
+    text = gc.read_text()
+    # literal beacon URL baked from features.analytics.url (not a Hugo getenv)
+    assert "https://counter.example/x/count" in text
+    assert "https://counter.example/x/count.js" in text
+    assert "getenv" not in text   # getenv is Hugo-security-blocked; must be a literal
 
 
 def test_features_off_absent(tmp_path):

@@ -1,6 +1,6 @@
 baseURL = "{{ .project.base_url }}"
 languageCode = "en-us"
-title = "{{ .project.name }}"
+title = "{{ default .project.name .project.title }}"
 
 [module]
   [[module.imports]]
@@ -8,6 +8,12 @@ title = "{{ .project.name }}"
 
 [params]
   description = "{{ .project.tagline }}"
+{{- with .content_types }}{{- with .papers }}
+  papersDossierDir = "{{ .dossier_dir }}"
+{{- with .dossier_base_url }}
+  papersDossierBaseURL = "{{ . }}"
+{{- end }}
+{{- end }}{{- end }}
 
   [params.navbar]
     displayTitle = true
@@ -33,6 +39,7 @@ title = "{{ .project.name }}"
   capabilities = "capabilities"
   references = "references"
 
+{{ $n := len .series -}}
 {{ range $i, $s := .series -}}
 [[menu.main]]
   name = "{{ $s.title }}"
@@ -40,9 +47,18 @@ title = "{{ .project.name }}"
   weight = {{ add $i 1 }}
 
 {{ end -}}
+{{- with .project.repo_url }}
+[[menu.main]]
+  name = "GitHub"
+  url = "{{ . }}"
+  weight = {{ add $n 1 }}
+  [menu.main.params]
+    icon = "github"
+
+{{ end -}}
 [[menu.main]]
   name = "Search"
-  weight = {{ add (len .series) 1 }}
+  weight = {{ if .project.repo_url }}{{ add $n 2 }}{{ else }}{{ add $n 1 }}{{ end }}
   [menu.main.params]
     type = "search"
 

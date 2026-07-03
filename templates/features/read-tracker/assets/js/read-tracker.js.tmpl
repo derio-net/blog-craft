@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  var STORAGE_KEY = 'blog-craft-read-posts';
+  var STORAGE_KEY = '{{ lower .project.name }}-read-posts';
 
   function getReadPosts() {
     try {
@@ -18,13 +18,16 @@
       readPosts.push(path);
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(readPosts));
-      } catch (e) { /* localStorage full or unavailable */ }
+      } catch (e) {
+        // localStorage full or unavailable
+      }
     }
   }
 
   function markSidebarLinks() {
     var readPosts = getReadPosts();
     if (readPosts.length === 0) return;
+
     var links = document.querySelectorAll('.hextra-sidebar-container a[href]');
     links.forEach(function (link) {
       var href = link.getAttribute('href');
@@ -36,16 +39,18 @@
       if (isRead && !link.querySelector('.read-marker')) {
         var marker = document.createElement('span');
         marker.className = 'read-marker';
-        marker.textContent = '✓';
+        marker.textContent = '\u2713';
         marker.title = 'Read';
         link.appendChild(marker);
       }
     });
   }
 
-  if (window.location.pathname.indexOf('/docs/') !== -1) {
+  if (window.location.pathname.indexOf('/docs/') !== -1 ||
+      window.location.pathname.indexOf('{{ .project.base_path }}docs/') !== -1) {
     markCurrentAsRead();
   }
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', markSidebarLinks);
   } else {
