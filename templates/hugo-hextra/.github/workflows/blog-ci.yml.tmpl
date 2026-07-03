@@ -16,13 +16,16 @@ jobs:
       - name: Install deps
         run: python3 -m pip install --quiet pyyaml
 {{- with .content_types }}{{- with .papers }}
-      # Papers content-type present -> validate dossiers + paper frontmatter.
+      # Papers content-type present -> sync data, then validate dossiers + frontmatter.
+      # Validators ship into the blog at scripts/ (mirrored from blog-craft tools/),
+      # so a plain-python CI runs them without the plugin.
       - name: Validate papers
         run: |
+          python3 scripts/sync_dossier_to_data.py --config .blog-craft.yaml --check
           for d in {{ .dossier_dir }}/*/dossier.md; do
-            python3 tools/validate_dossier.py --config .blog-craft.yaml "$d"
+            python3 scripts/validate_dossier.py --config .blog-craft.yaml "$d"
           done
-          python3 tools/validate_papers.py --config .blog-craft.yaml content/docs/*/*/index.md
+          python3 scripts/validate_papers.py --config .blog-craft.yaml content/docs/*/*/index.md
 {{- end }}{{- end }}
       - name: Hugo build
         run: hugo --minify
