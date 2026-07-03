@@ -22,7 +22,7 @@ from path_ownership import classify, load_manifest  # noqa: E402
 
 _PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 # Build artifacts + VCS — never part of the materialized template surface.
-_IGNORE_DIRS = {"public", "resources", ".git", ".hugo_build.lock", "node_modules"}
+_IGNORE_DIRS = {"public", "resources", ".git", ".hugo_build.lock", "node_modules", "__pycache__"}
 _IGNORE_FILES = {".hugo_build.lock", "hugo_stats.json"}
 
 

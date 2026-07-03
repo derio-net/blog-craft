@@ -66,8 +66,9 @@ features:
   read_tracker: true
   banners:   { operator_generated: true }
   roadmap:   { enabled: true, data: data/roadmap.yaml }
-  analytics: { provider: goatcounter, code_env: GOATCOUNTER_CODE }
-  css:       { mermaid_palette: { node: "#1f3a5f", stroke: "#4dabf7", edge: "#51cf66", label: "#eaf2ff" } }
+  analytics: { provider: goatcounter, url: "https://counter.derio.net" }
+  # No css.mermaid_palette: frank's papers palette is baked into the papers CSS
+  # (P7). The knob only appends an override block for a rebranding blog.
 
 voice: |
   Frank speaks as the cluster itself — conversational, technically precise,
