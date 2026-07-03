@@ -3,6 +3,7 @@ title: "{{ .this.title }} — Overview"
 date: {{ .today }}
 draft: false
 weight: 1
+series: [{{ .this.key }}]
 ---
 
 <div class="post-cover">
@@ -15,10 +16,4 @@ weight: 1
 
 ## Series Index
 
-<!-- /blog-post auto-appends entries here as posts are created. -->
-
-## Topic / Evolution Map
-
-| # | Title | Takeaway |
-|---|-------|----------|
-<!-- /blog-post auto-appends rows here. -->
+{{ "{{< series-index >}}" }}

@@ -71,6 +71,22 @@ def test_series_index_renders_table(tmp_path):
     assert table.count("<tr>") == 4
 
 
+def test_overview_template_uses_shortcode(tmp_path):
+    blog = _bootstrap(tmp_path)   # fixture has features.series_overview_posts: true
+    overviews = glob.glob(str(blog / "content" / "docs" / "*" / "00-overview" / "index.md"))
+    assert overviews, "no per-series overview materialized"
+    for ov in overviews:
+        txt = open(ov).read()
+        assert "{{< series-index >}}" in txt, f"overview missing the shortcode: {ov}"
+        assert "auto-appends" not in txt, f"stale marker left in {ov}"
+    # and the shortcode lists real posts at build
+    series = os.path.basename(os.path.dirname(os.path.dirname(overviews[0])))
+    _post(blog, series, "01", "first", 10, "First post takeaway")
+    html = _build_overview_html(blog, series)
+    m = re.search(r'<table class="series-index">.*?</table>', html, re.S)
+    assert m and f"{series}/01-first/" in m.group(0), "post not listed by the overview shortcode"
+
+
 def test_series_index_empty_series(tmp_path):
     blog = _bootstrap(tmp_path)
     _overview(blog, "operating")          # no operating posts exist

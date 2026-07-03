@@ -101,14 +101,14 @@ else
   fail "B3.a cover PNG missing"
 fi
 
-# B4: overview updated
+# B4: the overview is page-derived — blog-post does NOT touch it; it lists posts
+# via the {{< series-index >}} shortcode at build time.
 OVERVIEW="$TARGET/content/docs/tutorials/00-overview/index.md"
-grep -q '^01\. \[Hello World\]' "$OVERVIEW" && pass "B4.a overview index has post 01 line" || fail "B4.a overview index entry missing"
-grep -q '^| 01 | Hello World |' "$OVERVIEW" && pass "B4.b overview map row present" || fail "B4.b overview map row missing"
+grep -q '{{< series-index >}}' "$OVERVIEW" && pass "B4.a overview uses the series-index shortcode" || fail "B4.a overview missing series-index shortcode"
+grep -q 'Hello World' "$OVERVIEW" && fail "B4.b blog-post wrongly edited the overview" || pass "B4.b overview left untouched by blog-post (page-derived)"
 
-# B5: idempotency — re-running should be safe (the inserter is idempotent on overview;
-# the page bundle would be overwritten; the prompts file would get a duplicate entry).
-# Document this rather than assert on it.
+# B5: idempotency — re-running overwrites the bundle and appends a duplicate prompts
+# entry (the overview is page-derived, so unaffected). Document rather than assert.
 echo "  NOTE: re-running with the same args overwrites the bundle and appends a"
 echo "        duplicate prompts entry. Idempotency on prompts is the SKILL's job."
 
