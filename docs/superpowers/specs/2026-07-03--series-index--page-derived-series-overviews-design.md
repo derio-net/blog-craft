@@ -131,3 +131,4 @@ becoming self-maintaining and operating gaining a landing page.
 |------|------|-------|
 | _TBD_ | derio-net/blog-craft | `series-index` shortcode + template/scaffold retirement + tests |
 | _TBD_ | derio-net/frank | split building/operating overviews, drop #604 markers, re-touch workflow, verify |
+| 2026-07-03-series-index-shortcode | `derio-net/blog-craft` | `2026-07-03-series-index-shortcode` | — |

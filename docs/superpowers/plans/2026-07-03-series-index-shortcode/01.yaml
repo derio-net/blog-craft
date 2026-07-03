@@ -1,0 +1,62 @@
+schema_version: 2
+phase:
+  number: 1
+  title: series-index shortcode (page-derived, TDD)
+  tag: agentic
+  depends_on: []
+  tracking_issue: null
+tasks:
+- number: 1
+  title: Failing test — the shortcode renders a series table from pages
+  steps:
+  - id: P1.T1.S1
+    text: |-
+      Add `tests/unit/test_series_index.py`. Bootstrap a minimal blog via
+      `tools/bootstrap-render.sh` (a fixture answers file, papers off), then author under the
+      blog: `content/docs/building/00-overview/index.md` with frontmatter `series: [building]`,
+      `weight: 1`, body `{{< series-index >}}`; and three posts `01-intro`, `02-foo`, `03-bar`
+      (bundles `NN-slug/index.md`) each `series: [building]`, `draft: false`, a distinct
+      `weight`, and a one-line `summary`. Run `hugo --buildDrafts` in the blog, read the built
+      `docs/building/00-overview/index.html`, and assert: one table row per post; the title is
+      a link to the post; the `summary` appears as the takeaway; rows are ordered by weight;
+      the `#` column shows `01`/`02`/`03` (from the slug prefix); the overview page itself is
+      NOT listed. Run `bash tests/run-unit.sh tests/unit/test_series_index.py` — RED (no shortcode).
+- number: 2
+  title: Implement the shortcode → green, then edge cases
+  steps:
+  - id: P1.T2.S1
+    text: |-
+      Create `templates/hugo-hextra/layouts/shortcodes/series-index.html`. Resolve the series:
+      a positional arg if given, else `index (.Page.Params.series) 0`. Collect
+      `$pages := where site.Pages "Params.series" "intersect" (slice $series)`, `sort` by
+      `.Weight` ascending. Emit a Markdown table `| # | Post | Takeaway |` + separator, then
+      `range` the pages, skipping the host page (`if ne .RelPermalink $.Page.RelPermalink`):
+      `| <NN> | [Title](RelPermalink) | summary |` where `<NN>` is the leading digits of
+      `.File.ContentBaseName` and `summary` is `.Params.summary`. Wrap the block in
+      `markdownify`/`safeHTML` as needed so Hugo renders the table. `hugo` respects draft
+      visibility, so no draft handling. Run the test → GREEN.
+  - id: P1.T2.S2
+    text: |-
+      Edge cases + refactor. Blank takeaway when `.Params.summary` is empty; blank `#` when the
+      bundle name has no `NN-` prefix; **empty series** → render a muted `_No posts yet._` line
+      instead of an empty table. Extend `test_series_index` with (a) an empty-series overview
+      and (b) a `{{< series-index "operating" >}}` positional-override case (a page whose own
+      series differs). `bash tests/run-unit.sh tests/unit/test_series_index.py` — green.
+state:
+  steps:
+    P1.T1.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T2.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T2.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+  completion:
+    at: null
+    note: null
+    observed_prs: []
