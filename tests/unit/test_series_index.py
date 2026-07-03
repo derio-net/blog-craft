@@ -34,8 +34,9 @@ def _overview(blog, series, body="{{< series-index >}}"):
         f'---\ntitle: "{series.title()} Overview"\nseries: [{series}]\nweight: 1\n---\n{body}\n')
 
 
-def _build_overview_html(blog, series):
-    r = subprocess.run(["hugo", "--buildDrafts"], cwd=str(blog), capture_output=True, text=True)
+def _build_overview_html(blog, series, drafts=True):
+    cmd = ["hugo"] + (["--buildDrafts"] if drafts else [])
+    r = subprocess.run(cmd, cwd=str(blog), capture_output=True, text=True)
     assert r.returncode == 0, r.stdout + r.stderr
     hits = glob.glob(str(blog / "public" / "**" / series / "00-overview" / "index.html"), recursive=True)
     assert hits, f"no built overview for {series}"
@@ -107,3 +108,33 @@ def test_series_index_positional_override(tmp_path):
     table = m.group(0)
     assert "operating/01-cluster-nodes/" in table   # the overridden series wins
     assert "building/01-intro/" not in table
+
+
+def test_series_index_excludes_drafts(tmp_path):
+    blog = _bootstrap(tmp_path)
+    _overview(blog, "building")
+    _post(blog, "building", "01", "published", 10, "live post")
+    d = blog / "content" / "docs" / "building" / "02-wip"; d.mkdir(parents=True)
+    (d / "index.md").write_text(
+        '---\ntitle: "Wip"\nseries: [building]\nweight: 20\ndraft: true\nsummary: "draft"\n---\nb\n')
+    html = _build_overview_html(blog, "building", drafts=False)   # production build
+    m = re.search(r'<table class="series-index">.*?</table>', html, re.S)
+    assert m, "series-index table not rendered"
+    table = m.group(0)
+    assert "building/01-published/" in table
+    assert "building/02-wip/" not in table            # draft absent from a non-draft build
+
+
+def test_papers_overview_uses_series_index(tmp_path):
+    # a papers series overview gets {{< series-index >}} like any other series —
+    # NOT {{< papers-roadmap >}} (that needs a data/papers.yaml roster a fresh
+    # blog lacks, which would break the first hugo build). A roster-maintaining
+    # blog swaps it in during adoption.
+    cfg = yaml.safe_load(open(os.path.join(FIX, "answers-papers-v2.yaml")))
+    ans = tmp_path / "ans.yaml"; ans.write_text(yaml.safe_dump(cfg))
+    blog = tmp_path / "blog"
+    subprocess.run(["bash", RENDER, str(ans), str(blog)], check=True, capture_output=True, text=True)
+    ov = lambda key: (blog / "content" / "docs" / key / "00-overview" / "index.md").read_text()
+    papers_key = next(s["key"] for s in cfg["series"] if s.get("content_type") == "papers")
+    assert "{{< series-index >}}" in ov(papers_key)
+    assert "{{< papers-roadmap >}}" not in ov(papers_key)

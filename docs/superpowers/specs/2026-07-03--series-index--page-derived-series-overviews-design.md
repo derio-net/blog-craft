@@ -37,8 +37,17 @@ be *purely* page-derived: no data file, no markers, no sync, no drift.
 
 ## Non-goals
 
-- **Papers is unchanged.** Its roster+status model is correct for planned/deferred
-  entries; this feature does not touch `papers-roadmap.html`.
+- **`papers-roadmap.html` is unchanged, and it is a separate page from the
+  generated overview.** The per-series-overview template emits `{{< series-index >}}`
+  for **every** series — including a `papers` series — so a freshly-bootstrapped
+  papers blog gets a working, page-derived list of its published papers with no
+  data-file dependency. `{{< papers-roadmap >}}` is deliberately NOT wired into the
+  template: it ranges a `data/papers.yaml` roster that a fresh blog does not have,
+  so emitting it by default would break the first `hugo` build. A blog that
+  maintains a roster (planned/deferred entries with no page yet — frank does)
+  swaps `{{< series-index >}}` → `{{< papers-roadmap >}}` on its papers overview
+  during adoption, where the data file exists. The roadmap shortcode itself is
+  untouched either way.
 - frank's cluster-wide **Technology → Capability Map** stays a hand-curated table
   on the building overview — it is a tech inventory, not a per-series index, and
   does not map 1:1 to posts. Out of scope.
@@ -84,7 +93,11 @@ exist.
 
 - `templates/per-series-overview/00-overview/index.md.tmpl`: replace the
   `## Series Index` + entries-marker and the `## Topic / Evolution Map` + table +
-  rows-marker with a single `## Series Index` + `{{< series-index >}}`.
+  rows-marker with a single `## Series Index` + `{{< series-index >}}` — for every
+  series, papers included (see the papers-roadmap non-goal for why the template
+  never emits `{{< papers-roadmap >}}`). The overview also gains `series: [<key>]`
+  frontmatter so the shortcode can infer its series (self-excluded from its own
+  table).
 - `tools/blog-post-create.sh`: **remove the overview-append step** (steps that read
   `features.series_overview_posts`, resolve the overview path, and run
   `insert-before-marker.py`). The cover/prompts/image-gen steps are unchanged.

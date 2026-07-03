@@ -2,6 +2,9 @@
        weight, recomputed every build. Series is inferred from the host page's
        `series` param; a positional arg overrides: {{< series-index "operating" >}}.
        No data file, no markers. */ -}}
+{{- /* `series` must be a LIST — Hextra's opengraph partial ranges over it, so a
+       scalar `series:` is a hard build error, not a silent miss. The host page's
+       first series is used unless a positional arg overrides. */ -}}
 {{- $series := "" -}}
 {{- if .Params -}}{{- $series = .Get 0 -}}{{- else -}}{{- $series = index .Page.Params.series 0 -}}{{- end -}}
 {{- $posts := (where site.Pages "Params.series" "intersect" (slice $series)).ByWeight -}}
