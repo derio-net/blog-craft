@@ -1,12 +1,11 @@
-{{/* blog-craft papers override of Hextra v0.12.1 docs/single.html.
-     Adds cover-image support + papers cross-link injection. Materialized only
-     when content_types.papers is enabled; if you bump Hextra, diff this against
-     the new upstream docs/single.html. */}}
+{{/* Override of hextra v0.12.1 docs/list.html — adds cover image support
+     for section landings (matches the cover.png pattern in docs/single.html).
+     If upgrading Hextra, diff this against the new upstream template. */}}
 {{ define "main" }}
   <div class='hx:mx-auto hx:flex hextra-max-page-width'>
     {{ partial "sidebar.html" (dict "context" .) }}
     {{ partial "toc.html" . }}
-    <article class="hx:w-full hx:break-words hx:flex hx:min-h-[calc(100vh-var(--navbar-height))] hx:min-w-0 hx:justify-center hx:pb-8 hx:pr-[calc(env(safe-area-inset-right)-1.5rem)]{{ if in .Params.series "papers" }} paper-post{{ end }}">
+    <article class="hx:w-full hx:break-words hx:flex hx:min-h-[calc(100vh-var(--navbar-height))] hx:min-w-0 hx:justify-center hx:pb-8 hx:pr-[calc(env(safe-area-inset-right)-1.5rem)]">
       <main id="content" class="hx:w-full hx:min-w-0 hextra-max-content-width hx:px-6 hx:pt-4 hx:md:px-12">
         {{ partial "breadcrumb.html" (dict "page" . "enable" true) }}
         {{ $cover := .Resources.GetMatch "cover.*" }}
@@ -24,16 +23,8 @@
           {{ end }}
           {{ .Content }}
         </div>
-        {{- if in .Params.series "papers" }}
-          {{- partial "papers-forwardlinks.html" . }}
-          {{- partial "papers/references.html" . }}
-          {{- partial "papers/dossier-link.html" . }}
-          {{- partial "papers-prev-next.html" . }}
-        {{- else if and (not (in .Params.series "papers")) (not (eq .Section "")) }}
-          {{- partial "papers-backlink.html" . }}
-        {{- end }}
         {{ partial "components/last-updated.html" . }}
-        {{- if and (not (in .Params.series "papers")) (site.Params.page.displayPagination | default true) -}}
+        {{- if (site.Params.page.displayPagination | default true) -}}
           {{- partial "components/pager.html" . -}}
         {{- end -}}
         {{ partial "components/comments.html" . }}

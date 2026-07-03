@@ -8,6 +8,12 @@ title = "{{ .project.name }}"
 
 [params]
   description = "{{ .project.tagline }}"
+{{- with .content_types }}{{- with .papers }}
+  papersDossierDir = "{{ .dossier_dir }}"
+{{- with .dossier_base_url }}
+  papersDossierBaseURL = "{{ . }}"
+{{- end }}
+{{- end }}{{- end }}
 
   [params.navbar]
     displayTitle = true
