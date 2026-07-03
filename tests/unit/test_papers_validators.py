@@ -1,8 +1,9 @@
 """P3.T2 — papers validators (config-driven)."""
 import yaml
 
+from dossier_parser import parse_dossier, section
 from sync_dossier_to_data import sync
-from validate_dossier import parse_dossier, validate_dossier
+from validate_dossier import validate_dossier
 from validate_papers import validate_paper
 
 GATE = {"min_vendors": 3, "min_sources": 5, "min_source_types": 3,
@@ -57,8 +58,13 @@ def test_missing_gaps_and_counters():
     assert any("gaps" in f for f in fails) and any("counter_arguments" in f for f in fails)
 
 
-def test_parse_dossier_frontmatter():
-    assert parse_dossier("---\nvendors:\n  - {name: a}\n---\n# body\n")["vendors"][0]["name"] == "a"
+def test_parse_dossier_h2_sections():
+    # H2-section format; section() locates by token even with parenthetical annotations
+    s = parse_dossier("# Dossier\n\n## Vendors in scope (>=3)\n- {name: a}\n")
+    assert section(s, "vendors")[0]["name"] == "a"
+    # frank's per-blog prefixes resolve too
+    s2 = parse_dossier("## Frank artefacts (>=3)\n- {kind: yaml}\n")
+    assert section(s2, "artefacts")[0]["kind"] == "yaml"
 
 
 # ---- paper frontmatter + weight invariant ----
@@ -96,9 +102,11 @@ def test_sync_writes_and_checks(tmp_path):
     d = tmp_path / "docs" / "papers-dossiers" / "01-x"
     d.mkdir(parents=True)
     (d / "dossier.md").write_text(
-        "---\nvendors:\n  - {name: v}\nprimary_sources:\n  - {title: a, type: paper, url: 'http://e'}\n---\n# b\n")
+        "# D\n\n## Vendors in scope\n- {name: v}\n\n## Primary sources\n- {title: a, type: paper, url: 'http://e'}\n")
     assert sync(tmp_path, "docs/papers-dossiers", "blog/data/papers") == []
     out = tmp_path / "blog" / "data" / "papers" / "01-x.yaml"
     assert out.exists()
-    assert yaml.safe_load(out.read_text())["primary_sources"][0]["type"] == "paper"
+    data = yaml.safe_load(out.read_text())
+    assert data["primary_sources"][0]["type"] == "paper"
+    assert set(data) == {"primary_sources"}   # data file mirrors ONLY primary_sources (frank-compatible)
     assert sync(tmp_path, "docs/papers-dossiers", "blog/data/papers", check=True) == []
