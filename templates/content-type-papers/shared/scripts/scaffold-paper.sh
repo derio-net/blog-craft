@@ -101,25 +101,26 @@ related_operating: ""
 *200–400 words.*
 FM
 
-# Dossier: YAML frontmatter (parsed by validate_dossier.py) + prose.
+# Dossier: markdown `## H2` sections whose bodies are YAML (parsed by dossier_parser.py).
 cat > "$DOSSIER/dossier.md" <<DOSS
----
-paper: ${DIR}
-status: draft
-vendors:
-  - {name: "TODO", positioning: "TODO one-line claim", primary_url: "https://TODO"}
-primary_sources:
-  - {title: "TODO", type: vendor-docs, url: "https://TODO", relevance: "one sentence"}
-artefacts:
-  - {kind: yaml, path_or_url: "TODO", date: "${TODAY}", demonstrates: "one sentence"}
-gaps:
-  - "TODO: gap description"
-counter_arguments:
-  - "TODO: counter-argument"
----
 # Dossier: ${DIR}
 
-Fill the frontmatter above until \`validate_dossier.py --config <cfg> ${DOSSIER_DIR}/${DIR}/dossier.md\` passes.
+Fill the sections below until \`validate_dossier.py --config <cfg> ${DOSSIER_DIR}/${DIR}/dossier.md\` passes.
+
+## Vendors in scope (>=3)
+- {name: "TODO", positioning: "TODO one-line claim", primary_url: "https://TODO"}
+
+## Primary sources (>=5, >=3 distinct type values)
+- {title: "TODO", type: vendor-docs, url: "https://TODO", relevance: "one sentence"}
+
+## Artefacts (>=3, >=2 distinct kind values)
+- {kind: yaml, path_or_url: "TODO", date: "${TODAY}", demonstrates: "one sentence"}
+
+## Named gaps (>=1)
+- "TODO: gap description"
+
+## Counter-arguments considered (>=1)
+- "TODO: counter-argument"
 DOSS
 
 echo "Scaffolded paper ${NN}:"

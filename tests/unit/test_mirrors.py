@@ -12,6 +12,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 
 MIRRORS = [
     ("tools/compose.py", "templates/hugo-hextra/scripts/compose.py"),
+    ("tools/dossier_parser.py", "templates/content-type-papers/shared/scripts/dossier_parser.py"),
     ("tools/validate_papers.py", "templates/content-type-papers/shared/scripts/validate_papers.py"),
     ("tools/validate_dossier.py", "templates/content-type-papers/shared/scripts/validate_dossier.py"),
     ("tools/sync_dossier_to_data.py", "templates/content-type-papers/shared/scripts/sync_dossier_to_data.py"),

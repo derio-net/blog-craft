@@ -3,7 +3,7 @@ import os
 import subprocess
 import sys
 
-from validate_dossier import parse_dossier
+from dossier_parser import parse_dossier, section
 from validate_papers import parse_frontmatter, validate_paper
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -31,7 +31,9 @@ def test_scaffold_paper(tmp_path):
     doss = tmp_path / "docs" / "papers-dossiers" / "07-self-hosted" / "dossier.md"
     assert doss.exists()
     data = parse_dossier(doss.read_text())
-    assert isinstance(data.get("vendors"), list) and data["vendors"]
+    # H2-section dossier: located by token, tolerant of the parenthetical annotation
+    assert isinstance(section(data, "vendors"), list) and section(data, "vendors")
+    assert section(data, "primary_sources", "sources") and section(data, "artefacts")
 
 
 def test_scaffold_refuses_duplicate(tmp_path):

@@ -9,7 +9,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 RENDER = os.path.join(ROOT, "tools", "bootstrap-render.sh")
 FIX = os.path.join(ROOT, "tests", "fixtures")
 
-SCRIPTS = ["validate_papers.py", "validate_dossier.py", "sync_dossier_to_data.py", "scaffold-paper.sh"]
+SCRIPTS = ["dossier_parser.py", "validate_papers.py", "validate_dossier.py",
+           "sync_dossier_to_data.py", "scaffold-paper.sh"]
 
 
 def _bootstrap(cfg, tmp_path, name):

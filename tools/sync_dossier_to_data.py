@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Mirror a paper's dossier frontmatter into the Hugo data dir.
+"""Sync each paper's dossier into the Hugo data dir.
 
-The references-index shortcode reads `.Site.Data.papers.<slug>`; this writes
-`<data_dir>/<slug>.yaml` from `<dossier_dir>/<slug>/dossier.md`. Config-driven:
-dossier_dir + data_dir come from content_types.papers.
+The §8 references-index reads `.Site.Data.papers.<slug>.primary_sources`; this
+writes `<data_dir>/<slug>.yaml` = `{primary_sources: [...]}` extracted from
+`<dossier_dir>/<slug>/dossier.md` (H2-section format, via dossier_parser).
+Config-driven: dossier_dir + data_dir come from content_types.papers.
 
 CLI:
   sync_dossier_to_data.py --config <.blog-craft.yaml> [--check]
@@ -15,17 +16,17 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from validate_dossier import parse_dossier  # tools/ on sys.path
+from dossier_parser import parse_dossier, section  # shipped alongside
 
 
-def _mirror(data: dict) -> dict:
-    return {k: data.get(k) for k in
-            ("vendors", "primary_sources", "artefacts", "gaps", "counter_arguments")
-            if data.get(k) is not None}
+def render(sources: list) -> str:
+    """Stable YAML for the data file — byte-compatible with frank's sync."""
+    import yaml
+    return yaml.safe_dump({"primary_sources": sources}, sort_keys=False,
+                          allow_unicode=True, width=10**9)
 
 
 def sync(root: Path, dossier_dir: str, data_dir: str, check: bool = False) -> list[str]:
-    import yaml
     ddir = root / dossier_dir
     out_dir = root / data_dir
     problems: list[str] = []
@@ -36,7 +37,8 @@ def sync(root: Path, dossier_dir: str, data_dir: str, check: bool = False) -> li
         if not dossier.is_file():
             continue
         slug = d.name
-        want = yaml.safe_dump(_mirror(parse_dossier(dossier.read_text())), sort_keys=True)
+        sources = section(parse_dossier(dossier.read_text()), "primary_sources", "sources")
+        want = render(sources)
         target = out_dir / f"{slug}.yaml"
         if check:
             if not target.exists() or target.read_text() != want:
@@ -62,6 +64,7 @@ def _main(argv):
     if problems:
         for p in problems:
             print(f"  x {p}", file=sys.stderr)
+        print("\nFAIL: run sync_dossier_to_data.py (no --check) and commit.", file=sys.stderr)
         return 1
     print("dossier->data " + ("in sync" if a.check else "synced"))
     return 0

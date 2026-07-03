@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
 """Validate a papers research dossier against the config-driven gate.
 
-blog-craft dossiers are `dossier.md` with a YAML frontmatter block carrying the
-structured gate data (vendors, primary_sources, artefacts, gaps,
-counter_arguments) followed by prose. Thresholds come from
-`content_types.papers.gate` in `.blog-craft.yaml` — nothing is hardcoded.
+Dossiers are markdown with `## H2` sections whose bodies are YAML (parsed by
+dossier_parser). Sections are located by TOKEN (so `## Frank artefacts (...)`,
+`## Artefacts`, or a plain `artefacts:` key all resolve). Gate thresholds come
+from `content_types.papers.gate` in `.blog-craft.yaml` — nothing is hardcoded.
 
-Library: `validate_dossier(data: dict, gate: dict, *, source_types=None,
-         artefact_kinds=None) -> list[str]` (empty == pass).
+Library: `validate_dossier(sections: dict, gate: dict, *, source_types=None,
+         artefact_kinds=None, url_checker=None) -> list[str]` (empty == pass).
 CLI:     `validate_dossier.py --config <.blog-craft.yaml> <dossier.md> [--check-urls]`
 """
 from __future__ import annotations
 
-import re
 import sys
+
+from dossier_parser import parse_dossier, section  # shipped alongside
 
 DEFAULT_GATE = {
     "min_vendors": 3, "min_sources": 5, "min_source_types": 3,
@@ -21,35 +22,20 @@ DEFAULT_GATE = {
 }
 
 
-def parse_dossier(text: str) -> dict:
-    """Parse the YAML frontmatter of a dossier.md into a dict."""
-    import yaml
-    if not text.startswith("---"):
-        raise ValueError("dossier missing opening `---` frontmatter")
-    rest = text.split("\n", 1)[1]
-    m = re.search(r"^---\s*$", rest, re.MULTILINE)
-    if m is None:
-        raise ValueError("dossier missing closing `---` frontmatter")
-    data = yaml.safe_load(rest[: m.start()])
-    if not isinstance(data, dict):
-        raise ValueError("dossier frontmatter is not a mapping")
-    return data
-
-
 def _distinct(items, key):
     return {i.get(key) for i in items if isinstance(i, dict) and i.get(key)}
 
 
-def validate_dossier(data: dict, gate: dict, *, source_types=None, artefact_kinds=None,
+def validate_dossier(sections: dict, gate: dict, *, source_types=None, artefact_kinds=None,
                      url_checker=None) -> list[str]:
     g = {**DEFAULT_GATE, **(gate or {})}
     f: list[str] = []
 
-    vendors = data.get("vendors") or []
+    vendors = section(sections, "vendors")
     if len(vendors) < g["min_vendors"]:
         f.append(f"vendors: need >={g['min_vendors']}, got {len(vendors)}")
 
-    sources = data.get("primary_sources") or []
+    sources = section(sections, "primary_sources", "sources")
     if len(sources) < g["min_sources"]:
         f.append(f"primary_sources: need >={g['min_sources']}, got {len(sources)}")
     stypes = _distinct(sources, "type")
@@ -65,7 +51,7 @@ def validate_dossier(data: dict, gate: dict, *, source_types=None, artefact_kind
             if u and not url_checker(u):
                 f.append(f"primary_sources url unreachable: {u}")
 
-    artefacts = data.get("artefacts") or []
+    artefacts = section(sections, "artefacts")
     if len(artefacts) < g["min_artefacts"]:
         f.append(f"artefacts: need >={g['min_artefacts']}, got {len(artefacts)}")
     akinds = _distinct(artefacts, "kind")
@@ -76,9 +62,9 @@ def validate_dossier(data: dict, gate: dict, *, source_types=None, artefact_kind
         if bad:
             f.append(f"artefacts: unknown kind(s) {sorted(bad)} (allowed: {artefact_kinds})")
 
-    if len(data.get("gaps") or []) < g["min_gaps"]:
+    if len(section(sections, "gaps")) < g["min_gaps"]:
         f.append(f"gaps: need >={g['min_gaps']}")
-    if len(data.get("counter_arguments") or []) < g["min_counterargs"]:
+    if len(section(sections, "counter")) < g["min_counterargs"]:
         f.append(f"counter_arguments: need >={g['min_counterargs']}")
     return f
 
@@ -98,7 +84,7 @@ def _main(argv):
     ap.add_argument("--check-urls", action="store_true")
     a = ap.parse_args(argv)
     gate, stypes, akinds = _load_gate(a.config)
-    data = parse_dossier(open(a.dossier).read())
+    sections = parse_dossier(open(a.dossier).read())
     checker = None
     if a.check_urls:
         import urllib.request
@@ -109,7 +95,7 @@ def _main(argv):
                     return r.status < 400
             except Exception:
                 return False
-    failures = validate_dossier(data, gate, source_types=stypes, artefact_kinds=akinds, url_checker=checker)
+    failures = validate_dossier(sections, gate, source_types=stypes, artefact_kinds=akinds, url_checker=checker)
     if failures:
         print(f"DOSSIER GATE FAILED: {a.dossier}", file=sys.stderr)
         for x in failures:
