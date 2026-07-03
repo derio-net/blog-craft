@@ -1,0 +1,6 @@
+schema_version: 2
+plan: 2026-07-03-series-index-shortcode
+spec: docs/superpowers/specs/2026-07-03--series-index--page-derived-series-overviews-design.md
+target_repo: derio-net/blog-craft
+fr_version: '>=3.0.0,<4.0.0'
+created: '2026-07-03'

@@ -4,7 +4,7 @@
 #   1. Create the page bundle with frontmatter
 #   2. Append a YAML entry to <blog>/prompt_for_images.yaml
 #   3. Run scripts/generate-images.py --only <key>
-#   4. If features.series_overview_posts: update <series>/00-overview/index.md
+#   (the series overview auto-lists the post via the {{< series-index >}} shortcode — no update needed)
 #
 # Usage:
 #   blog-post-create.sh <blog_root> <series> <number> <slug> <title> \
@@ -28,13 +28,6 @@ PROMPT_FILE=${6:?"prompt-file required"}
 BODY_FILE=${7:?"body-file required"}
 SUMMARY_FILE=${8:?"summary-file required"}
 
-PLUGIN_ROOT=$(cd "$(dirname "$0")/.." && pwd)
-INSERTER="$PLUGIN_ROOT/tools/insert-before-marker.py"
-RENDERER_DIR="$PLUGIN_ROOT/tools/render-template"
-# Only the go invocation needs brew PATH; don't shadow caller's PATH globally,
-# so a venv-on-PATH python3 (e.g. with PyYAML) wins for the image-gen step.
-GO_PATH="/usr/local/bin:$PATH"
-
 [[ -f "$BLOG_ROOT/.blog-craft.yaml" ]] || { echo "ERROR: $BLOG_ROOT/.blog-craft.yaml not found" >&2; exit 2; }
 [[ -f "$PROMPT_FILE" ]]  || { echo "ERROR: prompt file $PROMPT_FILE not found"   >&2; exit 2; }
 [[ -f "$BODY_FILE" ]]    || { echo "ERROR: body file $BODY_FILE not found"     >&2; exit 2; }
@@ -43,9 +36,6 @@ GO_PATH="/usr/local/bin:$PATH"
 # Read summary, trim whitespace, escape double-quotes for safe insertion in
 # YAML double-quoted scalar.
 SUMMARY=$(tr -d '\n' < "$SUMMARY_FILE" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g; s/"/\\"/g')
-
-# Read overview-posts feature flag from .blog-craft.yaml via the Go renderer
-OVERVIEW_ENABLED=$(cd "$RENDERER_DIR" && PATH="$GO_PATH" go run . --answers "$BLOG_ROOT/.blog-craft.yaml" --get-bool features.series_overview_posts 2>/dev/null || echo "true")
 
 WEIGHT=$((10#$NUMBER + 1))
 TODAY=$(date +%Y-%m-%d)
@@ -95,23 +85,8 @@ if [[ ! -f "$BLOG_ROOT/$REFERENCE_PATH" ]]; then
 fi
 ( cd "$BLOG_ROOT" && python3 scripts/generate-images.py --reference "$REFERENCE_PATH" --only "$KEY" )
 
-# 4. Overview update (only if enabled)
-if [[ "$OVERVIEW_ENABLED" == "true" ]]; then
-  OVERVIEW="$BLOG_ROOT/content/docs/$SERIES/00-overview/index.md"
-  if [[ ! -f "$OVERVIEW" ]]; then
-    echo "  WARN: overview enabled but $OVERVIEW does not exist — skipping" >&2
-  else
-    INDEX_MARKER='<!-- /blog-post auto-appends entries here as posts are created. -->'
-    MAP_MARKER='<!-- /blog-post auto-appends rows here. -->'
-    INDEX_ENTRY="${NUMBER}. [${TITLE}]({{< relref \"${NUMBER}-${SLUG}\" >}})"
-    MAP_ROW="| ${NUMBER} | ${TITLE} | (TODO) |"
-    python3 "$INSERTER" "$OVERVIEW" "$INDEX_MARKER" "$INDEX_ENTRY" >/dev/null
-    python3 "$INSERTER" "$OVERVIEW" "$MAP_MARKER" "$MAP_ROW" >/dev/null
-    echo "  overview updated: $OVERVIEW"
-  fi
-else
-  echo "  overview update: SKIPPED (features.series_overview_posts=false)"
-fi
+# 4. No overview update — the series overview lists this post automatically via
+#    the {{< series-index >}} shortcode (page-derived) on the next build.
 
 echo
 echo "POST CREATED."

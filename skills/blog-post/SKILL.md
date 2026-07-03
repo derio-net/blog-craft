@@ -1,6 +1,6 @@
 ---
 name: blog-post
-description: Create a new Hugo blog post in a blog-craft blog. Composes the body and summary from context, generates a cover image from the configured central metaphor, updates the relevant series overview, and runs /media to fill any media markers the body contains.
+description: Create a new Hugo blog post in a blog-craft blog. Composes the body and summary from context, generates a cover image from the configured central metaphor, and runs /media to fill any media markers the body contains. The series overview lists the new post automatically (page-derived).
 user-invocable: true
 disable-model-invocation: false
 arguments:
@@ -24,7 +24,7 @@ arguments:
 
 ## Plugin internals
 
-- **Helper script:** `<plugin_root>/tools/blog-post-create.sh` — does the mechanical bits (page bundle, prompts entry, image-gen, overview update). Takes both a prompt-file and a body-file.
+- **Helper script:** `<plugin_root>/tools/blog-post-create.sh` — does the mechanical bits (page bundle, prompts entry, image-gen). Takes both a prompt-file and a body-file.
 - **YAML reader:** `<plugin_root>/tools/render-template/main.go` `--get-bool` mode (used by helper).
 
 ## Procedure
@@ -124,7 +124,7 @@ The helper:
 1. Creates the page bundle at `<blog_root>/content/docs/<series>/<number>-<slug>/index.md` with weight `<number>+1`, the **approved summary** in the frontmatter, and the **approved body** (markers and all) below it.
 2. Appends a `key: <series>-<number>` entry to `<blog_root>/prompt_for_images.yaml`, copying the approved prompt under `prompt: |`.
 3. Runs `python scripts/generate-images.py --only <series>-<number>`. Requires PyYAML + Pillow + google-genai installed (see the blog's `README.md` for venv setup). Honors the `<api_key_env>` from Step 7.
-4. If `features.series_overview_posts: true`: inserts a numbered list line under `## Series Index` in `00-overview/index.md` and a row under `## Topic / Evolution Map`.
+4. Does **not** touch the series overview — its `{{< series-index >}}` shortcode lists the new post automatically on the next Hugo build (page-derived, always in sync).
 
 If the helper exits non-zero, surface the error and stop.
 
@@ -165,5 +165,5 @@ Do **not** auto-launch the server.
 
 - Re-running with the same `<series>/<number>-<slug>` is refused at Step 3.
 - The user can manually regenerate just the image (Step 9's regen branch), edit the page bundle by hand, or re-run `/blog-craft:media` separately on the post path.
-- The helper's overview-update step is idempotent (same insert won't duplicate), so if the helper crashed midway and you re-run after fixing the page bundle, the overview won't get a second entry.
+- The series overview needs no maintenance — it derives its index from the pages that exist, so a crashed/re-run helper, a hand-created post, or a deleted post are all reflected on the next build with no manual edit.
 - `/blog-craft:media` is itself idempotent — re-invoking it after some assets are added fills those without disturbing already-filled or still-empty markers.

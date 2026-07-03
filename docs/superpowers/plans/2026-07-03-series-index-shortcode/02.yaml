@@ -1,0 +1,55 @@
+schema_version: 2
+phase:
+  number: 2
+  title: Retire the push markers; template + scaffold adopt the shortcode
+  tag: agentic
+  depends_on:
+  - 1
+  tracking_issue: null
+tasks:
+- number: 1
+  title: per-series-overview template uses the shortcode
+  steps:
+  - id: P2.T1.S1
+    text: |-
+      Edit `templates/per-series-overview/00-overview/index.md.tmpl`: replace the
+      `## Series Index` + `<!-- …auto-appends entries… -->` marker AND the
+      `## Topic / Evolution Map` + table + `<!-- …auto-appends rows… -->` marker with a single
+      `## Series Index` followed by `{{< series-index >}}`. Add/extend a test that a
+      bootstrapped `<series>/00-overview` contains `{{< series-index >}}` and NO `auto-appends`
+      markers, and that `hugo` build lists the series' posts. Run it green.
+- number: 2
+  title: blog-post-create drops the overview append; full suite green
+  steps:
+  - id: P2.T2.S1
+    text: |-
+      Edit `tools/blog-post-create.sh`: remove the overview-update block (the
+      `features.series_overview_posts` read, the `OVERVIEW=` resolution, and the two
+      `insert-before-marker.py` invocations). Keep the bundle / prompts-entry / image-gen steps.
+      Update `tests/unit/test_scaffold_paper.py` (and any blog-post test) to stop asserting an
+      appended overview entry — assert the bundle + dossier exist and the overview is untouched
+      by scaffold. `grep -rl insert-before-marker tools templates tests`: if only the removed
+      code used it, `git rm tools/insert-before-marker.py` and drop it from the manifest + any test.
+  - id: P2.T2.S2
+    text: |-
+      Full green: `bash tests/run-unit.sh tests/unit tests/reproduction` and
+      `BLOG_CRAFT_TEST_VENV=/tmp/blog-craft-unit-venv bash tests/smoke-bootstrap.sh`. Fix any
+      fallout (golden-config classification, mirror guards, etc.).
+state:
+  steps:
+    P2.T1.S1:
+      state: x
+      ticked_at: '2026-07-03T21:54:48+00:00'
+      note: null
+    P2.T2.S1:
+      state: x
+      ticked_at: '2026-07-03T21:54:49+00:00'
+      note: null
+    P2.T2.S2:
+      state: x
+      ticked_at: '2026-07-03T21:54:50+00:00'
+      note: null
+  completion:
+    at: '2026-07-03T21:54:52+00:00'
+    note: null
+    observed_prs: []
