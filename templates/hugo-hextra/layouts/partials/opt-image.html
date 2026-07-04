@@ -29,7 +29,9 @@
   {{- $widths := slice 480 960 $maxW -}}
   {{- $srcset := slice -}}
   {{- range $w := $widths -}}
-    {{- if le $w $r.Width -}}
+    {{- /* clamp to BOTH the source width and the cap, so no srcset candidate is
+           wider than the capped primary (matters when maxWidth < 960). */ -}}
+    {{- if and (le $w $r.Width) (le $w $maxW) -}}
       {{- $d := $r.Resize (printf "%dx %s q%d" $w $fmt $q) -}}
       {{- $srcset = $srcset | append (printf "%s %dw" $d.RelPermalink $d.Width) -}}
     {{- end -}}
@@ -38,6 +40,6 @@
 {{- else -}}
   {{- $src := .src -}}{{- with $r }}{{ $src = .RelPermalink }}{{- end -}}
   {{- with $src -}}
-  <img src="{{ . }}" alt="{{ $.alt }}"{{ with $.class }} class="{{ . }}"{{ end }} loading="{{ $.loading | default "lazy" }}" />
+  <img src="{{ . }}" alt="{{ $.alt }}"{{ with $.class }} class="{{ . }}"{{ end }} loading="{{ $.loading | default "lazy" }}" decoding="async" />
   {{- end -}}
 {{- end -}}

@@ -77,8 +77,10 @@ def test_bundle_images_become_capped_webp_with_srcset(tmp_path):
     assert 'height="' in html
     # remote image passes through unoptimized
     assert "https://example.com/x.png" in html
-    # banner present + optimized
+    # banner present + optimized + capped to bannerMaxWidth (3000px -> 2560)
     assert 'class="site-track-banner"' in html
+    assert re.search(r'site-track-banner[^<]*<img src="[^"]+\.webp"[^>]*\bwidth="2560"', html), \
+        "banner not optimized/capped to bannerMaxWidth"
     assert html.count(".webp") >= 3   # inline + screenshot + banner
 
 
@@ -86,3 +88,5 @@ def test_optimize_off_leaves_raw_png(tmp_path):
     html = _build(tmp_path, {"enabled": False})
     assert ".webp" not in html, "optimize disabled but webp emitted"
     assert re.search(r'src="[^"]+inline\.png"', html) or "inline.png" in html
+    # the banner (an assets resource) still renders — raw, unoptimized
+    assert 'class="site-track-banner"' in html, "banner lost when optimize disabled"

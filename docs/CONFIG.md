@@ -107,9 +107,13 @@ and the `{{< screenshot >}}` shortcode, and **banners**. Remote/absolute URLs an
 single `partials/opt-image.html`.
 
 **Banner convention (important):** Hugo can only process images that are page
-resources or live under `assets/`. So banners must live in **`assets/images/`**
-(e.g. `assets/images/banner-<track>.png`), **not** `static/images/`. A blog with
-no matching banner asset renders no banner (nil-safe).
+resources or live under `assets/`. So to be **optimized**, banners must live in
+**`assets/images/`** (e.g. `assets/images/banner-<track>.png`), **not**
+`static/images/` — and `prompt_for_images.yaml` directs operator-generated
+banners there. A banner still in `static/images/` renders **raw (unoptimized)**
+as a fallback, so an un-migrated blog never silently loses its banner; move it to
+`assets/images/` to opt into WebP. A track with no banner in either place renders
+nothing (nil-safe).
 
 **Requires Hugo Extended** for WebP encoding. The shipped CI template
 (`.github/workflows/blog-ci.yml`) sets `extended: true`; a blog with its own CI

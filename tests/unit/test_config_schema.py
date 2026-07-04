@@ -124,7 +124,8 @@ def test_image_optimize_bad_enabled_rejected():
 
 def test_image_optimize_quality_out_of_range_rejected():
     cfg = _valid()
-    for bad in (0, 101, "hi", 82.5):
+    # bool is guarded before the int check (isinstance(True, int) is True)
+    for bad in (0, 101, "hi", 82.5, True, False):
         cfg["image"]["optimize"] = {"quality": bad}
         assert any("optimize" in e and "quality" in e for e in validate_config(cfg)), bad
 
@@ -132,7 +133,6 @@ def test_image_optimize_quality_out_of_range_rejected():
 def test_image_optimize_widths_must_be_positive_ints():
     cfg = _valid()
     for key in ("max_width", "banner_max_width"):
-        cfg["image"]["optimize"] = {key: 0}
-        assert any("optimize" in e and key in e for e in validate_config(cfg)), key
-        cfg["image"]["optimize"] = {key: "wide"}
-        assert any("optimize" in e and key in e for e in validate_config(cfg)), key
+        for bad in (0, "wide", True, False):
+            cfg["image"]["optimize"] = {key: bad}
+            assert any("optimize" in e and key in e for e in validate_config(cfg)), (key, bad)

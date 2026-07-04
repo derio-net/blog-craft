@@ -1,6 +1,7 @@
-{{- /* Site/track banner. Banners live in assets/images/ (NOT static/) so Hugo can
-       process them into optimized WebP via opt-image. Nil-safe: a blog with no
-       matching banner asset renders nothing. */ -}}
+{{- /* Site/track banner. Prefer an assets/images/ banner (Hugo-processable → optimized
+       WebP via opt-image); fall back to a static/images/ banner rendered raw, so a blog
+       that hasn't relocated its banners to assets/ keeps rendering them (no regression).
+       Nil-safe: a track with no banner in either place renders nothing. */ -}}
 {{- $name := "" -}}
 {{- if eq .Kind "home" -}}
   {{- $name = "images/banner-landing.png" -}}
@@ -16,10 +17,14 @@
   {{- end -}}
 {{- end -}}
 {{- with $name -}}
-  {{- $banner := resources.Get . -}}
-  {{- with $banner -}}
+  {{- $asset := resources.Get . -}}
+  {{- if $asset -}}
 <div class="site-track-banner">
-  {{ partial "opt-image.html" (dict "resource" . "alt" "" "loading" "eager" "maxWidth" site.Params.imageOptimize.bannerMaxWidth) }}
+  {{ partial "opt-image.html" (dict "resource" $asset "alt" "" "loading" "eager" "maxWidth" site.Params.imageOptimize.bannerMaxWidth) }}
+</div>
+  {{- else if (fileExists (printf "static/%s" .)) -}}
+<div class="site-track-banner">
+  <img src="{{ . | relURL }}" alt="" loading="eager" decoding="async" />
 </div>
   {{- end -}}
 {{- end -}}
