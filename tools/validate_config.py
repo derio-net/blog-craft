@@ -9,6 +9,7 @@ from __future__ import annotations
 import sys
 
 RESERVED_SCENE = "scene"
+SERIES_INDEX_STYLES = frozenset({"cards", "table", "none"})
 REQUIRED_TOP = ("project", "image", "series", "voice")
 REQUIRED_IMAGE = ("composition_order", "layers")
 # Layers that, when named in composition_order, must be a mapping (indexed-table),
@@ -77,6 +78,27 @@ def validate_config(cfg: dict) -> list[str]:
             for i, s in enumerate(series):
                 if not isinstance(s, dict) or "key" not in s or "title" not in s:
                     errors.append(f"series[{i}] must have at least key + title")
+
+    # optional series_index block: style cards|table|none (default cards at render
+    # time), optional layers registry (opts into layer colour-coding).
+    si = cfg.get("series_index")
+    if si is not None:
+        if not isinstance(si, dict):
+            errors.append("series_index must be a mapping")
+        else:
+            style = si.get("style")
+            if style is not None and style not in SERIES_INDEX_STYLES:
+                errors.append(
+                    f"series_index.style must be one of {sorted(SERIES_INDEX_STYLES)} (got {style!r})"
+                )
+            layers = si.get("layers")
+            if layers is not None:
+                if not isinstance(layers, list):
+                    errors.append("series_index.layers must be a list of {code, name}")
+                else:
+                    for i, ly in enumerate(layers):
+                        if not isinstance(ly, dict) or "code" not in ly or "name" not in ly:
+                            errors.append(f"series_index.layers[{i}] must have code + name")
 
     return errors
 
