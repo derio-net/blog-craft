@@ -20,6 +20,12 @@ image:
   composition_order: [ <layer names…>, scene ]
   layers:
     <name>: <scalar | list | indexed-table>
+  optimize:               # optional; build-time WebP pipeline (see §6). Absent → raw images.
+    enabled: true
+    format: webp
+    quality: 82
+    max_width: 1600
+    banner_max_width: 2560
 
 series:
   - { key, title, description, content_type: posts | papers }
@@ -78,3 +84,33 @@ the `roadmap` shortcode (a layer is the same colour in both). Regenerate the
 palette (`python tools/gen-layer-palette.py --config .blog-craft.yaml > data/layer_palette.yaml`)
 whenever the layer set changes. Without a palette, cards render neutral and the
 roadmap is uncoloured — no layer system is required.
+
+## §6 Image optimization (`image.optimize`)
+
+Opt-in, build-time image optimization. When `image.optimize.enabled: true`, Hugo
+processes bundle-resource images into **WebP** derivatives (width-capped, with a
+responsive `srcset` + explicit `width`/`height`) at build — the committed PNG
+**masters stay untouched**. Absent or `enabled: false` → raw images pass through.
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `enabled` | `false` | Master switch (opt-in). |
+| `format` | `webp` | Output format (only `webp` supported). |
+| `quality` | `82` | Encode quality, 1–100. |
+| `max_width` | `1600` | Width cap (px) for covers + inline images. |
+| `banner_max_width` | `2560` | Separate cap for the wide site/track banners. |
+
+**What is optimized:** post/section **covers** (`docs/list.html` + a blog's own
+`single.html`), **inline** markdown images (`![](…)` via the render-image hook)
+and the `{{< screenshot >}}` shortcode, and **banners**. Remote/absolute URLs and
+`svg`/`gif` resources always pass through untouched. All routes go through the
+single `partials/opt-image.html`.
+
+**Banner convention (important):** Hugo can only process images that are page
+resources or live under `assets/`. So banners must live in **`assets/images/`**
+(e.g. `assets/images/banner-<track>.png`), **not** `static/images/`. A blog with
+no matching banner asset renders no banner (nil-safe).
+
+**Requires Hugo Extended** for WebP encoding. The shipped CI template
+(`.github/workflows/blog-ci.yml`) sets `extended: true`; a blog with its own CI
+must ensure the same, or WebP silently won't be generated.

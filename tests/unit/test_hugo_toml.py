@@ -92,3 +92,10 @@ def test_image_optimize_from_config(tmp_path):
     assert "quality = 70" in toml
     assert "maxWidth = 1200" in toml
     assert "bannerMaxWidth = 2000" in toml
+
+
+def test_shipped_ci_template_pins_hugo_extended():
+    """WebP encode needs Hugo Extended — the shipped CI must keep extended:true."""
+    tmpl = os.path.join(ROOT, "templates", "hugo-hextra", ".github", "workflows", "blog-ci.yml.tmpl")
+    body = open(tmpl).read()
+    assert "extended: true" in body, "blog-ci.yml.tmpl must set extended:true (WebP needs it)"
