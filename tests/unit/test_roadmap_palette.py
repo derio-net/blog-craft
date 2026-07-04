@@ -60,3 +60,38 @@ def test_roadmap_neutral_without_palette(tmp_path):
     html = _roadmap_html(tmp_path, with_palette=False)
     assert ".roadmap .layer-" not in html   # no per-layer colour rules
     assert "roadmap-card layer-api" in html  # class still applied (just uncoloured)
+
+
+def test_layer_colour_identical_in_cards_and_roadmap(tmp_path):
+    """The spec's headline invariant: a layer is the SAME colour in the series-index
+    cards and the roadmap (both read the one data/layer_palette.yaml)."""
+    import re
+    cfg = yaml.safe_load(open(os.path.join(FIX, "valid-v2.blog-craft.yaml")))
+    cfg["series_index"] = {"style": "cards", "layers": [{"code": "api", "name": "API Layer"}]}
+    ans = tmp_path / "ans.yaml"; ans.write_text(yaml.safe_dump(cfg))
+    blog = str(tmp_path / "blog")
+    env = {**os.environ, "PYTHON": sys.executable}   # let bootstrap generate the palette
+    subprocess.run(["bash", RENDER, str(ans), blog], check=True, capture_output=True, text=True, env=env)
+    assert os.path.exists(os.path.join(blog, "data", "layer_palette.yaml"))
+
+    open(os.path.join(blog, "data", "roadmap.yaml"), "w").write(
+        "layers:\n  - { num: 1, key: api, title: \"API\", sub_items: [x], tags: [t] }\n")
+    d = os.path.join(blog, "content", "docs", "rm"); os.makedirs(d)
+    open(os.path.join(d, "index.md"), "w").write(
+        "---\ntitle: RM\nweight: 9\ndraft: false\n---\n{{< roadmap >}}\n")
+    p = os.path.join(blog, "content", "docs", "tutorials", "01-x"); os.makedirs(p)
+    open(os.path.join(p, "index.md"), "w").write(
+        "---\ntitle: X\nseries: [tutorials]\nlayer: api\nweight: 2\ndraft: false\nsummary: s\n---\nb\n")
+
+    r = subprocess.run(["hugo"], cwd=blog, capture_output=True, text=True)
+    assert r.returncode == 0, r.stdout + r.stderr
+
+    def _hex(page_glob, selector):
+        hit = glob.glob(os.path.join(blog, "public", "**", page_glob, "index.html"), recursive=True)[0]
+        m = re.search(selector + r" \{ border-left-color: (#[0-9a-f]+)", open(hit).read())
+        assert m, f"no colour rule for {selector}"
+        return m.group(1)
+
+    cards_hex = _hex(os.path.join("tutorials", "00-overview"), r"\.series-index \.layer-api")
+    roadmap_hex = _hex("rm", r"\.roadmap \.layer-api")
+    assert cards_hex == roadmap_hex, f"layer colour diverged: cards {cards_hex} vs roadmap {roadmap_hex}"

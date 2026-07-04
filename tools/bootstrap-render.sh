@@ -82,7 +82,10 @@ if ( cd "$RENDERER_DIR" && go run . --answers "$ANSWERS" --has series_index.laye
     "$PYBIN" "$PLUGIN_ROOT/tools/gen-layer-palette.py" --config "$ANSWERS" > "$TARGET/data/layer_palette.yaml"
     echo "[3e] layer-palette: generated data/layer_palette.yaml"
   else
-    echo "[3e] layer-palette: SKIPPED (no PyYAML for $PYBIN — run tools/gen-layer-palette.py manually)" >&2
+    echo "[3e] layer-palette: SKIPPED — '$PYBIN' has no PyYAML." >&2
+    echo "     ACTION NEEDED: cards will render NEUTRAL until you generate the palette:" >&2
+    echo "       python tools/gen-layer-palette.py --config <.blog-craft.yaml> > $TARGET/data/layer_palette.yaml" >&2
+    echo "     (or set PYTHON=<a python with pyyaml> and re-run bootstrap)" >&2
   fi
 else
   echo "[3e] layer-palette: SKIPPED (no series_index.layers)"
