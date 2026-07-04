@@ -33,7 +33,10 @@
 <p class="series-index-empty"><em>No posts yet.</em></p>
 {{- end -}}
 {{- else -}}
-{{- /* cards (default): a papers-roadmap-style vertical timeline */ -}}
+{{- /* cards (default): a papers-roadmap-style vertical timeline; colour-coded by the
+       post's `layer` when the blog ships data/layer_palette.yaml, else neutral. */ -}}
+{{- $palette := false -}}
+{{- with site.Data.layer_palette }}{{- $palette = .layers -}}{{- end -}}
 <style>
 .series-index {
   --si-bg: #f8f9fa; --si-border: #dee2e6; --si-text: #212529; --si-muted: #6c757d; --si-line: #adb5bd;
@@ -61,17 +64,29 @@
 .series-index .tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 .series-index .tag { font-size: 0.7rem; padding: 2px 8px; border-radius: 4px; background: var(--si-border); color: var(--si-muted); font-weight: 500; }
 .series-index .tag-layer { background: transparent; border: 1px solid var(--si-line); color: var(--si-text); font-weight: 600; }
+{{- with $palette }}{{ range $code, $c := . }}
+.series-index .layer-{{ $code }} { border-left-color: {{ $c.light }}; }
+.series-index .layer-{{ $code }} .si-num { background: {{ $c.light }}; color: {{ $c.lt }}; }
+.dark .series-index .layer-{{ $code }} { border-left-color: {{ $c.dark }}; }
+.dark .series-index .layer-{{ $code }} .si-num { background: {{ $c.dark }}; color: {{ $c.dt }}; }
+{{- end }}{{ end }}
 .series-index-empty { color: var(--si-muted); font-style: italic; }
 </style>
 {{- if $rows -}}
 <div class="series-index">
 {{- range $rows }}
 {{- $num := "" -}}{{- with (findRE `^[0-9]+` .File.ContentBaseName) -}}{{- $num = index . 0 -}}{{- end -}}
+{{- $layer := .Params.layer | default "" -}}
+{{- $entry := false -}}{{- with $palette }}{{- $entry = index . $layer -}}{{- end -}}
+{{- $tags := .Params.tags -}}
   <div class="si-item">
-    <div class="si-card">
+    <div class="si-card{{ with $entry }} layer-{{ $layer }}{{ end }}">
       <div class="si-title"><span class="si-num">{{ $num }}</span><a href="{{ .RelPermalink }}">{{ .LinkTitle }}</a></div>
       {{- with .Params.summary }}<div class="si-summary">{{ . }}</div>{{ end -}}
-      {{- with .Params.tags }}<div class="tags">{{ range . }}<span class="tag">{{ . }}</span>{{ end }}</div>{{ end -}}
+      {{- if or $entry $tags }}<div class="tags">
+        {{- with $entry }}<span class="tag tag-layer">{{ .name }}</span>{{ end -}}
+        {{- with $tags }}{{ range . }}<span class="tag">{{ . }}</span>{{ end }}{{ end -}}
+      </div>{{ end -}}
     </div>
   </div>
 {{- end }}
