@@ -1,0 +1,48 @@
+schema_version: 2
+phase:
+  number: 1
+  title: Config knob — image.optimize (validator + hugo.toml param)
+  tag: agentic
+  depends_on: []
+  tracking_issue: null
+tasks:
+- number: 1
+  title: Validate the optional image.optimize block
+  steps:
+  - id: P1.T1.S1
+    text: |
+      RED: add tests/unit cases to test_config_schema.py — an absent image.optimize is valid; a present one must be a mapping with enabled bool, format in {webp}, quality int 1-100, max_width/banner_max_width positive ints; bad values are rejected. Run pytest — fail (no validation yet).
+  - id: P1.T1.S2
+    text: |
+      GREEN: extend tools/validate_config.py — inside the image-block validation, validate an optional `optimize` sub-mapping per S1 (mirror the series_index block style). Absent → valid. Tests pass.
+- number: 2
+  title: Thread the knob into hugo.toml
+  steps:
+  - id: P1.T2.S1
+    text: |
+      RED: add a tests/unit case (test_hugo_toml.py) — a config with image.optimize renders `[params.imageOptimize]` with enabled/format/quality/maxWidth/bannerMaxWidth; a config WITHOUT it renders imageOptimize disabled (enabled=false default). Run — fail.
+  - id: P1.T2.S2
+    text: |
+      GREEN: add `[params.imageOptimize]` to templates/hugo-hextra/hugo.toml.tmpl (mirror the [params.seriesIndex] block at line 19) reading from `.image.optimize` with safe defaults (enabled=false, format=webp, quality=82, maxWidth=1600, bannerMaxWidth=2560). Render a fixture config through tools/render-template + grep. Tests pass.
+state:
+  steps:
+    P1.T1.S1:
+      state: x
+      ticked_at: '2026-07-04T12:18:19+00:00'
+      note: null
+    P1.T1.S2:
+      state: x
+      ticked_at: '2026-07-04T12:18:20+00:00'
+      note: null
+    P1.T2.S1:
+      state: x
+      ticked_at: '2026-07-04T12:18:21+00:00'
+      note: null
+    P1.T2.S2:
+      state: x
+      ticked_at: '2026-07-04T12:18:22+00:00'
+      note: null
+  completion:
+    at: '2026-07-04T12:18:23+00:00'
+    note: null
+    observed_prs: []

@@ -1,0 +1,42 @@
+schema_version: 2
+phase:
+  number: 3
+  title: Docs + full verification
+  tag: agentic
+  depends_on:
+  - 2
+  tracking_issue: null
+tasks:
+- number: 1
+  title: CONFIG.md + assets-banner convention docs
+  steps:
+  - id: P3.T1.S1
+    text: |
+      Document image.optimize (enabled/format/quality/max_width/banner_max_width) in docs/CONFIG.md, and the banner convention (banners live in assets/images/, not static/, so Hugo can process them). Note Hugo Extended is required for webp.
+- number: 2
+  title: Full suite + extended-hugo CI guard
+  steps:
+  - id: P3.T2.S1
+    text: |
+      Verify blog-craft CI uses Hugo EXTENDED (webp encode needs it) — inspect the CI template / smoke harness hugo invocation; if it can't be guaranteed extended, add an assertion (a test that fails if `hugo version` lacks +extended, or a build-time check).
+  - id: P3.T2.S2
+    text: |
+      Run the full tests/unit + smoke suite and a `hugo --minify` clean build over the image fixtures (optimize on: webp+srcset generated; optimize off: raw-PNG passthrough). Paste the summary. In-repo verification only (blog-craft is a plugin repo — no deploy).
+state:
+  steps:
+    P3.T1.S1:
+      state: x
+      ticked_at: '2026-07-04T12:30:49+00:00'
+      note: null
+    P3.T2.S1:
+      state: x
+      ticked_at: '2026-07-04T12:30:50+00:00'
+      note: null
+    P3.T2.S2:
+      state: x
+      ticked_at: '2026-07-04T12:30:51+00:00'
+      note: null
+  completion:
+    at: '2026-07-04T12:30:51+00:00'
+    note: null
+    observed_prs: []

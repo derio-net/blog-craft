@@ -25,17 +25,18 @@ images:
   # ──────────────────────────────────────────────────────────────────────────────
   # BANNERS — OPERATOR-GENERATED (operator_generated: true → generate-images.py skips them).
   # Gemini API does not support panoramic 6:1; generate via the Gemini web UI (1200×200)
-  # and drop the PNG into {{ .image.output_dir }}/.
+  # and drop the PNG into assets/images/ — banners MUST live under assets/ (NOT
+  # {{ .image.output_dir }}/) so Hugo can optimize them into WebP (see CONFIG.md §6).
   # ──────────────────────────────────────────────────────────────────────────────
   - key: banner-landing
-    output: {{ .image.output_dir }}/banner-landing.png
+    output: assets/images/banner-landing.png
     aspect_ratio: "6:1"
     operator_generated: true
     description: "Thin panoramic header banner for the {{ .project.name }} homepage (6:1, 1200×200)"
     prompt: ""    # fill in: thin panoramic establishing view that reads well as a horizontal strip
 {{- range .series }}
   - key: banner-{{ .key }}
-    output: {{ $.image.output_dir }}/banner-{{ .key }}.png
+    output: assets/images/banner-{{ .key }}.png
     aspect_ratio: "6:1"
     operator_generated: true
     description: "Thin panoramic header banner for the {{ .title }} section (6:1, 1200×200)"

@@ -13,6 +13,7 @@ framework:
   - "MEDIA-GUIDE.md"
   - ".hookify.warn-hextra-weight-zero.md"
   - "static/images/.gitkeep"
+  - "assets/images/.gitkeep"
 
 merged:
   - "hugo.toml"
@@ -28,3 +29,4 @@ content:
   - "content/**"
   - "data/**"
   - "static/images/*.png"
+  - "assets/images/*.png"   # per-blog banners (opt-image reads them from assets/); never overwrite

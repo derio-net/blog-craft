@@ -1,0 +1,66 @@
+schema_version: 2
+phase:
+  number: 2
+  title: Core partial + wiring (covers, inline, banners)
+  tag: agentic
+  depends_on:
+  - 1
+  tracking_issue: null
+tasks:
+- number: 1
+  title: opt-image.html partial (the reusable optimizer)
+  steps:
+  - id: P2.T1.S1
+    text: |
+      RED: add a smoke fixture blog (tests/fixtures or the smoke harness) with a page-bundle cover PNG + image.optimize.enabled:true; a test builds it with `hugo --minify` and asserts the partial (invoked via a minimal template) emits an <img> with a .webp src + srcset + width/height, width-capped at maxWidth, and that a .webp derivative exists in output. Run — fail (no partial).
+  - id: P2.T1.S2
+    text: |
+      GREEN: add templates/hugo-hextra/layouts/partials/opt-image.html — input dict {resource, alt, class, loading, maxWidth}. When site.Params.imageOptimize.enabled and the resource is a processable raster (not svg/gif): emit webp primary at <=maxWidth (.Resize "<w>x webp qN" when wider, else .Process "webp qN"), a srcset over {480,960,maxWidth} widths <= source width, explicit width/height, loading (default lazy), alt. Else passthrough raw <img>. Tests pass; hugo --minify clean.
+- number: 2
+  title: Wire covers + inline (render hook + screenshot + list.html)
+  steps:
+  - id: P2.T2.S1
+    text: |
+      RED: extend the smoke fixture with a markdown `![alt](inline.png)` + a {{< screenshot src=\"shot.png\" >}} + verify docs/list.html cover; assert all three render optimized <img> (.webp + srcset) AND a remote `![](https://…)` / an .svg pass through unoptimized. Run — fail.
+  - id: P2.T2.S2
+    text: |
+      GREEN: add layouts/_markup/render-image.html (bundle resource -> opt-image; remote/ absolute -> passthrough); route screenshot.html's resolved $img and docs/list.html's $cover through opt-image (screenshot keeps the <a href> to the full-res original). Tests pass; hugo --minify clean.
+- number: 3
+  title: 'Banners: assets-resource path + relocation convention'
+  steps:
+  - id: P2.T3.S1
+    text: |
+      RED: add an assets/images/banner-<track>.png to the fixture; assert site-banner.html renders an optimized webp banner (eager loading) via an assets resource, and renders NOTHING when the banner asset is absent (nil-safe). Run — fail (still static/relURL).
+  - id: P2.T3.S2
+    text: |
+      GREEN: rework site-banner.html to `resources.Get (printf \"images/banner-%s.png\" $track)` -> opt-image with bannerMaxWidth + loading=eager; nil resource -> render nothing. Ship templates/hugo-hextra/assets/images/.gitkeep so the assets/images convention exists. Tests pass; hugo --minify clean.
+state:
+  steps:
+    P2.T1.S1:
+      state: x
+      ticked_at: '2026-07-04T12:26:45+00:00'
+      note: null
+    P2.T1.S2:
+      state: x
+      ticked_at: '2026-07-04T12:26:46+00:00'
+      note: null
+    P2.T2.S1:
+      state: x
+      ticked_at: '2026-07-04T12:26:47+00:00'
+      note: null
+    P2.T2.S2:
+      state: x
+      ticked_at: '2026-07-04T12:26:48+00:00'
+      note: null
+    P2.T3.S1:
+      state: x
+      ticked_at: '2026-07-04T12:26:48+00:00'
+      note: null
+    P2.T3.S2:
+      state: x
+      ticked_at: '2026-07-04T12:26:49+00:00'
+      note: null
+  completion:
+    at: '2026-07-04T12:26:50+00:00'
+    note: null
+    observed_prs: []
