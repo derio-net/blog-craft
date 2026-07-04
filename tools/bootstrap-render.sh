@@ -72,6 +72,22 @@ else
   echo "[3d] analytics: SKIPPED (no features.analytics)"
 fi
 
+# Opt-in layer palette: when the config declares series_index.layers, generate
+# data/layer_palette.yaml (colours the series-index cards + roadmap). Non-fatal —
+# a machine without PyYAML gets a warning; the author runs the generator manually.
+if ( cd "$RENDERER_DIR" && go run . --answers "$ANSWERS" --has series_index.layers ) 2>/dev/null; then
+  PYBIN="${PYTHON:-python3}"
+  if "$PYBIN" -c 'import yaml' 2>/dev/null; then
+    mkdir -p "$TARGET/data"
+    "$PYBIN" "$PLUGIN_ROOT/tools/gen-layer-palette.py" --config "$ANSWERS" > "$TARGET/data/layer_palette.yaml"
+    echo "[3e] layer-palette: generated data/layer_palette.yaml"
+  else
+    echo "[3e] layer-palette: SKIPPED (no PyYAML for $PYBIN — run tools/gen-layer-palette.py manually)" >&2
+  fi
+else
+  echo "[3e] layer-palette: SKIPPED (no series_index.layers)"
+fi
+
 # Hugo smoke build — fails fast on template/config errors before the user sees them.
 echo "[4] hugo build smoke check"
 ( cd "$TARGET" && hugo --buildDrafts --quiet 2>&1 | grep -v "^WARN" || true )

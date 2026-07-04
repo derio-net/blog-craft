@@ -24,6 +24,11 @@ image:
 series:
   - { key, title, description, content_type: posts | papers }
 
+series_index:             # optional; controls the {{< series-index >}} layout
+  style: cards            #   cards (default) | table | none
+  layers:                 #   optional — opts into layer colour-coding
+    - { code, name }      #   run tools/gen-layer-palette.py -> data/layer_palette.yaml
+
 content_types:            # optional; opt-in modules (e.g. papers)
   papers: { enabled, dossier_dir, data_dir, gate, source_types,
             artefact_kinds, shortcodes, crosslink_fields, weight_offset }
@@ -54,3 +59,22 @@ and must **not** be a key in `layers`. The generator hardcodes no layer
 vocabulary or order — frank and stoa ship different `composition_order` +
 `layers`, and both are pure data. This is what lets one generator reproduce both
 blogs' exact composed prompts.
+
+## §5 Series index (`series_index`)
+
+`{{< series-index >}}` renders a page-derived index of a series' posts on the
+series overview. The optional `series_index` block picks its layout:
+
+- **`style: cards`** (default) — a papers-roadmap-style vertical timeline: number
+  badge, linked title, `summary` takeaway, and (when opted in) a layer tag.
+- **`style: table`** — the compact `# / Post / Takeaway` table.
+- **`style: none`** — no index rendered.
+
+**Layer colour-coding (opt-in).** Declare `series_index.layers` as a registry of
+`{code, name}` and give each post a `layer: <code>` in its frontmatter. Bootstrap
+runs `tools/gen-layer-palette.py` to write `data/layer_palette.yaml` — 21-safe
+unique OKLCH colours, one per layer, shared by the `series-index` cards **and**
+the `roadmap` shortcode (a layer is the same colour in both). Regenerate the
+palette (`python tools/gen-layer-palette.py --config .blog-craft.yaml > data/layer_palette.yaml`)
+whenever the layer set changes. Without a palette, cards render neutral and the
+roadmap is uncoloured — no layer system is required.
