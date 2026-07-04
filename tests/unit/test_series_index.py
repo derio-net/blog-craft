@@ -1,4 +1,9 @@
-"""P1 — the series-index shortcode renders a page-derived table of a series' posts."""
+"""P1 — the series-index shortcode renders a page-derived index of a series' posts.
+
+Default style is `cards` (a vertical timeline); the same page-derived selection
+(series filter, weight order, host-page self-exclusion, draft handling) is asserted
+here against the card markup. Style switching itself lives in test_series_index_style.py.
+"""
 import glob
 import os
 import re
@@ -9,6 +14,14 @@ import yaml
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 RENDER = os.path.join(ROOT, "tools", "bootstrap-render.sh")
 FIX = os.path.join(ROOT, "tests", "fixtures")
+
+# (number, url, title) per card — `si-num` is unique to the cards, so this never
+# matches Hextra's own nav / og:url links (the reason we don't scope by hand).
+_CARD = re.compile(r'class="si-num">(\d+)</span><a href="([^"]+)">([^<]+)</a>')
+
+
+def _cards(html):
+    return _CARD.findall(html)
 
 
 def _bootstrap(tmp_path):
@@ -43,7 +56,7 @@ def _build_overview_html(blog, series, drafts=True):
     return open(hits[0]).read()
 
 
-def test_series_index_renders_table(tmp_path):
+def test_series_index_renders_cards(tmp_path):
     blog = _bootstrap(tmp_path)
     _overview(blog, "building")
     # created out of order; distinct weights that define the display order
@@ -51,25 +64,17 @@ def test_series_index_renders_table(tmp_path):
     _post(blog, "building", "01", "introduction", 10, "Why maximum-complexity homelab")
     _post(blog, "building", "03", "storage", 30, "Longhorn distributed block")
     html = _build_overview_html(blog, "building")
-    # scope every assertion to the shortcode's own table (the page chrome links
-    # to 00-overview / all posts in nav + og:url — not the index we're testing)
-    m = re.search(r'<table class="series-index">.*?</table>', html, re.S)
-    assert m, "series-index table not rendered"
-    table = m.group(0)
-
-    for slug, title, summ in [("01-introduction", "Introduction", "Why maximum-complexity homelab"),
-                              ("02-foundation", "Foundation", "Talos and Omni bootstrap"),
-                              ("03-storage", "Storage", "Longhorn distributed block")]:
-        assert f"building/{slug}/" in table, f"{slug} not linked in the index"
-        assert title in table
-        assert summ in table
-    for n in ("01", "02", "03"):                       # '#' from the slug prefix
-        assert f"<td>{n}</td>" in table, f"# column {n} missing"
-    # weight order: introduction (10) < foundation (20) < storage (30)
-    assert table.index("01-introduction") < table.index("02-foundation") < table.index("03-storage")
-    # the host overview excludes itself; exactly 3 body rows (+1 header)
-    assert "00-overview" not in table
-    assert table.count("<tr>") == 4
+    assert '<div class="series-index">' in html and 'class="si-card' in html
+    cards = _cards(html)
+    assert [n for n, _, _ in cards] == ["01", "02", "03"], "cards not in weight order"
+    urls = [u for _, u, _ in cards]
+    for slug in ("01-introduction", "02-foundation", "03-storage"):
+        assert any(f"building/{slug}/" in u for u in urls), f"{slug} not carded"
+    for summ in ("Why maximum-complexity homelab", "Talos and Omni bootstrap",
+                 "Longhorn distributed block"):
+        assert summ in html, f"summary missing: {summ}"      # summaries are card-only
+    assert not any("00-overview" in u for u in urls), "overview lists itself"
+    assert len(cards) == 3
 
 
 def test_overview_template_uses_shortcode(tmp_path):
@@ -80,12 +85,10 @@ def test_overview_template_uses_shortcode(tmp_path):
         txt = open(ov).read()
         assert "{{< series-index >}}" in txt, f"overview missing the shortcode: {ov}"
         assert "auto-appends" not in txt, f"stale marker left in {ov}"
-    # and the shortcode lists real posts at build
     series = os.path.basename(os.path.dirname(os.path.dirname(overviews[0])))
     _post(blog, series, "01", "first", 10, "First post takeaway")
     html = _build_overview_html(blog, series)
-    m = re.search(r'<table class="series-index">.*?</table>', html, re.S)
-    assert m and f"{series}/01-first/" in m.group(0), "post not listed by the overview shortcode"
+    assert any(f"{series}/01-first/" in u for _, u, _ in _cards(html)), "post not carded by the overview shortcode"
 
 
 def test_series_index_empty_series(tmp_path):
@@ -93,7 +96,7 @@ def test_series_index_empty_series(tmp_path):
     _overview(blog, "operating")          # no operating posts exist
     html = _build_overview_html(blog, "operating")
     assert "series-index-empty" in html and "No posts yet" in html
-    assert '<table class="series-index">' not in html
+    assert 'class="si-card' not in html
 
 
 def test_series_index_positional_override(tmp_path):
@@ -103,11 +106,9 @@ def test_series_index_positional_override(tmp_path):
     _post(blog, "operating", "01", "cluster-nodes", 10, "Node inventory")
     _post(blog, "building", "01", "intro", 10, "should not appear")
     html = _build_overview_html(blog, "building")
-    m = re.search(r'<table class="series-index">.*?</table>', html, re.S)
-    assert m, "series-index table not rendered"
-    table = m.group(0)
-    assert "operating/01-cluster-nodes/" in table   # the overridden series wins
-    assert "building/01-intro/" not in table
+    urls = [u for _, u, _ in _cards(html)]
+    assert any("operating/01-cluster-nodes/" in u for u in urls), "overridden series not carded"
+    assert not any("building/01-intro/" in u for u in urls), "host series leaked in"
 
 
 def test_series_index_excludes_drafts(tmp_path):
@@ -118,11 +119,9 @@ def test_series_index_excludes_drafts(tmp_path):
     (d / "index.md").write_text(
         '---\ntitle: "Wip"\nseries: [building]\nweight: 20\ndraft: true\nsummary: "draft"\n---\nb\n')
     html = _build_overview_html(blog, "building", drafts=False)   # production build
-    m = re.search(r'<table class="series-index">.*?</table>', html, re.S)
-    assert m, "series-index table not rendered"
-    table = m.group(0)
-    assert "building/01-published/" in table
-    assert "building/02-wip/" not in table            # draft absent from a non-draft build
+    urls = [u for _, u, _ in _cards(html)]
+    assert any("building/01-published/" in u for u in urls)
+    assert not any("building/02-wip/" in u for u in urls)         # draft absent from a non-draft build
 
 
 def test_papers_overview_uses_series_index(tmp_path):

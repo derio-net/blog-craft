@@ -51,3 +51,39 @@ def test_version_must_be_2():
     cfg = _valid()
     cfg["version"] = 1
     assert validate_config(cfg)
+
+
+# --- series_index block (optional; style cards|table|none, optional layers registry) ---
+
+def test_series_index_absent_is_valid():
+    cfg = _valid()
+    cfg.pop("series_index", None)
+    assert validate_config(cfg) == []
+
+
+def test_series_index_valid_styles_pass():
+    for style in ("cards", "table", "none"):
+        cfg = _valid()
+        cfg["series_index"] = {"style": style}
+        assert validate_config(cfg) == [], f"style {style!r} should be valid"
+
+
+def test_series_index_invalid_style_rejected():
+    cfg = _valid()
+    cfg["series_index"] = {"style": "carousel"}
+    errs = validate_config(cfg)
+    assert any("series_index" in e and "style" in e for e in errs), errs
+
+
+def test_series_index_layers_shape():
+    cfg = _valid()
+    cfg["series_index"] = {"style": "cards",
+                           "layers": [{"code": "hw", "name": "Hardware"},
+                                      {"code": "net", "name": "Networking"}]}
+    assert validate_config(cfg) == []
+    # malformed: an entry missing code/name
+    cfg["series_index"]["layers"] = [{"code": "hw"}]
+    assert any("layers" in e for e in validate_config(cfg))
+    # malformed: not a list
+    cfg["series_index"]["layers"] = {"hw": "Hardware"}
+    assert any("layers" in e for e in validate_config(cfg))

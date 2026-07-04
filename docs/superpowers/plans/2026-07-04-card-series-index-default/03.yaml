@@ -1,0 +1,49 @@
+schema_version: 2
+phase:
+  number: 3
+  title: Bootstrap + docs + full verification
+  tag: agentic
+  depends_on:
+  - 2
+  tracking_issue: null
+tasks:
+- number: 1
+  title: Bootstrap generates the palette when layers are declared
+  steps:
+  - id: P3.T1.S1
+    text: |
+      RED: a smoke assertion that bootstrapping a config WITH `series_index.layers` materialises `data/layer_palette.yaml`; a config WITHOUT layers materialises none. Run, expect failure.
+  - id: P3.T1.S2
+    text: |
+      GREEN: in tools/bootstrap-render.sh, when the config declares `series_index.layers`, run gen-layer-palette.py into <target>/data/layer_palette.yaml. Tests pass.
+- number: 2
+  title: Docs + full smoke
+  steps:
+  - id: P3.T2.S1
+    text: |
+      Update the bootstrap / blog-post skill docs (skills/*) to document the `series_index.style` knob (cards default / table / none) and the layer opt-in (declare `series_index.layers`, regenerate the palette when it changes).
+  - id: P3.T2.S2
+    text: |
+      Run the full tests/unit + smoke suite and a `hugo --minify` clean build over the style fixtures (cards default, table, none, layers-opt-in). All green; paste the summary. This is the in-repo verification (no blog deploy — plugin repo).
+state:
+  steps:
+    P3.T1.S1:
+      state: x
+      ticked_at: '2026-07-04T07:31:47+00:00'
+      note: null
+    P3.T1.S2:
+      state: x
+      ticked_at: '2026-07-04T07:31:48+00:00'
+      note: null
+    P3.T2.S1:
+      state: x
+      ticked_at: '2026-07-04T07:31:49+00:00'
+      note: null
+    P3.T2.S2:
+      state: x
+      ticked_at: '2026-07-04T07:31:50+00:00'
+      note: null
+  completion:
+    at: '2026-07-04T07:31:51+00:00'
+    note: null
+    observed_prs: []

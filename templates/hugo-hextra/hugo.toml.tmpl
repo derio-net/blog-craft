@@ -16,6 +16,9 @@ title = "{{ default .project.name .project.title }}"
 {{- end }}
 {{- end }}{{- end }}
 
+  [params.seriesIndex]
+    style = "{{ with .series_index }}{{ .style | default "cards" }}{{ else }}cards{{ end }}"
+
   [params.navbar]
     displayTitle = true
     displayLogo = false

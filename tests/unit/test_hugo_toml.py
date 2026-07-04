@@ -54,6 +54,18 @@ def test_github_nav_gated_on_repo_url(tmp_path):
     assert toml.index('name = "Papers"') < toml.index('name = "Search"')
 
 
+def test_series_index_style_defaults_to_cards(tmp_path):
+    toml = _render(BASE, tmp_path)
+    assert "[params.seriesIndex]" in toml
+    assert 'style = "cards"' in toml
+
+
+def test_series_index_style_from_config(tmp_path):
+    for style in ("table", "none", "cards"):
+        cfg = {**BASE, "series_index": {"style": style}}
+        assert f'style = "{style}"' in _render(cfg, tmp_path)
+
+
 def test_search_weight_is_stable(tmp_path):
     # 2 series -> Search always at weight 3 (n+1); GitHub, when present, is n+2
     assert "weight = 3\n  [menu.main.params]\n    type = \"search\"" in _render(BASE, tmp_path)
