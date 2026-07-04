@@ -1,7 +1,7 @@
 # blog-craft image optimization (WebP pipeline) + frank adoption — design
 
 **Date:** 2026-07-04
-**Status:** draft
+**Status:** Complete
 **Repos:** derio-net/blog-craft (mechanism) + derio-net/frank (adoption)
 
 ## Problem
