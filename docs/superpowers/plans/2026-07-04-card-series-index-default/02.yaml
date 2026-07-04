@@ -1,0 +1,49 @@
+schema_version: 2
+phase:
+  number: 2
+  title: Opt-in layer palette — generator + card colouring + roadmap
+  tag: agentic
+  depends_on:
+  - 1
+  tracking_issue: null
+tasks:
+- number: 1
+  title: Generalise gen-layer-palette.py (registry-driven, names in data)
+  steps:
+  - id: P2.T1.S1
+    text: |
+      RED: add a tests/unit case — the generator, given a layer registry (list of {code,name}), emits a data/layer_palette.yaml mapping each code -> {name, light, dark, lt, dt}; output is deterministic (run twice, identical); 21+ codes all get UNIQUE light hexes. Run, expect failure (no tool yet).
+  - id: P2.T1.S2
+    text: |
+      GREEN: port frank's OKLCH engine into tools/gen-layer-palette.py, generalised to read the registry from a blog's `.blog-craft.yaml` `series_index.layers` (codes + names) rather than a hardcoded list, and to write `name` into each palette entry. Same lightness curve / permuted order / per-badge text colour. Tests pass.
+- number: 2
+  title: Card colouring from the palette (opt-in) + roadmap adoption
+  steps:
+  - id: P2.T2.S1
+    text: |
+      RED: add a fixture with `series_index.layers` + posts carrying `layer:` frontmatter + a generated palette; assert cards carry `layer-<code>` classes, the palette colour, and the full-name `.tag-layer` (name from the palette data). Assert a no-layers fixture renders neutral cards with no `tag-layer`. Also assert roadmap uses the palette when present (no `rm-accent`) and neutral otherwise. Run, expect failure.
+  - id: P2.T2.S2
+    text: |
+      GREEN: wire the cards branch to read `site.Data.layer_palette.layers` — colour + name-tag per post's `layer`, neutral fallback when absent. Rework templates/hugo-hextra/layouts/shortcodes/roadmap.html to loop the palette (retire --rm-accent) with a neutral fallback. Tests pass; `hugo --minify` clean both ways.
+state:
+  steps:
+    P2.T1.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T1.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T2.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T2.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+  completion:
+    at: null
+    note: null
+    observed_prs: []

@@ -138,3 +138,4 @@ next build.
 | Plan | Repo | Scope |
 |------|------|-------|
 | _TBD_ | derio-net/blog-craft | config knob + card/table/none shortcode + generalised palette generator + roadmap adoption + bootstrap + tests + docs |
+| 2026-07-04-card-series-index-default | `derio-net/blog-craft` | `2026-07-04-card-series-index-default` | — |

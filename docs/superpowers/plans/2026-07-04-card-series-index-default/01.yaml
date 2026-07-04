@@ -1,0 +1,55 @@
+schema_version: 2
+phase:
+  number: 1
+  title: Style switch — config knob + cards/table/none
+  tag: agentic
+  depends_on: []
+  tracking_issue: null
+tasks:
+- number: 1
+  title: 'series_index config: validate + hugo param'
+  steps:
+  - id: P1.T1.S1
+    text: |
+      RED: add tests/unit test cases for validate_config — an optional `series_index` block is accepted; `style` must be one of cards|table|none (reject others); `layers`, if present, must be a list of {code,name}. Run, expect failures.
+  - id: P1.T1.S2
+    text: |
+      GREEN: extend tools/validate_config.py to validate the optional `series_index` block per S1 (absent is valid; absent style defaults to cards at render time, not validation). Tests pass.
+  - id: P1.T1.S3
+    text: |
+      Thread the knob into templates/hugo-hextra/hugo.toml.tmpl: emit `[params.seriesIndex]` with `style = "{{ ... | default "cards" }}"` from `.series_index.style`. Verify a rendered hugo.toml carries the param (render a fixture config through tools/render-template and grep the output).
+- number: 2
+  title: series-index.html — branch on style
+  steps:
+  - id: P1.T2.S1
+    text: |
+      RED: add a tests/unit (or smoke) case that bootstraps a fixture blog and asserts the default renders `<div class="series-index">` cards (not a table); a config with `series_index.style: table` renders `<table class="series-index">`; and `style: none` renders no index container. Run, expect failure (shortcode is the table only).
+  - id: P1.T2.S2
+    text: |
+      GREEN: rework templates/hugo-hextra/layouts/shortcodes/series-index.html to read `site.Params.seriesIndex.style` (default cards). Keep the current table markup as the `table` branch (byte-preserved). `none` -> render nothing. `cards` -> port frank's card timeline (number badge, linked title, summary, self-excluded, weight-sorted) but colour NEUTRAL for now (single accent, no layer tag / palette). Tests pass; full `hugo --minify` clean.
+state:
+  steps:
+    P1.T1.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T1.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T1.S3:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T2.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T2.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+  completion:
+    at: null
+    note: null
+    observed_prs: []

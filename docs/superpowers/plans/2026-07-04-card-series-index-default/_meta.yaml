@@ -1,0 +1,6 @@
+schema_version: 2
+plan: 2026-07-04-card-series-index-default
+spec: docs/superpowers/specs/2026-07-04--series-index--card-default-and-palette-design.md
+target_repo: derio-net/blog-craft
+fr_version: '>=3.0.0,<4.0.0'
+created: '2026-07-04'
