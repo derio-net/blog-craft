@@ -1,0 +1,43 @@
+{{- /* opt-image.html — the single reusable image optimizer.
+
+  Input dict:
+    resource : a Hugo image Resource (page or assets); may be nil
+    alt      : alt text
+    class    : optional <img> class
+    loading  : "lazy" (default) | "eager"
+    maxWidth : optional width cap override (banners pass bannerMaxWidth)
+    src      : optional raw src, used only for the passthrough fallback
+
+  When site.Params.imageOptimize.enabled AND the resource is a processable
+  raster (not svg/gif), emits a WebP primary capped at maxWidth + a responsive
+  srcset + explicit width/height. Otherwise passes through a raw <img>. */ -}}
+{{- $r := .resource -}}
+{{- $o := site.Params.imageOptimize -}}
+{{- $enabled := and $o $o.enabled -}}
+{{- $sub := "" -}}{{- with $r }}{{ $sub = .MediaType.SubType }}{{- end -}}
+{{- $raster := and $r (not (in (slice "svg" "gif") $sub)) -}}
+{{- if and $enabled $raster -}}
+  {{- $fmt := $o.format | default "webp" -}}
+  {{- $q := int ($o.quality | default 82) -}}
+  {{- $maxW := int (.maxWidth | default $o.maxWidth | default 1600) -}}
+  {{- $primary := $r -}}
+  {{- if gt $r.Width $maxW -}}
+    {{- $primary = $r.Resize (printf "%dx %s q%d" $maxW $fmt $q) -}}
+  {{- else -}}
+    {{- $primary = $r.Process (printf "%s q%d" $fmt $q) -}}
+  {{- end -}}
+  {{- $widths := slice 480 960 $maxW -}}
+  {{- $srcset := slice -}}
+  {{- range $w := $widths -}}
+    {{- if le $w $r.Width -}}
+      {{- $d := $r.Resize (printf "%dx %s q%d" $w $fmt $q) -}}
+      {{- $srcset = $srcset | append (printf "%s %dw" $d.RelPermalink $d.Width) -}}
+    {{- end -}}
+  {{- end -}}
+  <img src="{{ $primary.RelPermalink }}"{{ with (uniq $srcset) }} srcset="{{ delimit . ", " }}"{{ end }} width="{{ $primary.Width }}" height="{{ $primary.Height }}" alt="{{ .alt }}"{{ with .class }} class="{{ . }}"{{ end }} loading="{{ .loading | default "lazy" }}" decoding="async" />
+{{- else -}}
+  {{- $src := .src -}}{{- with $r }}{{ $src = .RelPermalink }}{{- end -}}
+  {{- with $src -}}
+  <img src="{{ . }}" alt="{{ $.alt }}"{{ with $.class }} class="{{ . }}"{{ end }} loading="{{ $.loading | default "lazy" }}" />
+  {{- end -}}
+{{- end -}}

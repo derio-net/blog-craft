@@ -1,19 +1,25 @@
-{{- $bannerSrc := "" -}}
+{{- /* Site/track banner. Banners live in assets/images/ (NOT static/) so Hugo can
+       process them into optimized WebP via opt-image. Nil-safe: a blog with no
+       matching banner asset renders nothing. */ -}}
+{{- $name := "" -}}
 {{- if eq .Kind "home" -}}
-  {{- $bannerSrc = "images/banner-landing.png" | relURL -}}
+  {{- $name = "images/banner-landing.png" -}}
 {{- else -}}
   {{- with .File -}}
     {{- $parts := split .Dir "/" -}}
     {{- if and (ge (len $parts) 2) (eq (index $parts 0) "docs") -}}
       {{- $track := index $parts 1 -}}
       {{- if $track -}}
-        {{- $bannerSrc = printf "images/banner-%s.png" $track | relURL -}}
+        {{- $name = printf "images/banner-%s.png" $track -}}
       {{- end -}}
     {{- end -}}
   {{- end -}}
 {{- end -}}
-{{- if $bannerSrc -}}
+{{- with $name -}}
+  {{- $banner := resources.Get . -}}
+  {{- with $banner -}}
 <div class="site-track-banner">
-  <img src="{{ $bannerSrc }}" alt="" />
+  {{ partial "opt-image.html" (dict "resource" . "alt" "" "loading" "eager" "maxWidth" site.Params.imageOptimize.bannerMaxWidth) }}
 </div>
+  {{- end -}}
 {{- end -}}
