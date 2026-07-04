@@ -73,3 +73,22 @@ def test_search_weight_is_stable(tmp_path):
     toml = _render(cfg, tmp_path)
     assert "weight = 3\n  [menu.main.params]\n    type = \"search\"" in toml
     assert "weight = 4\n  [menu.main.params]\n    icon = \"github\"" in toml
+
+
+# --- image.optimize → [params.imageOptimize] ---
+
+def test_image_optimize_defaults_when_absent(tmp_path):
+    toml = _render(BASE, tmp_path)
+    assert "[params.imageOptimize]" in toml
+    assert "enabled = false" in toml
+    assert 'format = "webp"' in toml
+
+
+def test_image_optimize_from_config(tmp_path):
+    cfg = {**BASE, "image": {"optimize": {"enabled": True, "quality": 70,
+                                          "max_width": 1200, "banner_max_width": 2000}}}
+    toml = _render(cfg, tmp_path)
+    assert "enabled = true" in toml
+    assert "quality = 70" in toml
+    assert "maxWidth = 1200" in toml
+    assert "bannerMaxWidth = 2000" in toml

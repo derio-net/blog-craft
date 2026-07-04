@@ -19,6 +19,13 @@ title = "{{ default .project.name .project.title }}"
   [params.seriesIndex]
     style = "{{ with .series_index }}{{ .style | default "cards" }}{{ else }}cards{{ end }}"
 
+  [params.imageOptimize]
+    enabled = {{ with .image }}{{ with .optimize }}{{ .enabled | default false }}{{ else }}false{{ end }}{{ else }}false{{ end }}
+    format = "{{ with .image }}{{ with .optimize }}{{ .format | default "webp" }}{{ else }}webp{{ end }}{{ else }}webp{{ end }}"
+    quality = {{ with .image }}{{ with .optimize }}{{ .quality | default 82 }}{{ else }}82{{ end }}{{ else }}82{{ end }}
+    maxWidth = {{ with .image }}{{ with .optimize }}{{ .max_width | default 1600 }}{{ else }}1600{{ end }}{{ else }}1600{{ end }}
+    bannerMaxWidth = {{ with .image }}{{ with .optimize }}{{ .banner_max_width | default 2560 }}{{ else }}2560{{ end }}{{ else }}2560{{ end }}
+
   [params.navbar]
     displayTitle = true
     displayLogo = false

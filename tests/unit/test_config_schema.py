@@ -87,3 +87,52 @@ def test_series_index_layers_shape():
     # malformed: not a list
     cfg["series_index"]["layers"] = {"hw": "Hardware"}
     assert any("layers" in e for e in validate_config(cfg))
+
+
+# --- image.optimize block (optional; webp pipeline knob) ---
+
+def test_image_optimize_absent_is_valid():
+    cfg = _valid()
+    cfg["image"].pop("optimize", None)
+    assert validate_config(cfg) == []
+
+
+def test_image_optimize_valid_passes():
+    cfg = _valid()
+    cfg["image"]["optimize"] = {"enabled": True, "format": "webp", "quality": 82,
+                                "max_width": 1600, "banner_max_width": 2560}
+    assert validate_config(cfg) == []
+
+
+def test_image_optimize_not_a_mapping_rejected():
+    cfg = _valid()
+    cfg["image"]["optimize"] = ["webp"]
+    assert any("optimize" in e for e in validate_config(cfg))
+
+
+def test_image_optimize_bad_format_rejected():
+    cfg = _valid()
+    cfg["image"]["optimize"] = {"enabled": True, "format": "avif"}
+    assert any("optimize" in e and "format" in e for e in validate_config(cfg))
+
+
+def test_image_optimize_bad_enabled_rejected():
+    cfg = _valid()
+    cfg["image"]["optimize"] = {"enabled": "yes"}
+    assert any("optimize" in e and "enabled" in e for e in validate_config(cfg))
+
+
+def test_image_optimize_quality_out_of_range_rejected():
+    cfg = _valid()
+    for bad in (0, 101, "hi", 82.5):
+        cfg["image"]["optimize"] = {"quality": bad}
+        assert any("optimize" in e and "quality" in e for e in validate_config(cfg)), bad
+
+
+def test_image_optimize_widths_must_be_positive_ints():
+    cfg = _valid()
+    for key in ("max_width", "banner_max_width"):
+        cfg["image"]["optimize"] = {key: 0}
+        assert any("optimize" in e and key in e for e in validate_config(cfg)), key
+        cfg["image"]["optimize"] = {key: "wide"}
+        assert any("optimize" in e and key in e for e in validate_config(cfg)), key

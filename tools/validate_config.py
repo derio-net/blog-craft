@@ -10,6 +10,7 @@ import sys
 
 RESERVED_SCENE = "scene"
 SERIES_INDEX_STYLES = frozenset({"cards", "table", "none"})
+IMAGE_OPTIMIZE_FORMATS = frozenset({"webp"})
 REQUIRED_TOP = ("project", "image", "series", "voice")
 REQUIRED_IMAGE = ("composition_order", "layers")
 # Layers that, when named in composition_order, must be a mapping (indexed-table),
@@ -69,6 +70,29 @@ def validate_config(cfg: dict) -> list[str]:
                 errors.append(
                     f"image.layers.{name} must be a mapping (indexed-table layer)"
                 )
+
+    # optional image.optimize block: the WebP build-time pipeline knob. Absent →
+    # passthrough (raw images). enabled bool; format ∈ {webp}; quality int 1–100;
+    # max_width / banner_max_width positive ints.
+    opt = image.get("optimize")
+    if opt is not None:
+        if not isinstance(opt, dict):
+            errors.append("image.optimize must be a mapping")
+        else:
+            if "enabled" in opt and not isinstance(opt["enabled"], bool):
+                errors.append("image.optimize.enabled must be a boolean")
+            fmt = opt.get("format")
+            if fmt is not None and fmt not in IMAGE_OPTIMIZE_FORMATS:
+                errors.append(
+                    f"image.optimize.format must be one of {sorted(IMAGE_OPTIMIZE_FORMATS)} (got {fmt!r})"
+                )
+            q = opt.get("quality")
+            if q is not None and (isinstance(q, bool) or not isinstance(q, int) or not (1 <= q <= 100)):
+                errors.append("image.optimize.quality must be an int in 1–100")
+            for wk in ("max_width", "banner_max_width"):
+                w = opt.get(wk)
+                if w is not None and (isinstance(w, bool) or not isinstance(w, int) or w <= 0):
+                    errors.append(f"image.optimize.{wk} must be a positive int")
 
     series = cfg.get("series")
     if series is not None:
