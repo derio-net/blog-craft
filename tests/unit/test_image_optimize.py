@@ -37,6 +37,17 @@ def _png(path, w, h, colour=(120, 90, 200)):
     Image.new("RGB", (w, h), colour).save(path)
 
 
+def _corrupt_png(path):
+    """A .png whose bytes don't decode (broken IDAT) — like a placeholder stub.
+    Hugo rejects it with 'invalid checksum'; opt-image must not crash the build."""
+    import io
+    buf = io.BytesIO(); Image.new("RGBA", (1, 1), (0, 0, 0, 0)).save(buf, "PNG")
+    data = bytearray(buf.getvalue())
+    data[-8] ^= 0xFF  # corrupt a byte in the IDAT/CRC → undecodable
+    with open(path, "wb") as f:
+        f.write(bytes(data))
+
+
 def _build(tmp_path, optimize):
     cfg = _base_cfg()
     if optimize is not None:
@@ -49,10 +60,12 @@ def _build(tmp_path, optimize):
     os.makedirs(d)
     _png(os.path.join(d, "inline.png"), 2000, 1200)
     _png(os.path.join(d, "shot.png"), 1800, 1000)
+    _corrupt_png(os.path.join(d, "broken.png"))   # a placeholder stub that won't decode
     open(os.path.join(d, "index.md"), "w").write(
         "---\ntitle: Alpha\nseries: [%s]\nweight: 2\ndraft: false\nsummary: s\n---\n\n"
         "![an inline pic](inline.png)\n\n"
         '{{< screenshot src="shot.png" caption="a shot" >}}\n\n'
+        "![a broken placeholder](broken.png)\n\n"
         "![remote](https://example.com/x.png)\n" % SERIES)
     # a track banner as an assets resource
     ai = os.path.join(blog, "assets", "images"); os.makedirs(ai, exist_ok=True)
@@ -77,6 +90,9 @@ def test_bundle_images_become_capped_webp_with_srcset(tmp_path):
     assert 'height="' in html
     # remote image passes through unoptimized
     assert "https://example.com/x.png" in html
+    # a corrupt/undecodable image falls through to raw (build did NOT crash — _build
+    # asserts returncode 0 — and the stub is served as-is, not a broken webp)
+    assert "broken.png" in html, "corrupt image not passed through raw"
     # banner present + optimized + capped to bannerMaxWidth (3000px -> 2560)
     assert 'class="site-track-banner"' in html
     assert re.search(r'site-track-banner[^<]*<img src="[^"]+\.webp"[^>]*\bwidth="2560"', html), \
