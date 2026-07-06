@@ -8,7 +8,7 @@
         {
             "name": "blog-craft",
             "description": "Bootstrap a Hugo + Hextra teaching blog, then author posts and fill media placeholders against a per-blog .blog-craft.yaml",
-            "version": "0.1.0",
+            "version": "0.3.0",
             "source": "./"
         }
     ]

@@ -27,7 +27,7 @@ jobs:
         run: PYTHON=python3 BLOG_CRAFT_TEST_VENV=/tmp/bcv bash tests/run-unit.sh tests/unit tests/reproduction
       - name: Smoke tests
         run: |
-          for s in bootstrap media papers update; do
+          for s in bootstrap media papers update character-sheet; do
             PYTHON=python3 BLOG_CRAFT_TEST_VENV=/tmp/bcv bash "tests/smoke-$s.sh"
           done
           BLOG_CRAFT_TEST_MODE=1 PYTHON=python3 bash tests/smoke-blog-post.sh
