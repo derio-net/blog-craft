@@ -173,6 +173,6 @@ merge + deploy:
 
 ## Implementation Plans
 
-| Plan | Target repo | Status | Notes |
+| Plan | Repo | File | Depends on |
 |------|-------------|--------|-------|
 | 2026-07-04-image-optimization | `derio-net/blog-craft` | `2026-07-04-image-optimization` | — |
