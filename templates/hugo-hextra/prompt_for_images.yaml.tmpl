@@ -27,6 +27,12 @@ images:
   # Gemini API does not support panoramic 6:1; generate via the Gemini web UI (1200×200)
   # and drop the PNG into assets/images/ — banners MUST live under assets/ (NOT
   # {{ .image.output_dir }}/) so Hugo can optimize them into WebP (see CONFIG.md §6).
+  #
+  # Don't hand-compose the description pasted into the Gemini web UI: --print-prompt
+  # composes it the same way as any other key (base_style + persona + visual_constants
+  # + this entry's `prompt` + reference_guidance) without calling the API — it does
+  # NOT skip operator_generated entries, only the generation loop does.
+  #   python scripts/generate-images.py --print-prompt banner-<key>
   # ──────────────────────────────────────────────────────────────────────────────
   - key: banner-landing
     output: assets/images/banner-landing.png
