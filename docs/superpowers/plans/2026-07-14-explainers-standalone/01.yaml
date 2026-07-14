@@ -1,0 +1,64 @@
+schema_version: 2
+phase:
+  number: 1
+  title: Standalone tooling (scaffold flag + render script)
+  tag: agentic
+  depends_on: []
+  tracking_issue: null
+tasks:
+- number: 1
+  title: scaffold-explainer.sh — standalone mode flags
+  steps:
+  - id: P1.T1.S1
+    text: |-
+      Add `--standalone`, `--output <dir>` (default `.`), `--target <path>`,
+      and `--weight-offset <n>` (default `1`) flags to `tools/scaffold-explainer.sh`.
+
+      When `--standalone` is set:
+      - `--config` is NOT required (weight_offset defaults to 1, series key
+        defaults to `"explainers"`)
+      - Output goes to `<output>/<NN>-<slug>.md`
+      - Frontmatter includes `standalone: true` and `target: "<path>"`
+      - Duplicate check works on the output file path
+
+      When not set: behavior is identical to parent plan (backwards compatible).
+
+      Mirror byte-identical to `templates/content-type-explainers/shared/scripts/`.
+      Verify with `test_mirrors.py`.
+- number: 2
+  title: render_explainer.py — markdown-to-HTML renderer
+  steps:
+  - id: P1.T2.S1
+    text: |-
+      Write `tools/render_explainer.py` with:
+      - `parse_frontmatter(text) -> (dict, body_str)` — extracts YAML frontmatter
+        and body (reuse the pattern from `validate_explainers.py`)
+      - `render(text, style="light", strict=False) -> str` — converts markdown
+        to self-contained HTML. Uses `markdown` library with fenced_code,
+        codehilite, tables, sane_lists extensions. Catches ImportError gracefully
+        when `markdown` is not installed (returns fallback page).
+      - Three built-in themes: `light`, `dark`, `minimal` (CSS strings embedded
+        in module).
+      - Custom CSS: `--style /path/to/custom.css` reads the file as the theme.
+      - Frontmatter override: `standalone_style` field in YAML picks theme when
+        CLI `--style` is not explicitly set.
+      - Mermaid detection: if body contains a mermaid fence, include a CDN
+        script tag for mermaid.min.js in the HTML `<head>`.
+      - CLI: `python render_explainer.py <input.md> [--style <theme>] [-o <output.html>]`
+
+      Mirror to `templates/content-type-explainers/shared/scripts/` and add to
+      `test_mirrors.py`'s MIRRORS list.
+state:
+  steps:
+    P1.T1.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T2.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+  completion:
+    at: null
+    note: null
+    observed_prs: []

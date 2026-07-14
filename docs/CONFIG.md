@@ -28,16 +28,17 @@ image:
     banner_max_width: 2560
 
 series:
-  - { key, title, description, content_type: posts | papers }
+  - { key, title, description, content_type: posts | papers | explainers }
 
 series_index:             # optional; controls the {{< series-index >}} layout
   style: cards            #   cards (default) | table | none
   layers:                 #   optional — opts into layer colour-coding
     - { code, name }      #   run tools/gen-layer-palette.py -> data/layer_palette.yaml
 
-content_types:            # optional; opt-in modules (e.g. papers)
+content_types:            # optional; opt-in modules (e.g. papers, explainers)
   papers: { enabled, dossier_dir, data_dir, gate, source_types,
             artefact_kinds, shortcodes, crosslink_fields, weight_offset }
+  explainers: { enabled, weight_offset }
 
 features:                 # series_overview_posts, read_tracker, banners,
                           # roadmap{enabled,data}, analytics, css{mermaid_palette}

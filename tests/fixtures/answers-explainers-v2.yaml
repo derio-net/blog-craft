@@ -1,0 +1,31 @@
+version: 2
+project:
+  name: "Explainers Test"
+  tagline: "t"
+  base_url: "https://example.com/et/"
+  base_path: "/et/"
+  module_path: "example.com/et"
+image:
+  provider: gemini
+  model: gemini-3-pro-image-preview
+  api_key_env: GEMINI_API_KEY
+  output_dir: static/images
+  prompts_file: prompt_for_images.yaml
+  composition_order: [base_character, scene]
+  layers:
+    base_character: "a test character"
+series:
+  - { key: building,   title: "Building",   description: "d", content_type: posts }
+  - { key: explainers, title: "Explainers", description: "d", content_type: explainers }
+content_types:
+  explainers:
+    enabled: true
+    weight_offset: 1
+features:
+  series_overview_posts: true
+  read_tracker: false
+voice: |
+  Terse.
+ci:
+  validators: [frontmatter]
+  deploy: { kind: none }

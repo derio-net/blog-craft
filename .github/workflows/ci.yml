@@ -21,7 +21,7 @@ jobs:
           extended: true
       - name: Install python deps + tools
         run: |
-          python3 -m pip install --quiet pyyaml pillow pytest
+          python3 -m pip install --quiet pyyaml pillow pytest markdown
           sudo apt-get update -qq && sudo apt-get install -y -qq pngquant optipng
       - name: Unit + reproduction tests
         run: PYTHON=python3 BLOG_CRAFT_TEST_VENV=/tmp/bcv bash tests/run-unit.sh tests/unit tests/reproduction

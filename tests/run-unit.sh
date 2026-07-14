@@ -22,7 +22,7 @@ if [ ! -x "$VENV/bin/pytest" ]; then
   else
     "$PYBIN" -m venv "$VENV" >/dev/null 2>&1
   fi
-  _pip_install pytest pyyaml pillow
+  _pip_install pytest pyyaml pillow markdown
 fi
 # ensure pillow even on a pre-existing venv (contact sheet / post-process need it)
 "$VENV/bin/python" -c "import PIL" >/dev/null 2>&1 || _pip_install pillow

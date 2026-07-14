@@ -1,0 +1,125 @@
+schema_version: 2
+phase:
+  number: 1
+  title: Explainers content-type core (config, scaffold, validate, gating, hugo smoke)
+  tag: agentic
+  depends_on: []
+  tracking_issue: null
+tasks:
+- number: 1
+  title: Content-type gating (TDD)
+  steps:
+  - id: P1.T1.S1
+    text: |-
+      Add fixture `tests/fixtures/answers-explainers-v2.yaml` (copy `answers-papers-v2.yaml`'s shape): version 2, project/image blocks unchanged, `series: [{key: building, ..., content_type: posts}, {key: explainers, title: "Explainers", description: "d", content_type: explainers}]`, `content_types: {explainers: {enabled: true, weight_offset: 1}}`, features/voice/ci unchanged.
+
+      Write failing `tests/unit/test_explainers_gating.py` (mirrors `test_papers_scripts.py`'s shape, since explainers ships scripts only, no shortcodes/partials):
+      ```python
+      SCRIPTS = ["scaffold-explainer.sh", "validate_explainers.py"]
+      ```
+      - `test_scripts_materialize_with_explainers` — bootstrap with `answers-explainers-v2.yaml`, assert `blog/scripts/scaffold-explainer.sh` and `blog/scripts/validate_explainers.py` exist; `py_compile` the `.py` one.
+      - `test_scripts_absent_without_explainers` — bootstrap with `stoa-v2.expected.yaml` (no `content_types.explainers`), assert neither script exists under `blog/scripts/`.
+
+      Run `pytest tests/unit/test_explainers_gating.py -q` → fails (no `templates/content-type-explainers/` dir, no gating block yet).
+  - id: P1.T1.S2
+    text: |-
+      Create `templates/content-type-explainers/shared/scripts/scaffold-explainer.sh` and `.../validate_explainers.py` as minimal placeholders (`#!/usr/bin/env bash\necho "not yet implemented" >&2; exit 1` and a matching one-line Python stub) — just enough to exist and be copyable; real logic lands in Tasks 2–3.
+
+      Add the explainers gating block to `tools/bootstrap-render.sh` immediately after the existing papers block (after line ~58, before the read-tracker block):
+      ```bash
+      # Opt-in content type: explainers shared assets (scaffold + validate scripts),
+      # gated on content_types.explainers.enabled. The per-post bundle comes from
+      # scaffold-explainer.sh, not bootstrap.
+      explainers_value=$(cd "$RENDERER_DIR" && go run . --answers "$ANSWERS" --get-bool content_types.explainers.enabled 2>/dev/null || echo "false")
+      if [[ "$explainers_value" == "true" ]]; then
+        echo "[3b2] content-type-explainers: shared/"
+        ( cd "$RENDERER_DIR" && go run . --src "$PLUGIN_ROOT/templates/content-type-explainers/shared" --dst "$TARGET" --answers "$ANSWERS" )
+      else
+        echo "[3b2] content-type-explainers: SKIPPED (content_types.explainers.enabled != true)"
+      fi
+      ```
+      Re-run `pytest tests/unit/test_explainers_gating.py -q` → green.
+- number: 2
+  title: scaffold-explainer.sh (TDD)
+  steps:
+  - id: P1.T2.S1
+    text: |-
+      Write failing `tests/unit/test_scaffold_explainer.py` (mirrors `test_scaffold_paper.py`, no dossier):
+      - `test_scaffold_explainer` — scaffolding post `7` slug `my-feature` against a temp `.blog-craft.yaml` (explainers config) writes `content/docs/explainers/07-my-feature/index.md`; parse its frontmatter and assert `post_number == 7`, `weight == 8` (7 + weight_offset 1), `series == ["explainers"]`, `archetype == "feature-deep-dive"` (default), and the body contains all six section headings: `## Overview`, `## Why it exists`, `## How it works`, `## Code walkthrough`, `## Tradeoffs & alternatives`, `## Try it yourself`.
+      - `test_scaffold_refuses_duplicate` — scaffolding the same `NN`/`slug` twice → second call exits non-zero.
+
+      Run `pytest tests/unit/test_scaffold_explainer.py -q` → fails (script is still the S1 stub).
+  - id: P1.T2.S2
+    text: |-
+      Implement `tools/scaffold-explainer.sh`, adapted from `tools/scaffold-paper.sh`: reads `weight_offset` and the explainers series key from `content_types.explainers` / `series[].content_type==explainers` (same config-parsing shape as `scaffold-paper.sh`'s Python heredoc, minus dossier fields). No dossier directory is created. Frontmatter written: `title` (TODO placeholder), `date`, `draft: true`, `weight`, `series: [<key>]`, `post_number`, `archetype` (arg, default `feature-deep-dive`), `tldr` (TODO), `tags: ["TODO"]`. Body: the six-section skeleton with a one-line budget/prompt comment under each heading (e.g. "*200–350 words. What the feature does and why it exists.*" under Overview).
+
+      Copy the finished script byte-identical over the Task-1 stub at `templates/content-type-explainers/shared/scripts/scaffold-explainer.sh`. Add the pair to `tests/unit/test_mirrors.py`'s `MIRRORS` list:
+      ```python
+      ("tools/scaffold-explainer.sh", "templates/content-type-explainers/shared/scripts/scaffold-explainer.sh"),
+      ```
+      Re-run `pytest tests/unit/test_scaffold_explainer.py tests/unit/test_mirrors.py -q` → green.
+- number: 3
+  title: validate_explainers.py (TDD)
+  steps:
+  - id: P1.T3.S1
+    text: |-
+      Write failing `tests/unit/test_explainers_validators.py` (mirrors the paper-frontmatter half of `test_papers_validators.py`, no dossier-gate tests):
+      - a `_fm(**over)` helper building a valid explainer frontmatter dict (`title, date, draft, weight, series=["explainers"], post_number, archetype, tldr`).
+      - `test_explainer_passes` — `validate_post(_fm(), weight_offset=1) == []`.
+      - `test_explainer_weight_invariant_violation` — wrong `weight` → a "weight invariant" failure.
+      - `test_explainer_weight_offset_is_config_driven` — same shape as papers' offset-0-vs-1 test.
+      - `test_explainer_missing_field` — deleting `tldr` → a failure naming it.
+      - `test_explainer_series_mismatch` — `series` not containing the explainers key → a failure.
+
+      Run `pytest tests/unit/test_explainers_validators.py -q` → fails (module doesn't exist / stub only).
+  - id: P1.T3.S2
+    text: |-
+      Implement `tools/validate_explainers.py`, mirroring `tools/validate_papers.py`'s structure (own `parse_frontmatter`, `_series_contains`, `validate_post(fm, weight_offset=1, explainers_key="explainers") -> list[str]`, and a `--config`-driven CLI `_main`). `REQUIRED_FIELDS = ["title", "date", "draft", "weight", "series", "post_number", "archetype", "tldr"]`. Weight invariant: `weight == post_number + weight_offset`. No dossier concept at all.
+
+      Copy byte-identical over the stub at `templates/content-type-explainers/shared/scripts/validate_explainers.py`. Add the pair to `test_mirrors.py`'s `MIRRORS`:
+      ```python
+      ("tools/validate_explainers.py", "templates/content-type-explainers/shared/scripts/validate_explainers.py"),
+      ```
+      Re-run `pytest tests/unit/test_explainers_validators.py tests/unit/test_scaffold_explainer.py tests/unit/test_mirrors.py tests/unit/test_explainers_gating.py -q` → all green (confirms scaffold output now also passes the real validator, not just the stub).
+- number: 4
+  title: Hugo smoke verification
+  steps:
+  - id: P1.T4.S1
+    text: |-
+      Write `tests/unit/test_explainers_hugo.py` (lighter than `test_papers_hugo.py` — no cross-link partials to exercise, just confirms the content-type is buildable): bootstrap a blog with `answers-explainers-v2.yaml`; scaffold post `1`/`smoke-test` via `tools/scaffold-explainer.sh`; append a ` ```mermaid\ngraph TD; A-->B; ``` ` fence under `## How it works`; set `draft: false`; run `hugo --buildDrafts` in the blog dir; assert `returncode == 0` and `public/explainers/01-smoke-test/index.html` exists and contains a mermaid-rendered marker (Hextra emits a `<pre class="mermaid">` or `mermaid` class on the code block — run the build once first to inspect the actual generated HTML, then assert on whatever Hextra v0.12.1 emits).
+
+      Run `pytest tests/unit/test_explainers_hugo.py -q`. This should pass on the first run given Tasks 1–3 are already green (nothing new to implement — Hextra handles the `docs/explainers/` content section and Mermaid rendering natively); if it doesn't, fix whatever surfaces (e.g. a missing `content/docs/explainers/_index.md` from `per-series-always`, which should already render automatically for any configured series) until green.
+state:
+  steps:
+    P1.T1.S1:
+      state: x
+      ticked_at: '2026-07-14T10:57:45+00:00'
+      note: null
+    P1.T1.S2:
+      state: x
+      ticked_at: '2026-07-14T10:57:45+00:00'
+      note: null
+    P1.T2.S1:
+      state: x
+      ticked_at: '2026-07-14T11:44:19+00:00'
+      note: null
+    P1.T2.S2:
+      state: x
+      ticked_at: '2026-07-14T11:44:19+00:00'
+      note: null
+    P1.T3.S1:
+      state: x
+      ticked_at: '2026-07-14T11:45:19+00:00'
+      note: null
+    P1.T3.S2:
+      state: x
+      ticked_at: '2026-07-14T11:45:19+00:00'
+      note: null
+    P1.T4.S1:
+      state: x
+      ticked_at: '2026-07-14T11:48:16+00:00'
+      note: null
+  completion:
+    at: '2026-07-14T11:48:17+00:00'
+    note: null
+    observed_prs: []
