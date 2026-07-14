@@ -5,6 +5,7 @@ materialized blog so a plain-python CI / operator can run them without the plugi
   - compose.py            -> templates/hugo-hextra/scripts/           (every blog)
   - the papers validators -> templates/content-type-papers/shared/scripts/ (papers on)
   - scaffold-explainer.sh -> templates/content-type-explainers/shared/scripts/ (explainers on)
+  - render-explainer.py   -> templates/content-type-explainers/shared/scripts/ (explainers on)
 Keep each pair in sync; edit the tools/ copy and re-mirror.
 """
 import os
@@ -20,6 +21,7 @@ MIRRORS = [
     ("tools/scaffold-paper.sh", "templates/content-type-papers/shared/scripts/scaffold-paper.sh"),
     ("tools/scaffold-explainer.sh", "templates/content-type-explainers/shared/scripts/scaffold-explainer.sh"),
     ("tools/validate_explainers.py", "templates/content-type-explainers/shared/scripts/validate_explainers.py"),
+    ("tools/render_explainer.py", "templates/content-type-explainers/shared/scripts/render_explainer.py"),
 ]
 
 
