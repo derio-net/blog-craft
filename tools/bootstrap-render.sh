@@ -57,6 +57,17 @@ else
   echo "[3b] content-type-papers: SKIPPED (content_types.papers.enabled != true)"
 fi
 
+# Opt-in content type: explainers shared assets (scaffold + validate scripts),
+# gated on content_types.explainers.enabled. The per-post bundle comes from
+# scaffold-explainer.sh, not bootstrap.
+explainers_value=$(cd "$RENDERER_DIR" && go run . --answers "$ANSWERS" --get-bool content_types.explainers.enabled 2>/dev/null || echo "false")
+if [[ "$explainers_value" == "true" ]]; then
+  echo "[3b2] content-type-explainers: shared/"
+  ( cd "$RENDERER_DIR" && go run . --src "$PLUGIN_ROOT/templates/content-type-explainers/shared" --dst "$TARGET" --answers "$ANSWERS" )
+else
+  echo "[3b2] content-type-explainers: SKIPPED (content_types.explainers.enabled != true)"
+fi
+
 # Optional feature assets, gated on features.*
 rt_value=$(cd "$RENDERER_DIR" && go run . --answers "$ANSWERS" --get-bool features.read_tracker 2>/dev/null || echo "false")
 if [[ "$rt_value" == "true" ]]; then
