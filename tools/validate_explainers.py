@@ -43,7 +43,7 @@ def validate_post(fm: dict, weight_offset: int = 1, explainers_key: str = "expla
         if field not in fm:
             f.append(f"missing required field: {field}")
     pn = fm.get("post_number")
-    if pn is not None and (not isinstance(pn, int) or pn < 0):
+    if pn is not None and (isinstance(pn, bool) or not isinstance(pn, int) or pn < 0):
         f.append(f"post_number must be a non-negative integer, got {pn!r}")
     weight = fm.get("weight")
     if isinstance(pn, int) and pn >= 0:
@@ -78,7 +78,7 @@ def _main(argv):
         try:
             fm = parse_frontmatter(open(p).read())
             fails = validate_post(fm, offset, ek)
-        except (ValueError, Exception) as e:  # noqa: BLE001
+        except Exception as e:  # noqa: BLE001
             fails = [f"parse error: {e}"]
         if fails:
             failed[p] = fails

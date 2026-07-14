@@ -49,7 +49,7 @@ date: ${TODAY}
 draft: true
 weight: ${WEIGHT}
 series: [${EXPLAINERS_KEY}]
-post_number: ${NN}
+post_number: $(( 10#$NN ))
 archetype: feature-deep-dive
 tldr: |
   TODO: exec summary, <=150 words. Write last.

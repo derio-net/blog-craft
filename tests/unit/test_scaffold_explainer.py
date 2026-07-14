@@ -1,8 +1,9 @@
 """P1.T2 -- scaffold-explainer.sh produces a valid bundle (no dossier)."""
 import os
-import re
 import subprocess
 import sys
+
+from validate_explainers import parse_frontmatter
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 TOOL = os.path.join(ROOT, "tools", "scaffold-explainer.sh")
@@ -19,32 +20,6 @@ SIX_SECTIONS = [
 ]
 
 
-def _parse_frontmatter(text: str) -> dict:
-    """Minimal frontmatter parser (no yaml dep needed for this test)."""
-    assert text.startswith("---"), "missing opening ---"
-    rest = text.split("\n", 1)[1]
-    m = re.search(r"^---\s*$", rest, re.MULTILINE)
-    assert m, "missing closing ---"
-    block = rest[: m.start()]
-    fm = {}
-    for line in block.splitlines():
-        if ":" in line:
-            k, v = line.split(":", 1)
-            v = v.strip().strip('"').strip("'")
-            # coerce ints
-            try:
-                v = int(v)
-            except ValueError:
-                pass
-            fm[k.strip()] = v
-    # series: [key] -> list
-    if "series" in fm and isinstance(fm["series"], str):
-        s = fm["series"]
-        if s.startswith("[") and s.endswith("]"):
-            fm["series"] = [x.strip().strip('"').strip("'") for x in s[1:-1].split(",")]
-    return fm
-
-
 def test_scaffold_explainer(tmp_path):
     cfg = tmp_path / ".blog-craft.yaml"
     cfg.write_text(open(os.path.join(FIX, "answers-explainers-v2.yaml")).read())
@@ -58,7 +33,7 @@ def test_scaffold_explainer(tmp_path):
     assert idx.exists(), f"expected bundle at {idx}"
 
     content = idx.read_text()
-    fm = _parse_frontmatter(content)
+    fm = parse_frontmatter(content)
     assert fm["post_number"] == 7
     assert fm["weight"] == 8  # 7 + weight_offset(1)
     assert fm["series"] == ["explainers"]

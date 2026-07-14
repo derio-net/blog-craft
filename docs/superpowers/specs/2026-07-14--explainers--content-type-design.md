@@ -171,5 +171,4 @@ schema, docs) — no deploy surface, no post-merge Test Plan.
 
 | Plan | Repo | File | Depends on |
 |------|------|------|-------|
-| _TBD_ | derio-net/blog-craft | content-type core + skill/subagent + docs | — |
-| 2026-07-14-explainers-content-type | `derio-net/blog-craft` | `2026-07-14-explainers-content-type` | — |
+| 2026-07-14-explainers-content-type | `derio-net/blog-craft` | content-type core + skill/subagent + docs | — |

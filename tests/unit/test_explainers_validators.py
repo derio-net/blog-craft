@@ -37,3 +37,5 @@ def test_explainer_series_mismatch():
 def test_explainer_bad_post_number():
     assert any("post_number" in f for f in validate_post(_fm(post_number=-1)))
     assert any("post_number" in f for f in validate_post(_fm(post_number="abc")))
+    # YAML boolean True is a subclass of int — must be explicitly rejected
+    assert any("post_number" in f for f in validate_post(_fm(post_number=True)))
