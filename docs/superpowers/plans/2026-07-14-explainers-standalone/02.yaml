@@ -1,0 +1,68 @@
+schema_version: 2
+phase:
+  number: 2
+  title: Docs, tests, and full-suite verification
+  tag: agentic
+  depends_on:
+  - 1
+  tracking_issue: null
+tasks:
+- number: 1
+  title: SKILL.md — add standalone mode section
+  steps:
+  - id: P2.T1.S1
+    text: |-
+      Add a "Standalone mode" sub-section to `skills/explainers/SKILL.md` after the
+      main lifecycle. Document:
+      - When to use standalone mode (no blog-craft setup, any codebase)
+      - Scaffold invocation: `--standalone --target <path> --output <dir> NN slug`
+      - Render invocation: `render_explainer.py <file> --style <theme> -o <out>`
+      - Three built-in themes (light, dark, minimal) and custom CSS path support
+      - Frontmatter `standalone_style` field for per-document theme selection
+- number: 2
+  title: Tests for standalone mode
+  steps:
+  - id: P2.T2.S1
+    text: |-
+      Extend `tests/unit/test_scaffold_explainer.py` with:
+      - `test_scaffold_standalone_creates_md` — `--standalone` writes `<NN>-<slug>.md`
+        with `standalone: true`, `target: <path>`, correct frontmatter, all 6 sections.
+      - `test_scaffold_standalone_refuses_duplicate` — second call exits non-zero.
+
+      Write `tests/unit/test_explainers_standalone.py` (NEW):
+      - `test_render_produces_html` — render outputs valid HTML with expected structure.
+      - `test_render_respects_style_flag` — `--style dark` applies dark CSS vars.
+      - `test_render_with_custom_css` — `--style custom.css` inlines that CSS.
+      - `test_render_frontmatter_style_override` — `standalone_style` in YAML
+        selects theme when no `--style` is passed.
+      - `test_render_includes_mermaid_js` — content with mermaid fences emits
+        a mermaid CDN script tag.
+      - `test_render_fallback_html_directly` — `_fallback_html` produces valid output.
+- number: 3
+  title: Full-suite verification
+  steps:
+  - id: P2.T3.S1
+    text: |-
+      Run `pytest tests/unit -q`. All green, including all new standalone tests
+      and unchanged existing tests.
+
+      Run `fr plan self-review` and fix anything it flags. Confirm no stray
+      `.fr-isolation` file is staged.
+state:
+  steps:
+    P2.T1.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T2.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T3.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+  completion:
+    at: null
+    note: null
+    observed_prs: []
