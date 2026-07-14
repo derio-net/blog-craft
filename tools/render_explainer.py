@@ -130,13 +130,20 @@ def resolve_style(style_arg: str = "light") -> str:
         return _THEMES["light"]
 
 
-def render(md_text: str, style: str = "light", strict: bool = False) -> str:
+def render(
+    md_text: str,
+    style: str = "light",
+    strict: bool = False,
+    style_explicit: bool = False,
+) -> str:
     """Convert explainer markdown to a standalone HTML page.
 
     Args:
         md_text: Full markdown text (may include YAML frontmatter).
         style: Theme name or path to custom CSS file.
         strict: If True, raise ImportError when markdown library is missing.
+        style_explicit: If True, CLI `--style` was explicitly given and
+            frontmatter `standalone_style` must NOT override it.
 
     Returns:
         Complete self-contained HTML string.
@@ -153,7 +160,11 @@ def render(md_text: str, style: str = "light", strict: bool = False) -> str:
         )
 
     fm, body = parse_frontmatter(md_text)
-    css = resolve_style(fm.get("standalone_style", style))
+
+    if not style_explicit:
+        style = fm.get("standalone_style", style)
+
+    css = resolve_style(style)
     title = fm.get("title", "Explainer")
     archetype = fm.get("archetype", "")
     date = fm.get("date", "")
@@ -162,6 +173,13 @@ def render(md_text: str, style: str = "light", strict: bool = False) -> str:
     html_body = _md.markdown(
         body,
         extensions=["fenced_code", "codehilite", "tables", "sane_lists"],
+    )
+
+    html_body = re.sub(
+        r'<pre><code class="language-mermaid">(.*?)</code></pre>',
+        lambda m: '<pre class="mermaid">' + m.group(1).strip() + '</pre>',
+        html_body,
+        flags=re.DOTALL,
     )
 
     return _wrap(title, html_body, css, archetype, date, tldr)
@@ -248,7 +266,8 @@ def main(argv: list[str]) -> int:
     with open(a.input) as f:
         md_text = f.read()
 
-    html = render(md_text, style=a.style, strict=False)
+    style_explicit = any(p.startswith("--style") for p in argv)
+    html = render(md_text, style=a.style, strict=False, style_explicit=style_explicit)
 
     if "render-explainer.py requires the 'markdown' Python library" in html:
         print("ERROR: 'markdown' Python library is not installed.", file=sys.stderr)

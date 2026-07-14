@@ -68,7 +68,7 @@ def test_render_produces_html(tmp_path):
     html = out.read_text()
     assert "<!DOCTYPE html>" in html
     assert "Explainer" in html  # default title prefix
-    assert "mermaid" in html
+    assert "mermaid.min.js" in html  # mermaid JS always in the template
 
 
 def test_render_respects_style_flag(tmp_path):
@@ -124,6 +124,22 @@ def test_render_includes_mermaid_js(tmp_path):
     )
     html = out.read_text()
     assert "mermaid.min.js" in html
+
+
+def test_render_explicit_style_wins_over_frontmatter(tmp_path):
+    """Explicit --style overrides standalone_style in frontmatter."""
+    mdf = _scaffold_standalone(tmp_path)
+    content = mdf.read_text()
+    content = content.replace("archetype:", "standalone_style: dark\narchetype:")
+    mdf.write_text(content)
+    out = tmp_path / "explicit.html"
+    subprocess.run(
+        [sys.executable, os.path.join(ROOT, "tools", "render_explainer.py"),
+         str(mdf), "--style", "light", "-o", str(out)],
+        check=True, capture_output=True, text=True,
+    )
+    html = out.read_text()
+    assert "#fff" in html  # light theme, not dark (#0d1117)
 
 
 def test_render_fallback_html_directly(tmp_path):
