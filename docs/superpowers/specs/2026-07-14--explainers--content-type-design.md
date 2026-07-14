@@ -166,3 +166,10 @@ here.
 
 Pure plugin code (new skill, subagent, scaffold/validate scripts, config
 schema, docs) — no deploy surface, no post-merge Test Plan.
+
+## Implementation Plans
+
+| Plan | Repo | File | Depends on |
+|------|------|------|-------|
+| _TBD_ | derio-net/blog-craft | content-type core + skill/subagent + docs | — |
+| 2026-07-14-explainers-content-type | `derio-net/blog-craft` | `2026-07-14-explainers-content-type` | — |

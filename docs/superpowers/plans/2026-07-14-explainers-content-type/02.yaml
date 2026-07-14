@@ -1,0 +1,51 @@
+schema_version: 2
+phase:
+  number: 2
+  title: explainers skill, references, and research subagent
+  tag: agentic
+  depends_on:
+  - 1
+  tracking_issue: null
+tasks:
+- number: 1
+  title: skills/explainers/SKILL.md
+  steps:
+  - id: P2.T1.S1
+    text: |-
+      Write `skills/explainers/SKILL.md` per the spec's Design section. Frontmatter: `name: explainers`, `description` (dormant unless `content_types.explainers.enabled`; triggers on "write an explainer", "deep-dive post", "explain this feature as a post"), `user-invocable: true`, `disable-model-invocation: false`, `arguments: [series, number, slug, title, archetype]` (`archetype` optional, default `feature-deep-dive`, description lists the other five names as guidance-only).
+
+      Body sections, following `skills/papers/SKILL.md`'s structure: **Announce at start** line; the 7-step lifecycle from the spec (find+validate blog, research via `explainer-researcher` subagent, scaffold via `tools/scaffold-explainer.sh`, draft using the six-section skeleton, visuals via Mermaid + Hextra `cards`/`tabs`/`callout`, media + cover via existing `/media` and `/blog-post` image flow, validate + publish via `tools/validate_explainers.py`); a **Guardrails** section (`weight = post_number + weight_offset`; `series` must be a list; no dossier — don't invent one).
+
+      No automated test for skill prose (matches `skills/papers/SKILL.md`, which has none) — self-review by re-reading it against the spec's Design section line by line.
+- number: 2
+  title: Archetype guidance reference
+  steps:
+  - id: P2.T2.S1
+    text: |-
+      Write `skills/explainers/references/archetypes.md`: one short recipe (3–6 bullet points each, no scaffolding, no validator) per guidance-only archetype: **Presenting a Claude Skill** (what it does, when it triggers, its workflow/lifecycle, one worked example invocation), **Comparing two similar skills** (side-by-side Hextra `cards`/table, when-to-use-which, one concrete overlap/divergence example), **Testing pyramid** (a Mermaid pyramid/flowchart of the repo's actual layers with real counts, one example test per layer), **Deployment strategy** (a Mermaid pipeline diagram of the actual CI/CD flow, environments, rollback path), **Security posture** (threat surface, what's enforced in CI vs. manual, one concrete control with its enforcement point). Each recipe explicitly says: "no scaffold, no validator — follow the same find/research/draft/publish lifecycle as `explainers`, using this recipe for section structure."
+- number: 3
+  title: explainer-researcher subagent
+  steps:
+  - id: P2.T3.S1
+    text: |-
+      Write `agents/explainer-researcher.md` (plugin-level subagent, sibling to `skills/`, same convention as `feature-dev`'s `agents/code-explorer.md`). Frontmatter: `name: explainer-researcher`, `description` (deeply explores a local codebase/skill/feature and returns a structured research brief for an explainers post — no web research), `tools: Glob, Grep, Read`, `model: sonnet`.
+
+      Body: a system-prompt-style brief telling it to (1) locate the target (path, skill dir, or named feature) via Glob/Grep, (2) trace entry points → core implementation → key abstractions, (3) return ONLY a structured markdown brief — file list with `file:line` references, a short architecture summary, and any tradeoffs/decisions surfaced from code comments or commit messages — not a finished essay (drafting stays the calling skill's job). Explicitly state it has no `WebFetch`/`WebSearch` and must not use them even if available in a broader tool set.
+state:
+  steps:
+    P2.T1.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T2.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T3.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+  completion:
+    at: null
+    note: null
+    observed_prs: []
