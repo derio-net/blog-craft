@@ -67,3 +67,12 @@ rows:
     levels: {}
     status: not-implemented
     notes: 'Manual: restart Claude Code, verify /blog-post works'
+  - id: IMG-OPT-1
+    capability: image-optimization
+    acceptance: WebP pipeline reduces image transfer size without visible quality loss
+    origin:
+    - blog-craft:docs/superpowers/implemented/specs/2026-07-04--image-optimization--webp-pipeline-design.md
+    levels: {}
+    status: not-implemented
+    notes: 'Post-merge, operator-driven on frank''s blog: DevTools network check + visual
+      spot-check + PNG masters untouched'
