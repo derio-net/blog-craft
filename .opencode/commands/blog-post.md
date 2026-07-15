@@ -7,4 +7,3 @@ description: Create a new Hugo blog post in a blog-craft blog. Composes the body
 Use the `blog-post` skill to handle this request.
 
 $ARGUMENTS
-modified
