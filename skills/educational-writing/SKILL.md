@@ -82,13 +82,34 @@ earlier posts, **link them** rather than re-explaining — a redirect orients
 without bloating. This turns a copy-this-exactly recipe into a foundation others
 can build their own thing on.
 
+## Config seeding pattern
+
+Before using any optional `.blog-craft.yaml` key, ensure it exists in the blog's
+config. If missing, seed it with its default value and an explanatory comment:
+
+```
+python3 <plugin_root>/tools/seed_config.py --config <blog_root>/.blog-craft.yaml \
+    --key <key> --default <value> \
+    --comment "<description>" --values "<comma-separated options>"
+```
+
+This pattern applies to every optional parameter — add new ones the same way.
+
 ## 3. Persona is a thin frame — but how thick is a dial
 
 The persona frames; it never carries the teaching. **How much** it frames is
 configurable via `voice_level` (`dry` / `balanced` / `rich`, default `balanced`)
-— see `references/voice.md`. The dial changes orientation warmth, aside
-frequency, and how the *why* is voiced; it never changes the evidence, the mode
-discipline, or the gate.
+— see `references/voice.md`. **Seed it if missing**:
+
+```
+python3 <plugin_root>/tools/seed_config.py --config <blog_root>/.blog-craft.yaml \
+    --key voice_level --default balanced \
+    --comment "How thick the persona frame is." \
+    --values "dry,balanced,rich"
+```
+
+The dial changes orientation warmth, aside frequency, and how the *why* is
+voiced; it never changes the evidence, the mode discipline, or the gate.
 
 blog-craft blogs have a beloved persona and cover art. Keep them — but the
 persona is a **thin frame**: a short in-character intro that sets the stakes, an

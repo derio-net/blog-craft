@@ -94,16 +94,26 @@ built — a reader must feel oriented, not dropped into `Step 1`. Then **lead wi
 the how-to** / runnable steps (the one command that matters in a copy-pasteable
 block near the top of its section), tabulate reference facts, include an
 unmissable recovery path for operational posts, and demote the war-story / *why*
-into a clearly-labelled Explanation section. Frame at the blog's `voice_level`
-(`dry`/`balanced`/`rich`, default `balanced` — see
-`<plugin_root>/skills/educational-writing/references/voice.md`): keep the persona a
-frame, never the substance. Write code snippets **expanded/multi-line** (not
-compressed flow-style) with non-obvious lines commented, and make every **Verify**
-step the real command + its success/failure signature. Use ` ```mermaid ` for
-diagrams, not hand-drawn ASCII (themed + aligned by default). For a build/operating
-chronicle, report what *we* did (first-person-plural past) rather than bare
-imperatives. Where a screenshot,
-asciinema recording, or photo would meaningfully advance the post, insert a
+into a clearly-labelled Explanation section.
+
+**Seed `voice_level` if missing:**
+
+```
+python3 <plugin_root>/tools/seed_config.py --config <blog_root>/.blog-craft.yaml \
+    --key voice_level --default balanced \
+    --comment "How thick the persona frame is." \
+    --values "dry,balanced,rich"
+```
+
+Then frame at the blog's `voice_level` (`dry`/`balanced`/`rich`, default `balanced`
+— see `<plugin_root>/skills/educational-writing/references/voice.md`): keep the
+persona a frame, never the substance. Write code snippets **expanded/multi-line**
+(not compressed flow-style) with non-obvious lines commented, and make every
+**Verify** step the real command + its success/failure signature. Use ` ```mermaid `
+for diagrams, not hand-drawn ASCII (themed + aligned by default). For a
+build/operating chronicle, report what *we* did (first-person-plural past) rather
+than bare imperatives. Where a screenshot, asciinema recording, or photo would
+meaningfully advance the post, insert a
 `<!-- MEDIA: <type> | <description> | <capture instructions> -->` marker — see the
 blog's `MEDIA-GUIDE.md`. Reserve markers for media that genuinely deepens
 understanding; do not insert markers for decoration.

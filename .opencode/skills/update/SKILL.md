@@ -41,8 +41,17 @@ applying, bump `blog_craft_version` and verify with `hugo --buildDrafts`.
 After updating, an existing blog often needs two follow-ups the merge can't do:
 add the optional `quality` + `voice_level` blocks to `.blog-craft.yaml`, and
 `hugo --buildDrafts` to pick up the new `custom.css` (mermaid theme) and
-shortcodes. The full host runbook — including rewriting existing posts to pass a
-newly-enabled gate — is `docs/USING-ON-A-HOST.md`.
+shortcodes. Seed `voice_level` with:
+
+```
+python3 <plugin_root>/tools/seed_config.py --config <blog_root>/.blog-craft.yaml \
+    --key voice_level --default balanced \
+    --comment "How thick the persona frame is." \
+    --values "dry,balanced,rich"
+```
+
+The full host runbook — including rewriting existing posts to pass a newly-enabled
+gate — is `docs/USING-ON-A-HOST.md`.
 
 ## Guardrails
 

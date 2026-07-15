@@ -96,9 +96,19 @@ drive the structure.
 ### Step 6: Rewrite (side-by-side, don't clobber)
 
 Resolve the **voice level** first: the `voice_level` arg, else the blog's
-`.blog-craft.yaml::voice_level`, else `balanced`. It sets how thick the persona
-frame is (see `educational-writing/references/voice.md`) — a "too dry" complaint
-usually means bumping `balanced` warmer, or the blog was left at `dry`.
+`.blog-craft.yaml::voice_level`, else `balanced`. If falling back to default,
+**seed the config** so the user sees the value and its options:
+
+```
+python3 <plugin_root>/tools/seed_config.py --config <blog_root>/.blog-craft.yaml \
+    --key voice_level --default balanced \
+    --comment "How thick the persona frame is." \
+    --values "dry,balanced,rich"
+```
+
+It sets how thick the persona frame is (see
+`educational-writing/references/voice.md`) — a "too dry" complaint usually means
+bumping `balanced` warmer, or the blog was left at `dry`.
 
 Compose the new body to the methodology:
 
