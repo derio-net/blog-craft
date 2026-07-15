@@ -37,6 +37,26 @@ What the dial **never** moves:
 - The rule that deleting every in-character sentence must leave the teaching intact.
   Even `rich` obeys this — richer framing, same load-bearing structure underneath.
 
+## Register: report what *we* did, don't just command
+
+Orthogonal to the dial, but it matters as much: a build/operating **chronicle**
+reports what *we* did — first-person plural, past tense — rather than issuing bare
+imperatives. "We bumped retention and added a sibling Service" reads as a record a
+reader adapts; "Bump retention and add a sibling Service" reads as an order and
+loses the sense that this is a thing that actually happened, to real people, with
+consequences. "One field bit us" over "one field will bite you."
+
+- **Chronicle series** (building/operating — "how we built/run X"): default to
+  first-person-plural past. The commands in the blocks stay copy-pasteable; the
+  prose around them narrates what was done, so a reader can see both the recipe
+  and the judgement behind it.
+- **Pure reference / standalone how-to**: bare imperative is fine and often
+  clearer ("Set `container_runtime: containerd`").
+
+This is register, not dryness: even a `dry` chronicle says "we did," it just says
+it with fewer asides. Match the blog's `voice` — but when in doubt for a build
+post, report rather than command.
+
 ## Calibrating
 
 If a `balanced` draft reads cold and a reader would feel *lost* — no sense of why

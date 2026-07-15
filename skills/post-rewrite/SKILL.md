@@ -110,6 +110,9 @@ Compose the new body to the methodology:
 - **Recovery path** — an unmissable "when it breaks, do this" for operational posts.
 - **Explanation, labelled** — move the war-story / *why* into a clearly-marked Explanation section (or suggest splitting it into a companion post in the "why" track). Don't delete the interesting story — demote it.
 - **Evidence inline** — real commands/output, `file:line`, commit SHAs, test names from the brief. Snippets **expanded/multi-line**, not compressed flow-style; comment non-obvious lines. Every **Verify** step is the real command + its success/failure signature. Mark anything needing live capture with a `<!-- MEDIA: ... -->` marker.
+- **Diagrams as Mermaid**, not hand-drawn ASCII — convert any ASCII box-diagrams in the original to ` ```mermaid ` (themed + aligned by default; see methodology "Diagrams").
+- **Register** — for a build/operating chronicle, report what *we* did (first-person-plural past: "we bumped retention and added…") rather than bare imperatives; keep the commands copy-pasteable (`references/voice.md`).
+- **No drafting-artifact meta-commentary** — state the correct config/value; don't leave "NOT the-thing-that-was-first-tried" corrections in the prose or comments. Real build missteps go in the missteps table with context; drafting corrections get cut.
 
 Write the new draft to `/tmp/post-rewrite-<timestamp>.md` (full file: rewritten
 frontmatter + body). Preserve from the original frontmatter: `title`, `date`,

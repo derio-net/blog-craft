@@ -99,7 +99,10 @@ into a clearly-labelled Explanation section. Frame at the blog's `voice_level`
 `<plugin_root>/skills/educational-writing/references/voice.md`): keep the persona a
 frame, never the substance. Write code snippets **expanded/multi-line** (not
 compressed flow-style) with non-obvious lines commented, and make every **Verify**
-step the real command + its success/failure signature. Where a screenshot,
+step the real command + its success/failure signature. Use ` ```mermaid ` for
+diagrams, not hand-drawn ASCII (themed + aligned by default). For a build/operating
+chronicle, report what *we* did (first-person-plural past) rather than bare
+imperatives. Where a screenshot,
 asciinema recording, or photo would meaningfully advance the post, insert a
 `<!-- MEDIA: <type> | <description> | <capture instructions> -->` marker — see the
 blog's `MEDIA-GUIDE.md`. Reserve markers for media that genuinely deepens

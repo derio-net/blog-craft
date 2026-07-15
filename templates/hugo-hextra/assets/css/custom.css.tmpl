@@ -122,6 +122,123 @@
   line-height: 1.5 !important;
   -webkit-line-clamp: unset !important;
 }
+
+/* ===================================================================
+   Default mermaid theme — GLOBAL, every post, every content type.
+   Hextra renders mermaid with a muted default (especially in dark
+   mode); this is blog-craft's shipped default so a diagram looks good
+   out of the box in a plain blog or an explainer, not just in Papers.
+   Mermaid 11 sets fill/stroke as inline SVG attributes, so !important
+   is required to win. Rebrand via features.css.mermaid_palette (below).
+   Palette: frank's blue/green — a clean, high-contrast default.
+=================================================================== */
+.content .mermaid { text-align: center; margin: 1.5rem 0; }
+.content .mermaid svg { background: transparent !important; max-width: 100%; height: auto; }
+
+/* nodes */
+.content .mermaid .node rect,
+.content .mermaid .node polygon,
+.content .mermaid .node circle,
+.content .mermaid .node ellipse,
+.content .mermaid .node path {
+  fill: #1f3a5f !important;
+  stroke: #4dabf7 !important;
+  stroke-width: 1.5px !important;
+}
+.content .mermaid .nodeLabel,
+.content .mermaid .nodeLabel p,
+.content .mermaid .node .label,
+.content .mermaid .node text,
+.content .mermaid .nodeLabel foreignObject div {
+  color: #eaf2ff !important;
+  fill: #eaf2ff !important;
+}
+/* edges + arrowheads */
+.content .mermaid .edgePath path,
+.content .mermaid .flowchart-link {
+  stroke: #51cf66 !important;
+  stroke-width: 1.5px !important;
+}
+.content .mermaid .arrowheadPath,
+.content .mermaid marker path {
+  fill: #51cf66 !important;
+  stroke: #51cf66 !important;
+}
+.content .mermaid .edgePath path.flowchart-link[style*="dasharray"],
+.content .mermaid path.flowchart-link.dashed { stroke: #ffa94d !important; }
+/* edge labels */
+.content .mermaid .edgeLabel,
+.content .mermaid .edgeLabel p,
+.content .mermaid .edgeLabel foreignObject div {
+  color: #eaf2ff !important;
+  fill: #0d1117 !important;
+  background-color: #0d1117 !important;
+}
+.content .mermaid .edgeLabel foreignObject div { padding: 2px 6px; border-radius: 3px; }
+/* subgraph clusters */
+.content .mermaid .cluster rect {
+  fill: #161b22 !important;
+  stroke: #4dabf7 !important;
+  stroke-width: 1.5px !important;
+  stroke-dasharray: 4 2 !important;
+}
+.content .mermaid .cluster-label,
+.content .mermaid .cluster text,
+.content .mermaid .cluster .label foreignObject div {
+  color: #4dabf7 !important;
+  fill: #4dabf7 !important;
+  font-weight: 600 !important;
+}
+/* title */
+.content .mermaid .flowchartTitleText,
+.content .mermaid .titleText { fill: #eaf2ff !important; font-weight: 700 !important; }
+
+/* light-mode overrides */
+:root:not(.dark) .content .mermaid .node rect,
+:root:not(.dark) .content .mermaid .node polygon,
+:root:not(.dark) .content .mermaid .node circle,
+:root:not(.dark) .content .mermaid .node ellipse,
+:root:not(.dark) .content .mermaid .node path {
+  fill: #dde9ff !important;
+  stroke: #1f6feb !important;
+}
+:root:not(.dark) .content .mermaid .nodeLabel,
+:root:not(.dark) .content .mermaid .nodeLabel p,
+:root:not(.dark) .content .mermaid .node text,
+:root:not(.dark) .content .mermaid .nodeLabel foreignObject div {
+  color: #0d1b2a !important;
+  fill: #0d1b2a !important;
+}
+:root:not(.dark) .content .mermaid .edgePath path,
+:root:not(.dark) .content .mermaid .flowchart-link { stroke: #198754 !important; }
+:root:not(.dark) .content .mermaid .arrowheadPath,
+:root:not(.dark) .content .mermaid marker path { fill: #198754 !important; stroke: #198754 !important; }
+:root:not(.dark) .content .mermaid .edgeLabel,
+:root:not(.dark) .content .mermaid .edgeLabel p,
+:root:not(.dark) .content .mermaid .edgeLabel foreignObject div {
+  color: #0d1b2a !important;
+  fill: #f8f9fa !important;
+  background-color: #f8f9fa !important;
+}
+:root:not(.dark) .content .mermaid .cluster rect { fill: #eef2f6 !important; stroke: #1f6feb !important; }
+:root:not(.dark) .content .mermaid .cluster-label,
+:root:not(.dark) .content .mermaid .cluster text,
+:root:not(.dark) .content .mermaid .cluster .label foreignObject div { fill: #1f6feb !important; color: #1f6feb !important; }
+{{ with .features }}{{ with .css }}{{ with .mermaid_palette }}
+/* GLOBAL config palette override (features.css.mermaid_palette) — wins
+   everywhere (incl. Papers) via later !important. */
+.content .mermaid .node rect,
+.content .mermaid .node polygon,
+.content .mermaid .node circle,
+.content .mermaid .node ellipse { fill: {{ .node }} !important; stroke: {{ .stroke }} !important; }
+.content .mermaid .edgePath path,
+.content .mermaid .flowchart-link { stroke: {{ .edge }} !important; }
+.content .mermaid .arrowheadPath,
+.content .mermaid marker path { fill: {{ .edge }} !important; stroke: {{ .edge }} !important; }
+.content .mermaid .nodeLabel,
+.content .mermaid .nodeLabel p,
+.content .mermaid .node text { color: {{ .label }} !important; fill: {{ .label }} !important; }
+{{ end }}{{ end }}{{ end }}
 {{ with .content_types }}{{ with .papers }}{{ if .enabled }}
 /* === The Frank Papers — scoped under .paper-post === */
 

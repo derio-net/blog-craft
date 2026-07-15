@@ -112,6 +112,16 @@ leaves holes, the persona was carrying load it shouldn't.
 - **Assertions without artifacts.** "It's fast / safe / graceful" with nothing to run or verify.
 - **No recovery path.** An operational post with no "when it breaks, do this."
 - **Buried commands.** The one command that matters, hidden mid-paragraph instead of in a copy-pasteable block.
+- **Drafting-artifact meta-commentary.** "NOT the-key-I-first-invented", "the spec hallucinated this", corrections aimed at the model's own path to the answer. State the correct thing; a reader doesn't need the draft's wrong turns. (A *real engineering* misstep during the build — a human design decision that was wrong and taught something — is different: it goes in the missteps table with its context. The test: was it a wrong turn in *building the system*, or in *writing the post*? Only the first is worth keeping.)
+
+## Diagrams: prefer Mermaid over hand-drawn ASCII
+
+Use fenced ` ```mermaid ` diagrams, not hand-drawn ASCII boxes. Mermaid renders
+natively in Hextra and in the standalone explainer renderer, is themed by
+blog-craft's shipped default (and any `features.css.mermaid_palette` rebrand), and
+stays aligned at any width. ASCII boxes drift out of alignment across fonts and
+zoom, carry no theming, and are painful to edit. Reserve a code block for a
+diagram only when it's genuinely not a graph (a directory tree, a byte layout).
 
 ## 5. The gate
 
