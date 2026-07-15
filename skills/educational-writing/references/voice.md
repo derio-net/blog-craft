@@ -8,8 +8,24 @@ discipline, or the gate. Dryness is orthogonal to correctness.
 
 Set it in `.blog-craft.yaml` (`voice_level: <level>`, default `balanced`), and
 override per-run with the `/post-rewrite` or `/blog-post` `voice_level` argument.
-It works *with* the freeform `voice:` string: `voice` describes the character and
-tone; `voice_level` decides how loud it is.
+
+## How it plugs into the blog's `voice`
+
+`voice_level` is not a separate voice — it's the **dial on your blog's existing
+`voice`**. Every blog already carries a freeform `voice:` string (the character
+and tone — Frank's is "speaks as the cluster itself, conversational, darkly
+self-aware"). The authoring skills compose the persona instruction as **one
+thing**: *the blog's `voice`, applied at the resolved `voice_level`.* `voice` says
+*who's talking and how*; `voice_level` says *how loud they are over the teaching*.
+Change the character in `voice`; change the volume in `voice_level`.
+
+## Where the dials actually are
+
+Two are deterministic knobs; the rest is methodology the skill applies:
+
+- **`quality.gate.*`** — the mechanical floor (reader_goal, mode, command block, actionable section). A hard gate, not a preference.
+- **`voice` + `voice_level`** — the tone dials above.
+- **Everything else** (evidence discipline, Diátaxis mode choice, orientation, the missteps table) is **methodology the skill applies from these references** — prose-driven, not a config knob, because prose quality can't be mechanized. The gate is the deterministic backstop under all of it.
 
 ## The three levels
 

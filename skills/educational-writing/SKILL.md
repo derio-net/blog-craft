@@ -123,6 +123,29 @@ stays aligned at any width. ASCII boxes drift out of alignment across fonts and
 zoom, carry no theming, and are painful to edit. Reserve a code block for a
 diagram only when it's genuinely not a graph (a directory tree, a byte layout).
 
+**Keep the layout clean.** Mermaid's default engine (dagre) routes badly when a
+diagram does too much — a long edge details *under* an unrelated box, an edge
+label gets crushed against a cluster boundary. Fixes, in order of leverage:
+
+- **Split a busy diagram.** The strongest fix. If one diagram has many
+  long-range or crossing edges (e.g. a data plane *and* an alert plane), it's two
+  diagrams. Each should make one point.
+- **Order nodes and edges to flow one way.** Declare nodes in the order the flow
+  visits them and write edges front-to-back; every back-edge is a crossing dagre
+  has to route around. Chain where you can (`a --> b --> c`).
+- **Keep edge labels short** (`logs`, `crit`) or drop them when the direction is
+  obvious — long labels near a subgraph border are what gets cramped. Put a
+  far-right sink (e.g. a `Telegram` node) *outside* the subgraphs.
+- **Match direction to shape** — `TD` for tiers/pipelines, `LR` for a left-to-right
+  flow; try both, keep the one that crosses less.
+- **ELK for the hard ones** — if the blog's Mermaid bundle ships the ELK layout,
+  `%%{init: {"flowchart": {"defaultRenderer": "elk"}}}%%` routes orthogonally and
+  places labels far better. Confirm it renders in the target theme before relying
+  on it (Hextra's bundled Mermaid may not include ELK).
+
+If a diagram still looks tangled after this, that's the diagram telling you it's
+carrying too much — split it.
+
 ## 5. The gate
 
 Before publish, a `posts` post must pass the structural gate — the mechanical

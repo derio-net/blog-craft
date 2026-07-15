@@ -31,4 +31,8 @@ A regular post (`content_type: posts`) is held to a structural gate — the mech
 
 After install, all become available as slash commands. Run `/bootstrap-blog` in a fresh directory to spin up a new blog. Inside any directory containing `.blog-craft.yaml`, `/blog-post`, `/media`, `/explainers`, and `/post-rewrite` work end-to-end; `/educational-writing` is the shared methodology the authoring skills load (and you can invoke it directly to diagnose a post).
 
+## Updating a blog & rewriting posts
+
+blog-craft has **two update surfaces** — the plugin (skills, agents, `tools/`, at user level) and each blog's materialized files (`custom.css`, shortcodes, `scripts/`, inside the blog repo). Updating one does not touch the other. The full operator/agent runbook — landing a newer blog-craft, updating an existing blog to get the mermaid theme + gate, and invoking `/post-rewrite` — is in **[`docs/USING-ON-A-HOST.md`](docs/USING-ON-A-HOST.md)**.
+
 What blog-craft does **not** ship: a deploy pipeline, multi-SSG support (Hugo only), or a theme wizard (Hextra only). These are intentional cuts — KISS for v1.
