@@ -49,6 +49,8 @@ features:                 # series_overview_posts, read_tracker, banners,
                           # roadmap{enabled,data}, analytics, css{mermaid_palette}
 voice: |
   <tone>
+voice_level: balanced     # optional; dry | balanced | rich — how thick the persona
+                          # frame is (see §8). Default balanced. Orthogonal to the gate.
 ci:
   validators: [ frontmatter, dossier, mermaid, hugo_build ]
   deploy: { kind: container_pages | pages | none }
@@ -175,3 +177,34 @@ Every `content_type: posts` post carries two fields, set by `/blog-post` and
 reader_goal: "Configure NUT so the homelab shuts down cleanly before the UPS battery dies."
 diataxis: [how-to, reference]   # one or more of: tutorial, how-to, reference, explanation
 ```
+
+Optionally, on a post that **mirrors code state** (no in-post "Update" logs — the
+post is kept current instead), a last-updated stamp:
+
+```yaml
+last_updated: 2026-07-13
+last_updated_commit: https://github.com/owner/repo/commit/<sha>
+```
+
+Render it with the `{{< last-updated >}}` shortcode (ships in the hugo-hextra
+template) near the top of the post — it shows `Last updated <date> · <sha>` with
+the sha linked to the commit, so a reader knows how current the post is and can
+diff since. Emits nothing if `last_updated` is absent.
+
+## §8 Voice level (`voice_level`)
+
+Optional. `dry` | `balanced` | `rich` (default `balanced`). The dial for **how
+much personality colors the teaching** — it works with the freeform `voice:`
+string (`voice` = the character; `voice_level` = how loud). It moves orientation
+warmth, aside frequency, transition prose, and how the *why* is voiced; it does
+**not** move the evidence requirements, the Diátaxis mode discipline, or the gate.
+Dryness is orthogonal to correctness.
+
+| Level | Feels like | Body persona |
+|-------|-----------|--------------|
+| `dry` | clean technical docs | almost none (the cover image is the flavor) |
+| `balanced` | a knowledgeable friend explaining | thin frame + warm orientation + memory-aiding asides |
+| `rich` | the persona narrating the build | voiced throughout, but the how-to still leads and every section carries its evidence |
+
+`/blog-post` and `/post-rewrite` read it from config and accept a per-run
+`voice_level` override. Full guidance: `skills/educational-writing/references/voice.md`.

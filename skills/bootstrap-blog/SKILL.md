@@ -87,6 +87,14 @@ Show the default and let the user accept or replace:
 
 Capture into `voice:`.
 
+Then ask **`voice_level`** — how thick the persona frame should be (default
+`balanced`): `dry` (clean technical docs, persona only in the cover), `balanced`
+(thin frame + warm orientation + memory-aiding asides — recommended), or `rich`
+(the persona narrates the build, but the how-to still leads). This is the dial
+between "reads like docs" and "reads like a story"; it never changes the evidence
+a post must carry or the quality gate. Capture into `voice_level:` (omit to accept
+the `balanced` default). See `skills/educational-writing/references/voice.md`.
+
 #### Step 5: Image-gen settings
 
 - **`image_gen.provider`** — must be `gemini` in v1. Tell the user this and confirm.

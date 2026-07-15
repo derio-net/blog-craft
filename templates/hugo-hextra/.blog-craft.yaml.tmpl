@@ -35,6 +35,10 @@ features:
 
 voice: |
 {{ indent 2 .voice }}
+{{- if .voice_level }}
+# How thick the persona frame is: dry | balanced | rich (see docs/CONFIG.md §8).
+voice_level: {{ .voice_level }}
+{{- end }}
 
 ci:
 {{ toYaml .ci | indent 2 }}

@@ -86,13 +86,21 @@ can *do* after reading) and pick the **`diataxis`** mode(s) (one or more of
 tutorial / how-to / reference / explanation). If you can't state the reader_goal,
 the post has no job yet — go back to the evidence. These become frontmatter.
 
-**Body.** Compose a draft body to the methodology: lead with the how-to / runnable
-steps (the one command that matters in a copy-pasteable block near the top of its
-section), tabulate reference facts, include an unmissable recovery path for
-operational posts, and demote the war-story / *why* into a clearly-labelled
-Explanation section. Keep only the thin persona frame (short in-character intro +
-outro; asides only where they aid memory). Where a screenshot, asciinema
-recording, or photo would meaningfully advance the post, insert a
+**Body.** Compose a draft body to the methodology. **Set the stage first**
+(methodology §2a): open with the motivation (the concrete problem, felt), what it
+solves, and the one load-bearing design choice, then **name the foundation** ("to
+follow this you need A, B, C") with links to the earlier posts where A/B/C were
+built — a reader must feel oriented, not dropped into `Step 1`. Then **lead with
+the how-to** / runnable steps (the one command that matters in a copy-pasteable
+block near the top of its section), tabulate reference facts, include an
+unmissable recovery path for operational posts, and demote the war-story / *why*
+into a clearly-labelled Explanation section. Frame at the blog's `voice_level`
+(`dry`/`balanced`/`rich`, default `balanced` — see
+`<plugin_root>/skills/educational-writing/references/voice.md`): keep the persona a
+frame, never the substance. Write code snippets **expanded/multi-line** (not
+compressed flow-style) with non-obvious lines commented, and make every **Verify**
+step the real command + its success/failure signature. Where a screenshot,
+asciinema recording, or photo would meaningfully advance the post, insert a
 `<!-- MEDIA: <type> | <description> | <capture instructions> -->` marker — see the
 blog's `MEDIA-GUIDE.md`. Reserve markers for media that genuinely deepens
 understanding; do not insert markers for decoration.

@@ -61,7 +61,34 @@ How to *gather* this evidence — and the `post-researcher` subagent that does i
 from a source repo so heavy exploration stays out of the drafting context — is in
 `references/evidence.md`.
 
-## 3. Persona is a thin frame, never the substance
+## 2a. Orient the reader before the first step
+
+A how-to that opens on `Step 1` leaves the reader lost: *why am I building this,
+what does it solve, why this shape?* Every post earns its steps with a short
+**set-the-stage** opening — three beats, tight, no lecturing:
+
+1. **Motivation** — the concrete problem. Not "we added observability" but "I
+   wanted to know how many people read Paper 15 this week, and the answer was a
+   shrug." A reader should feel the itch.
+2. **What it solves** — what's true after, that wasn't before.
+3. **Why this shape** — the one load-bearing design choice, stated in a sentence
+   (the deep rationale goes in the labelled Explanation section later; here it's
+   just orientation).
+
+Then **name the foundation the reader builds on.** They almost certainly won't
+build your exact thing — so give them the ground to stand on: "To follow this you
+need A, B, and C. Given all that, here's what we did." Where A/B/C were built in
+earlier posts, **link them** rather than re-explaining — a redirect orients
+without bloating. This turns a copy-this-exactly recipe into a foundation others
+can build their own thing on.
+
+## 3. Persona is a thin frame — but how thick is a dial
+
+The persona frames; it never carries the teaching. **How much** it frames is
+configurable via `voice_level` (`dry` / `balanced` / `rich`, default `balanced`)
+— see `references/voice.md`. The dial changes orientation warmth, aside
+frequency, and how the *why* is voiced; it never changes the evidence, the mode
+discipline, or the gate.
 
 blog-craft blogs have a beloved persona and cover art. Keep them — but the
 persona is a **thin frame**: a short in-character intro that sets the stakes, an

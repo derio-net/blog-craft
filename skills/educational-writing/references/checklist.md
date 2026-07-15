@@ -11,11 +11,19 @@ runs them. A post ships when the gate passes **and** the judgment items hold.
 - [ ] At least one **command/output code block** (real, copy-pasteable; mermaid doesn't count).
 - [ ] At least one **actionable section** a reader under pressure can follow (Reproduce / Runbook / Steps / Verify / Recover).
 
+## Orientation — the reader must not feel lost
+
+- [ ] A **set-the-stage** opening states the motivation (the concrete problem), what it solves, and the one load-bearing design choice — before `Step 1`.
+- [ ] The **foundation is named**: "you need A, B, C" — with links to the earlier posts where A/B/C were built, rather than re-explaining them.
+- [ ] The `voice_level` fits the blog/post (`dry`/`balanced`/`rich`); a `balanced`+ draft reads oriented and human, not cold.
+
 ## The 2am test — judgment (must hold)
 
 - [ ] A reader with the stated `reader_goal`, under time pressure, can act on this post **without reading anything else**.
 - [ ] The **one command that matters** is in a block, near the top of its section, not buried in prose.
 - [ ] An operational post has an unmissable **recovery / "when it breaks" path**.
+- [ ] Every **Verify** step is the real command + its success/failure signature, not a description of it.
+- [ ] Code snippets are **expanded/multi-line**, not compressed flow-style; non-obvious lines are commented.
 
 ## Mode discipline
 
@@ -40,3 +48,4 @@ runs them. A post ships when the gate passes **and** the judgment items hold.
 - [ ] `draft: false` only when the above hold.
 - [ ] Media markers filled (`/media`) or removed; no orphan `<!-- MEDIA: -->`.
 - [ ] Cover image present and on-metaphor.
+- [ ] If the post **mirrors code state** (no in-post "Update" logs), it shows a visible **last-updated date + commit link** (`last_updated` + `last_updated_commit` frontmatter; the `{{< last-updated >}}` shortcode renders it) so a reader knows how current it is and can diff since.

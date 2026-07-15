@@ -10,6 +10,9 @@ arguments:
   - name: source
     description: "Optional path/URL of the source repo or feature the post chronicles, for evidence gathering. If omitted, inferred from frontmatter/links or asked."
     required: false
+  - name: voice_level
+    description: "Optional override for persona thickness: dry | balanced | rich. Defaults to the blog's .blog-craft.yaml voice_level, or balanced."
+    required: false
 ---
 
 # Rewrite a post into something genuinely useful
@@ -92,20 +95,30 @@ drive the structure.
 
 ### Step 6: Rewrite (side-by-side, don't clobber)
 
+Resolve the **voice level** first: the `voice_level` arg, else the blog's
+`.blog-craft.yaml::voice_level`, else `balanced`. It sets how thick the persona
+frame is (see `educational-writing/references/voice.md`) — a "too dry" complaint
+usually means bumping `balanced` warmer, or the blog was left at `dry`.
+
 Compose the new body to the methodology:
 
-- **Thin persona frame** — keep a short in-character intro that sets the stakes and an outro; keep asides only where they aid memory. Preserve the blog's `voice` and `metaphor.persona` register for the frame. Everything between is teaching.
+- **Set the stage first** (methodology §2a) — open with motivation (the concrete problem, felt), what it solves, and the one load-bearing design choice. Then **name the foundation**: "to build this you need A, B, C" with **links to the earlier posts** where A/B/C were built, rather than re-explaining. A reader must feel oriented, not dropped into `Step 1`.
+- **Persona frame at the resolved `voice_level`** — keep the blog's `voice`/`metaphor.persona` register; `dry` = minimal, `balanced` = thin frame + warm orientation + memory-aiding asides, `rich` = voiced throughout but the how-to still leads.
 - **Lead with the how-to** — the runnable steps first, the one command that matters in a copy-pasteable block near the top of its section.
 - **Reference block** — tabulate the config keys, flags, thresholds, paths a reader looks up.
+- **A missteps table** — the design-time wrong turns as *assumed → why wrong → what it cost*, each with enough context to stand alone (`references/evidence.md`). Keep it distinct from the runtime symptom→cause→fix troubleshooting table.
 - **Recovery path** — an unmissable "when it breaks, do this" for operational posts.
 - **Explanation, labelled** — move the war-story / *why* into a clearly-marked Explanation section (or suggest splitting it into a companion post in the "why" track). Don't delete the interesting story — demote it.
-- **Evidence inline** — real commands/output, `file:line`, commit SHAs, test names from the brief. Mark anything needing live capture with a `<!-- MEDIA: ... -->` marker where a screenshot/cast helps.
+- **Evidence inline** — real commands/output, `file:line`, commit SHAs, test names from the brief. Snippets **expanded/multi-line**, not compressed flow-style; comment non-obvious lines. Every **Verify** step is the real command + its success/failure signature. Mark anything needing live capture with a `<!-- MEDIA: ... -->` marker.
 
 Write the new draft to `/tmp/post-rewrite-<timestamp>.md` (full file: rewritten
 frontmatter + body). Preserve from the original frontmatter: `title`, `date`,
 `weight`, `tags`, `summary` (update the summary only if it now misdescribes the
 post), cover/image fields, and any cross-link fields. **Add** `reader_goal` and
-`diataxis`. Do not change `weight` or the bundle path.
+`diataxis`. If the post mirrors code state (no in-post Update logs), also add
+`last_updated` + `last_updated_commit` (date + commit URL of the source state you
+reconciled to) and a `{{< last-updated >}}` shortcode near the top. Do not change
+`weight` or the bundle path.
 
 Show the user the diagnosis recap and the new draft. Ask:
 

@@ -48,6 +48,37 @@ repo*; you supply what's only observable *at runtime*.
 - **Tabulate reference facts.** Config keys, flags, thresholds → a table, not prose. A reader scans it at 2am.
 - **Make the recovery path unmissable.** Operational posts need a "when it breaks, run this" block. That is often the single most-read part of the post.
 - **Cite, don't gesture.** "See the shutdown script" → `scripts/graceful-shutdown.sh:42`. "It's configured in NUT" → the exact `upsmon.conf` lines.
+- **Write snippets to be read and pasted — verbose over clever.** A reader scans
+  and copies code; compressed flow-style fights both. Prefer expanded, multi-line
+  form over inline maps/lists:
+
+  ```yaml
+  # do this
+  loki:
+    hostport: "http://192.168.55.225:9428"
+    endpoint: "/insert/loki/api/v1/push"
+  # not this
+  loki: { hostport: "http://192.168.55.225:9428", endpoint: "/insert/loki/api/v1/push" }
+  ```
+
+  Keep a comment on any non-obvious line (why *this* value), and show enough
+  surrounding context that the snippet is usable, not just illustrative.
+- **Make verification runnable.** A "Verify" step is the actual command a reader
+  runs plus what a right/wrong result looks like — not a description of it. Not
+  "query the logs and you'll see the request lines"; give the query and the
+  success/failure signature.
+
+## The missteps table — a journey, not disconnected trivia
+
+The wrong turns during a build are some of the most useful teaching there is —
+*if* each carries enough context to stand on its own. A bare list of gotchas reads
+as trivia; the same facts in a table with **what you assumed → why it was wrong →
+what it cost / how you caught it** becomes a map of the terrain. Use it for the
+design-time missteps (the plan that assumed a component that didn't exist, the
+chart key that wasn't real) and keep it distinct from the runtime
+symptom→cause→fix troubleshooting table — one is "what I got wrong building it,"
+the other is "what breaks running it." Include a misstep only when you can give
+its context; a row the reader can't connect to anything is noise.
 
 ## The self-check
 
