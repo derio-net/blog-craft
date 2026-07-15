@@ -1,0 +1,69 @@
+# Acceptance matrix — the registry of business-level acceptance tests and
+# where each is verified. Rendered by `fr acceptance report`; gated in CI by
+# .github/workflows/acceptance-report.yml (`fr acceptance check`).
+#
+# Row schema:
+#   id:         kebab-case, stable
+#   capability: grouping (tables render in first-seen order)
+#   acceptance: the business-level statement
+#   origin:     list of "repo:path[#anchor]" refs (spec §, design doc)
+#   levels:     unit/api/int/ui → list of "repo:path[#Lline]" test refs
+#               ([] = level does not verify this row)
+#   status:     ci | scheduled | skipped | not-implemented | failing
+#     ci               automated on every PR — cannot drift silently
+#     scheduled        automated on cron/path triggers
+#     skipped          verification exists but does not run in CI (proven
+#                      live once / manual walk) → CI warning, backfill owed
+#     not-implemented  no test or surface exists yet → CI warning
+#     failing          known red → `fr acceptance check` exits 2, CI FAILS
+#   notes:      evidence detail, drift context
+#
+# Rule: .claude/rules/acceptance-matrix.md — update rows in the SAME PR that
+# changes a Test Plan, adds tests, ships a surface, or touches CI.
+# Add rows with `fr acceptance add` (schema-validated append). Keep `rows:`
+# as the LAST top-level key — `add` appends to the end of this file.
+
+org: derio-net
+repo: blog-craft
+rows:
+  - id: OC-1
+    capability: opencode-compatibility
+    acceptance: OpenCode discovers all 9 blog-craft skills in .opencode/skills/
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-15-opencode-compatibility-design.md
+    levels: {}
+    status: not-implemented
+    notes: 'Manual: run opencode in repo root, check skill list'
+  - id: OC-2
+    capability: opencode-compatibility
+    acceptance: Slash commands for all 9 skills work (e.g. /blog-post)
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-15-opencode-compatibility-design.md
+    levels: {}
+    status: not-implemented
+    notes: 'Manual: type /blog-post in opencode, skill loads'
+  - id: OC-3
+    capability: opencode-compatibility
+    acceptance: sync-opencode.py --check exits 0 when mirrors are in sync
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-15-opencode-compatibility-design.md
+    levels: {}
+    status: ci
+    notes: 'Automated: uv run scripts/sync-opencode.py --check'
+  - id: OC-4
+    capability: opencode-compatibility
+    acceptance: install.sh registers marketplace, enables plugin, delivers OpenCode
+      skills/commands
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-15-opencode-compatibility-design.md
+    levels: {}
+    status: not-implemented
+    notes: 'Manual: run scripts/install.sh and verify'
+  - id: OC-5
+    capability: opencode-compatibility
+    acceptance: Claude Code plugin path is not regressed
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-15-opencode-compatibility-design.md
+    levels: {}
+    status: not-implemented
+    notes: 'Manual: restart Claude Code, verify /blog-post works'
