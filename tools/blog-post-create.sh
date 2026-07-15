@@ -8,15 +8,19 @@
 #
 # Usage:
 #   blog-post-create.sh <blog_root> <series> <number> <slug> <title> \
-#                       <prompt-file> <body-file> <summary-file>
+#                       <prompt-file> <body-file> <summary-file> \
+#                       [<reader-goal-file>] [<diataxis>]
 #
 # <prompt-file>  — full composed image prompt (multi-paragraph)
 # <body-file>    — post body (everything that goes under the frontmatter)
 # <summary-file> — short summary string for the frontmatter `summary:` field
 #                  (single line; whitespace-trimmed; shell quoting handled here)
+# <reader-goal-file> — optional; single-line educational-writing `reader_goal:`
+#                  (what the reader can DO after reading). Emitted only if given.
+# <diataxis>     — optional; comma-separated Diátaxis mode(s) for `diataxis:`
+#                  (e.g. "how-to,reference"). Emitted only if given.
 #
-# All three are passed as files to avoid shell-quoting multi-paragraph or
-# special-character content.
+# The file args avoid shell-quoting multi-paragraph or special-character content.
 set -euo pipefail
 
 BLOG_ROOT=${1:?"blog_root required"}
@@ -27,6 +31,8 @@ TITLE=${5:?"title required"}
 PROMPT_FILE=${6:?"prompt-file required"}
 BODY_FILE=${7:?"body-file required"}
 SUMMARY_FILE=${8:?"summary-file required"}
+READER_GOAL_FILE=${9:-}
+DIATAXIS=${10:-}
 
 [[ -f "$BLOG_ROOT/.blog-craft.yaml" ]] || { echo "ERROR: $BLOG_ROOT/.blog-craft.yaml not found" >&2; exit 2; }
 [[ -f "$PROMPT_FILE" ]]  || { echo "ERROR: prompt file $PROMPT_FILE not found"   >&2; exit 2; }
@@ -44,20 +50,27 @@ OUTPUT_IMAGE="static/images/$KEY-cover.png"
 BUNDLE_DIR="$BLOG_ROOT/content/docs/$SERIES/$NUMBER-$SLUG"
 PROMPTS_YAML="$BLOG_ROOT/prompt_for_images.yaml"
 
-# 1. Page bundle: frontmatter + composed body
+# 1. Page bundle: frontmatter + composed body. reader_goal/diataxis are emitted
+#    only when supplied (educational-writing methodology; see docs/CONFIG.md).
 mkdir -p "$BUNDLE_DIR"
 {
-  cat <<EOF
----
-title: "$TITLE"
-date: $TODAY
-draft: false
-tags: []
-summary: "$SUMMARY"
-weight: $WEIGHT
----
-
-EOF
+  echo '---'
+  echo "title: \"$TITLE\""
+  echo "date: $TODAY"
+  echo "draft: false"
+  echo "tags: []"
+  echo "summary: \"$SUMMARY\""
+  echo "weight: $WEIGHT"
+  if [[ -n "$READER_GOAL_FILE" && -f "$READER_GOAL_FILE" ]]; then
+    RG=$(tr -d '\n' < "$READER_GOAL_FILE" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g; s/"/\\"/g')
+    echo "reader_goal: \"$RG\""
+  fi
+  if [[ -n "$DIATAXIS" ]]; then
+    MODES=$(echo "$DIATAXIS" | tr ',' '\n' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g' | grep -v '^$' | paste -sd, - | sed 's/,/, /g')
+    echo "diataxis: [$MODES]"
+  fi
+  echo '---'
+  echo
   cat "$BODY_FILE"
 } > "$BUNDLE_DIR/index.md"
 echo "  page bundle: $BUNDLE_DIR/index.md (body from $BODY_FILE, summary from $SUMMARY_FILE)"

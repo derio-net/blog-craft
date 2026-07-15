@@ -21,6 +21,14 @@ series:
 content_types:
 {{ toYaml .content_types | indent 2 }}
 {{- end }}
+{{- if .quality }}
+
+# Post-quality gate — educational-writing methodology (see docs/CONFIG.md §7).
+# Governs scripts/validate_educational.py. When enabled, the shipped CI wires the
+# gate on every `content_type: posts` post. Absent => gate not wired.
+quality:
+{{ toYaml .quality | indent 2 }}
+{{- end }}
 
 features:
 {{ toYaml .features | indent 2 }}

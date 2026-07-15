@@ -97,6 +97,17 @@ Capture into `voice:`.
 
 #### Step 6: Optional toggles
 
+- **`quality.enabled`** — default `true`. "Enforce the educational-writing quality gate on regular posts? It's what keeps posts genuinely useful — each new post declares a `reader_goal` + Diátaxis mode and must carry real command/output blocks and an actionable (Reproduce/Runbook/Verify) section; the shipped CI runs the gate. Strongly recommended." When `true` (the default), write this block into the answers so it renders into `.blog-craft.yaml` and wires CI:
+  ```yaml
+  quality:
+    enabled: true
+    gate:
+      require_reader_goal: true
+      require_diataxis_mode: true
+      min_command_blocks: 1
+      require_actionable_section: true
+  ```
+  When `false`, omit the `quality` block entirely (no gate wired). The methodology skills (`/blog-post`, `/post-rewrite`) still apply even without the CI gate.
 - **`features.roadmap_shortcode`** — default `false`. "Include a roadmap shortcode skeleton?" Yes only if you have a temporally-evolving thing to visualize.
 - **`features.series_overview_posts`** — default `true`. "Seed a `00-overview/index.md` per series?"
 - **`git_init`** — default `true`. Initialize git in the target dir after rendering.

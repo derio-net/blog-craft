@@ -27,6 +27,15 @@ jobs:
           done
           python3 scripts/validate_papers.py --config .blog-craft.yaml content/docs/*/*/index.md
 {{- end }}{{- end }}
+{{- with .quality }}{{- if .enabled }}
+      # Educational-writing gate: every `content_type: posts` post must carry the
+      # evidence a genuinely useful teaching post needs (reader_goal, Diátaxis
+      # mode, a command/output block, an actionable section). Papers/explainers
+      # are skipped — they have their own validators. Ships at scripts/ so a
+      # plain-python CI runs it without the plugin.
+      - name: Validate post quality (educational-writing)
+        run: python3 scripts/validate_educational.py --config .blog-craft.yaml content/docs/*/*/index.md
+{{- end }}{{- end }}
       - name: Hugo build
         run: hugo --minify
 {{- with .ci }}
