@@ -68,6 +68,31 @@ The single discovery contract: a directory is "a blog-craft blog" iff it contain
 
 Frank's blog uses this stack and it's battle-tested. Adding pluggable SSGs would 3x the surface area (per-SSG renderers, per-SSG frontmatter dialects, per-SSG path conventions) for v1. If demand for Astro/Eleventy/etc. ever materialises, fork the renderer or add a second template subdirectory; don't try to abstract over SSGs.
 
+## The educational-writing methodology + quality gate
+
+The `educational-writing` skill (`skills/educational-writing/`) is not a
+scaffolder — it's the shared **methodology** the authoring skills consume. It
+encodes, self-contained and citing provenance, three things: reader-first
+structure ([Diátaxis](https://diataxis.fr/) — tutorial / how-to / reference /
+explanation), evidence-grounding (no claim without a citable artifact), and a
+thin-persona rule (the character frames, it doesn't carry the teaching). It exists
+because the default failure mode of a drafted post is *prose about the session
+that made it* — witty, in-character, useless to a reader who needs to
+build/operate/fix the thing.
+
+Data flow:
+
+- `/blog-post` and `/post-rewrite` **load** `educational-writing/SKILL.md` + its `references/` to shape drafts, and dispatch the read-only `post-researcher` agent (`agents/post-researcher.md`) to gather evidence from a source repo — the narrative/operational analogue of `explainer-researcher`.
+- Two frontmatter fields carry the discipline onto every `content_type: posts` post: `reader_goal` (what the reader can *do* afterward) and `diataxis` (the mode).
+- The structural **gate** is `tools/validate_educational.py` — it can't judge prose, only the *presence* of evidence (reader_goal, diataxis, a command block, an actionable section). It's config-driven via the optional top-level `quality` block (§7 of CONFIG.md), deliberately **not** a content-type: it applies to all regular posts, and skips papers/explainers (which have their own validators).
+- Materialization mirrors the papers convention: the validator ships byte-identical at both `tools/validate_educational.py` (skills call it) and `templates/hugo-hextra/scripts/validate_educational.py` (framework-class per the manifest — copied into every blog so a plain-python CI runs the gate without the plugin). A unit test guards against drift.
+
+Why self-contained rather than vendoring an external writing skill: blog-craft's
+core value is portability. The strongest available external skills are either
+SEO/AI-citation-oriented (wrong goal for a teaching blog) or a different domain
+(academic). Diátaxis is the established framework; we adopt it and cite it rather
+than reinvent or take a heavyweight dependency.
+
 ## What blog-craft does not own
 
 - Deploy pipelines (each blog picks its own host)

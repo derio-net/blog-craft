@@ -38,6 +38,25 @@ def test_structural_classes_always_present(tmp_path):
     assert ".paper-post" not in css
 
 
+def test_default_mermaid_theme_is_global(tmp_path):
+    # A plain blog (no papers, no features) still ships the mermaid theme, scoped
+    # to .content .mermaid (not .paper-post) so every post/explainer looks good.
+    css = _render({"features": {}}, tmp_path)
+    assert ".content .mermaid" in css
+    assert "#1f3a5f" in css              # shipped default node fill, every blog
+    assert ".paper-post" not in css      # papers surface still gated off
+
+
+def test_global_mermaid_palette_override_without_papers(tmp_path):
+    css = _render({"features": {"css": {"mermaid_palette":
+                    {"node": "#111111", "stroke": "#222222",
+                     "edge": "#333333", "label": "#444444"}}}}, tmp_path)
+    assert "GLOBAL config palette override" in css
+    for v in ("#111111", "#222222", "#333333", "#444444"):
+        assert v in css
+    assert ".paper-post" not in css      # override is global, not papers-gated
+
+
 def test_read_marker_gated_on_read_tracker(tmp_path):
     assert ".read-marker" not in _render({"features": {}}, tmp_path)
     assert ".read-marker" in _render({"features": {"read_tracker": True}}, tmp_path)

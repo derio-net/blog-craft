@@ -87,6 +87,14 @@ Show the default and let the user accept or replace:
 
 Capture into `voice:`.
 
+Then ask **`voice_level`** — how thick the persona frame should be (default
+`balanced`): `dry` (clean technical docs, persona only in the cover), `balanced`
+(thin frame + warm orientation + memory-aiding asides — recommended), or `rich`
+(the persona narrates the build, but the how-to still leads). This is the dial
+between "reads like docs" and "reads like a story"; it never changes the evidence
+a post must carry or the quality gate. Capture into `voice_level:` (omit to accept
+the `balanced` default). See `skills/educational-writing/references/voice.md`.
+
 #### Step 5: Image-gen settings
 
 - **`image_gen.provider`** — must be `gemini` in v1. Tell the user this and confirm.
@@ -97,6 +105,17 @@ Capture into `voice:`.
 
 #### Step 6: Optional toggles
 
+- **`quality.enabled`** — default `true`. "Enforce the educational-writing quality gate on regular posts? It's what keeps posts genuinely useful — each new post declares a `reader_goal` + Diátaxis mode and must carry real command/output blocks and an actionable (Reproduce/Runbook/Verify) section; the shipped CI runs the gate. Strongly recommended." When `true` (the default), write this block into the answers so it renders into `.blog-craft.yaml` and wires CI:
+  ```yaml
+  quality:
+    enabled: true
+    gate:
+      require_reader_goal: true
+      require_diataxis_mode: true
+      min_command_blocks: 1
+      require_actionable_section: true
+  ```
+  When `false`, omit the `quality` block entirely (no gate wired). The methodology skills (`/blog-post`, `/post-rewrite`) still apply even without the CI gate.
 - **`features.roadmap_shortcode`** — default `false`. "Include a roadmap shortcode skeleton?" Yes only if you have a temporally-evolving thing to visualize.
 - **`features.series_overview_posts`** — default `true`. "Seed a `00-overview/index.md` per series?"
 - **`git_init`** — default `true`. Initialize git in the target dir after rendering.

@@ -1,7 +1,7 @@
 {
   "name": "blog-craft",
-  "version": "0.3.0",
-  "description": "Portable teaching-blog scaffolding and authoring skills (Hugo + Hextra).",
+  "version": "0.4.0",
+  "description": "Portable teaching-blog scaffolding and authoring skills (Hugo + Hextra) with an evidence-first, Diátaxis-grounded quality methodology.",
   "author": {
     "name": "Yiannis Dermitzakis"
   },

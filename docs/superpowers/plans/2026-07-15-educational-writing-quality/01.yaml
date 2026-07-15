@@ -1,0 +1,53 @@
+schema_version: 2
+phase:
+  number: 1
+  title: Methodology + structural gate core (skill, validator+mirror, quality config, CI, tests)
+  tag: agentic
+  depends_on: []
+  tracking_issue: null
+tasks:
+- number: 1
+  title: The educational-writing methodology skill + references
+  steps:
+  - id: P1.T1.S1
+    text: |-
+      Create `skills/educational-writing/SKILL.md` (model- and user-invocable) — the shared brain the authoring skills load. It must state the one test ("2am / 10 minutes to fix — does the post give them what they need?"), the Diátaxis compass (cite diataxis.fr), evidence-grounding (no claim without a citable artifact), orientation "§2a. Set the stage", the thin-persona rule tied to `voice_level`, the failure signatures (session-narrative, in-jokes, explanation-crowds-out-how-to, assertions-without-artifacts, no-recovery-path, buried-commands, drafting-artifact meta-commentary), a Diagrams note (prefer Mermaid over ASCII), and the gate section.
+  - id: P1.T1.S2
+    text: |-
+      Create the references: `references/diataxis.md` (compass + four modes + per-mode quality tests + the homelab how-to/reference inversion), `references/evidence.md` (what counts as evidence incl. actual code + specs/plans + intent-vs-shipped divergence; presentation: verbose multi-line snippets, runnable Verify, the missteps-table pattern), `references/checklist.md` (gate items + orientation + 2am + register + last-updated), `references/voice.md` (the `dry`/`balanced`/`rich` dial + the chronicle register "report what *we* did").
+      Verify: the four reference files exist and SKILL.md links each.
+- number: 2
+  title: validate_educational.py + blog-side mirror (TDD)
+  steps:
+  - id: P1.T2.S1
+    text: |-
+      Write `tests/unit/test_educational_validator.py` first (red): `validate_post(fm, body, gate)` returns failures for missing/blank `reader_goal`, missing/invalid `diataxis` (with alias normalization: howto/how_to→how-to), < `min_command_blocks` fenced blocks (mermaid excluded), and no actionable heading; passes a good post. CLI (`--config`, paths): fails a bad `posts` post, SKIPS a papers-series post, respects `quality_exempt`, passes a good post. Run → fails (no validator yet).
+  - id: P1.T2.S2
+    text: |-
+      Implement `tools/validate_educational.py`: `split_frontmatter`, `_count_command_blocks` (fenced ```/~~~, skip mermaid), `_normalize_modes` (aliases), `validate_post`, and a CLI that reads `quality.gate` from config (built-in defaults), skips series whose `content_type != posts`, honors `quality_exempt`, and returns exit 1 with a readable report on failure. Run the test → green.
+  - id: P1.T2.S3
+    text: |-
+      Mirror it byte-identical to `templates/hugo-hextra/scripts/validate_educational.py` (framework-class, materialized into every blog). Add `tests/unit/test_educational_materialization.py` asserting the two copies are byte-identical. Run → green.
+- number: 3
+  title: quality config + CI gate + blog-post-create frontmatter args (TDD)
+  steps:
+  - id: P1.T3.S1
+    text: |-
+      Add optional passthrough of a top-level `quality` block to `templates/hugo-hextra/.blog-craft.yaml.tmpl` (guarded `{{- if .quality }}`, like `content_types`). Add the CI gate step to `templates/hugo-hextra/.github/workflows/blog-ci.yml.tmpl` under `{{- with .quality }}{{- if .enabled }}` running `scripts/validate_educational.py --config .blog-craft.yaml content/docs/*/*/index.md`. Add `tests/unit/test_educational_ci_gate.py`: the step renders iff `quality.enabled`, absent otherwise. Run → green.
+  - id: P1.T3.S2
+    text: |-
+      Extend `tools/blog-post-create.sh` with optional positional args 9 (reader-goal file) and 10 (comma-separated diataxis), emitting `reader_goal:`/`diataxis:` frontmatter only when supplied — the 8-arg contract must stay byte-compatible. Verify: `BLOG_CRAFT_TEST_MODE=1 bash tests/smoke-blog-post.sh` (8-arg) still passes; a 10-arg invocation emits both fields.
+  - id: P1.T3.S3
+    text: |-
+      Give seeded series-overview pages `quality_exempt` so a fresh gated blog stays green: add `quality_exempt: "series overview — a landing/index page, not a teaching post"` to `templates/per-series-overview/00-overview/index.md.tmpl`. Verify: bootstrap a blog with `quality.enabled: true`, run `scripts/validate_educational.py` over `content/docs/*/*/index.md` → exit 0 (overviews skipped).
+state:
+  steps:
+    P1.T1.S1: {state: ' ', ticked_at: null, note: null}
+    P1.T1.S2: {state: ' ', ticked_at: null, note: null}
+    P1.T2.S1: {state: ' ', ticked_at: null, note: null}
+    P1.T2.S2: {state: ' ', ticked_at: null, note: null}
+    P1.T2.S3: {state: ' ', ticked_at: null, note: null}
+    P1.T3.S1: {state: ' ', ticked_at: null, note: null}
+    P1.T3.S2: {state: ' ', ticked_at: null, note: null}
+    P1.T3.S3: {state: ' ', ticked_at: null, note: null}
+  completion: {at: null, note: null, observed_prs: []}

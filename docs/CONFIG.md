@@ -40,10 +40,17 @@ content_types:            # optional; opt-in modules (e.g. papers, explainers)
             artefact_kinds, shortcodes, crosslink_fields, weight_offset }
   explainers: { enabled, weight_offset }
 
+quality:                  # optional; educational-writing gate (see §7). Absent => no CI gate.
+  enabled: true
+  gate: { require_reader_goal, require_diataxis_mode,
+          min_command_blocks, require_actionable_section }
+
 features:                 # series_overview_posts, read_tracker, banners,
                           # roadmap{enabled,data}, analytics, css{mermaid_palette}
 voice: |
   <tone>
+voice_level: balanced     # optional; dry | balanced | rich — how thick the persona
+                          # frame is (see §8). Default balanced. Orthogonal to the gate.
 ci:
   validators: [ frontmatter, dossier, mermaid, hugo_build ]
   deploy: { kind: container_pages | pages | none }
@@ -129,3 +136,75 @@ if the blog uses one), and drop the resulting PNG into `assets/images/`.
 **Requires Hugo Extended** for WebP encoding. The shipped CI template
 (`.github/workflows/blog-ci.yml`) sets `extended: true`; a blog with its own CI
 must ensure the same, or WebP silently won't be generated.
+
+## §7 Post-quality gate (`quality`)
+
+Optional. The structural floor under the **educational-writing** methodology (see
+`skills/educational-writing/`). It exists because the easy failure mode of a
+drafted post is *prose about the session that made it* — witty, in-character,
+useless to a reader who needs to build/operate/fix the thing. The gate can't
+judge prose, but it enforces the evidence a genuinely useful post carries.
+
+Scope: only `content_type: posts` posts. Papers and explainers ship their own
+validators and structure, so they're skipped. A single non-teaching post may opt
+out with `quality_exempt: <reason>` in its frontmatter (use sparingly).
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `enabled` | *(absent)* | When `true`, the shipped CI wires the gate step. Bootstrap sets it `true`; absent → no CI gate (skills still apply the methodology). |
+| `gate.require_reader_goal` | `true` | Frontmatter `reader_goal:` present — one line on what the reader can *do* after reading. |
+| `gate.require_diataxis_mode` | `true` | Frontmatter `diataxis:` present and valid — one or more of `tutorial`, `how-to`, `reference`, `explanation`. |
+| `gate.min_command_blocks` | `1` | Minimum fenced command/output code blocks (mermaid fences don't count). |
+| `gate.require_actionable_section` | `true` | At least one heading a reader under pressure can follow (Reproduce / Runbook / Steps / Verify / Recover / …). |
+
+Run it directly:
+
+```bash
+python <blog-craft>/tools/validate_educational.py --config .blog-craft.yaml \
+    content/docs/<series>/<NN>-<slug>/index.md
+```
+
+The validator ships into every blog at `scripts/validate_educational.py` (a
+byte-identical copy of `tools/validate_educational.py`), so a plain-python CI runs
+it without the plugin.
+
+### Frontmatter added by the methodology
+
+Every `content_type: posts` post carries two fields, set by `/blog-post` and
+`/post-rewrite`:
+
+```yaml
+reader_goal: "Configure NUT so the homelab shuts down cleanly before the UPS battery dies."
+diataxis: [how-to, reference]   # one or more of: tutorial, how-to, reference, explanation
+```
+
+Optionally, on a post that **mirrors code state** (no in-post "Update" logs — the
+post is kept current instead), a last-updated stamp:
+
+```yaml
+last_updated: 2026-07-13
+last_updated_commit: https://github.com/owner/repo/commit/<sha>
+```
+
+Render it with the `{{< last-updated >}}` shortcode (ships in the hugo-hextra
+template) near the top of the post — it shows `Last updated <date> · <sha>` with
+the sha linked to the commit, so a reader knows how current the post is and can
+diff since. Emits nothing if `last_updated` is absent.
+
+## §8 Voice level (`voice_level`)
+
+Optional. `dry` | `balanced` | `rich` (default `balanced`). The dial for **how
+much personality colors the teaching** — it works with the freeform `voice:`
+string (`voice` = the character; `voice_level` = how loud). It moves orientation
+warmth, aside frequency, transition prose, and how the *why* is voiced; it does
+**not** move the evidence requirements, the Diátaxis mode discipline, or the gate.
+Dryness is orthogonal to correctness.
+
+| Level | Feels like | Body persona |
+|-------|-----------|--------------|
+| `dry` | clean technical docs | almost none (the cover image is the flavor) |
+| `balanced` | a knowledgeable friend explaining | thin frame + warm orientation + memory-aiding asides |
+| `rich` | the persona narrating the build | voiced throughout, but the how-to still leads and every section carries its evidence |
+
+`/blog-post` and `/post-rewrite` read it from config and accept a per-run
+`voice_level` override. Full guidance: `skills/educational-writing/references/voice.md`.

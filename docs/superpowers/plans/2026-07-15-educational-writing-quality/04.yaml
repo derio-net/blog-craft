@@ -1,0 +1,35 @@
+schema_version: 2
+phase:
+  number: 4
+  title: Docs + full-suite verification
+  tag: agentic
+  depends_on:
+  - 2
+  - 3
+  tracking_issue: null
+tasks:
+- number: 1
+  title: Docs updates
+  steps:
+  - id: P4.T1.S1
+    text: |-
+      `README.md`: add `educational-writing` + `post-rewrite` to the skill list and a short "The quality gate" subsection. `docs/CONFIG.md`: add the `quality` block (§7, table of gate keys) + the `reader_goal`/`diataxis`/`last_updated` frontmatter, and `voice_level` (§8, the dial table). `docs/ARCHITECTURE.md`: a section on the methodology + gate (why self-contained, the mirror-pair, why it's not a content-type).
+  - id: P4.T1.S2
+    text: |-
+      Bump `.claude-plugin/plugin.json` + `.claude-plugin/marketplace.json` to 0.4.0 with a description mentioning the evidence-first / Diátaxis methodology. Verify: both parse; versions match.
+- number: 2
+  title: Full-suite verification + self-review
+  steps:
+  - id: P4.T2.S1
+    text: |-
+      Run `PYTHON=python3 BLOG_CRAFT_TEST_VENV=/tmp/bcv bash tests/run-unit.sh tests/unit` — all green except the Hugo-build-dependent cases when Hugo is absent (those pass on an fr host with Hugo installed, per `.github/workflows/ci.yml`). Run `smoke-blog-post.sh` (8-arg compat). Then `fr plan self-review docs/superpowers/plans/2026-07-15-educational-writing-quality` and fix anything it flags; confirm no stray isolation files staged.
+  - id: P4.T2.S2
+    text: |-
+      Host wrap-up (the reason this plan exists): from an fr-capable host, re-run the full suite WITH Hugo installed so the `*_hugo*` cases execute; optionally run the intended fr-brainstorming review over the spec; apply any modifications as follow-up tasks here or a rework plan. Tick state as each phase is confirmed.
+state:
+  steps:
+    P4.T1.S1: {state: ' ', ticked_at: null, note: null}
+    P4.T1.S2: {state: ' ', ticked_at: null, note: null}
+    P4.T2.S1: {state: ' ', ticked_at: null, note: null}
+    P4.T2.S2: {state: ' ', ticked_at: null, note: null}
+  completion: {at: null, note: null, observed_prs: []}

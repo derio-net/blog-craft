@@ -124,6 +124,11 @@ def test_render_includes_mermaid_js(tmp_path):
     )
     html = out.read_text()
     assert "mermaid.min.js" in html
+    # the fence must become a real mermaid block, not a codehilite code block
+    assert '<pre class="mermaid">' in html
+    assert "graph TD" in html
+    # and the diagram is themed to match the page, not mermaid's default
+    assert '"theme": "base"' in html
 
 
 def test_render_explicit_style_wins_over_frontmatter(tmp_path):

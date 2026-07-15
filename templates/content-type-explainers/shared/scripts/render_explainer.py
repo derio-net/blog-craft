@@ -170,19 +170,56 @@ def render(
     date = fm.get("date", "")
     tldr = fm.get("tldr", "")
 
+    # Extract mermaid fences BEFORE markdown runs: the codehilite extension wraps
+    # fenced code in highlight <span>s, so a post-hoc regex never matches and the
+    # diagram would render as a code block. Stash → render → re-insert as
+    # <pre class="mermaid"> (what mermaid.js looks for).
+    mermaid_blocks: list[str] = []
+
+    def _stash(m):
+        mermaid_blocks.append(m.group(1).strip())
+        return f"\n\nMERMAIDBLOCK{len(mermaid_blocks) - 1}ENDMERMAID\n\n"
+
+    body = re.sub(r'```mermaid\s*\n(.*?)```', _stash, body, flags=re.DOTALL)
+
     html_body = _md.markdown(
         body,
         extensions=["fenced_code", "codehilite", "tables", "sane_lists"],
     )
 
-    html_body = re.sub(
-        r'<pre><code class="language-mermaid">(.*?)</code></pre>',
-        lambda m: '<pre class="mermaid">' + m.group(1).strip() + '</pre>',
-        html_body,
-        flags=re.DOTALL,
-    )
+    for i, blk in enumerate(mermaid_blocks):
+        html_body = html_body.replace(
+            f"<p>MERMAIDBLOCK{i}ENDMERMAID</p>",
+            f'<pre class="mermaid">{blk}</pre>',
+        )
 
-    return _wrap(title, html_body, css, archetype, date, tldr)
+    return _wrap(title, html_body, css, archetype, date, tldr, style == "dark")
+
+
+# Mermaid theme variables matching the page palette, so standalone diagrams look
+# designed rather than default. Mirrors the global mermaid theme shipped in the
+# hugo-hextra custom.css (frank's blue nodes / green edges).
+_MERMAID_VARS = {
+    False: {  # light
+        "primaryColor": "#dde9ff", "primaryBorderColor": "#1f6feb",
+        "primaryTextColor": "#0d1b2a", "lineColor": "#198754",
+        "textColor": "#1a1a2e", "clusterBkg": "#eef2f6",
+        "clusterBorder": "#1f6feb", "edgeLabelBackground": "#f8f9fa",
+    },
+    True: {  # dark
+        "primaryColor": "#1f3a5f", "primaryBorderColor": "#4dabf7",
+        "primaryTextColor": "#eaf2ff", "lineColor": "#51cf66",
+        "textColor": "#c9d1d9", "clusterBkg": "#161b22",
+        "clusterBorder": "#4dabf7", "edgeLabelBackground": "#0d1117",
+    },
+}
+
+
+def _mermaid_init(is_dark: bool) -> str:
+    import json
+    cfg = {"startOnLoad": True, "theme": "base",
+           "themeVariables": _MERMAID_VARS[bool(is_dark)]}
+    return "mermaid.initialize(" + json.dumps(cfg) + ")"
 
 
 def _wrap(
@@ -192,8 +229,10 @@ def _wrap(
     archetype: str = "",
     date: str = "",
     tldr: str = "",
+    is_dark: bool = False,
 ) -> str:
     tldr_html = f"<div class=\"tldr\">{tldr}</div>" if tldr else ""
+    mermaid_init = _mermaid_init(is_dark)
     archetype_tag = f"<span class=\"archetype\">{archetype}</span>" if archetype else ""
     date_tag = f"<span class=\"date\">{date}</span>" if date else ""
     meta_parts = " ".join(p for p in (archetype_tag, date_tag) if p)
@@ -221,7 +260,7 @@ def _wrap(
 </div>
 </article>
 <script>
-(function(){{var e=document.querySelectorAll(".mermaid");if(e.length>0){{var s=document.createElement("script");s.src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js";s.onload=function(){{mermaid.initialize({{startOnLoad:true}})}};document.head.appendChild(s)}}}})()
+(function(){{var e=document.querySelectorAll(".mermaid");if(e.length>0){{var s=document.createElement("script");s.src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js";s.onload=function(){{{mermaid_init}}};document.head.appendChild(s)}}}})()
 </script>
 </body>
 </html>"""
