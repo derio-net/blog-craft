@@ -32,6 +32,21 @@ one post, in place, only after you approve the new draft.
 
 ## Procedure
 
+### Step 0: Seed missing config
+
+Before anything else, check that `voice_level` is set in the blog's config. If
+the key is absent, seed it so the resolver below has a value and the user sees
+the available options:
+
+```
+python3 <plugin_root>/tools/seed_config.py --config <blog_root>/.blog-craft.yaml \
+    --key voice_level --default balanced \
+    --comment "How thick the persona frame is." \
+    --values "dry,balanced,rich"
+```
+
+Then load the educational-writing methodology.
+
 ### Step 1: Load the methodology
 
 Read `educational-writing/SKILL.md` and its three references
@@ -96,17 +111,8 @@ drive the structure.
 ### Step 6: Rewrite (side-by-side, don't clobber)
 
 Resolve the **voice level** first: the `voice_level` arg, else the blog's
-`.blog-craft.yaml::voice_level`, else `balanced`. If falling back to default,
-**seed the config** so the user sees the value and its options:
-
-```
-python3 <plugin_root>/tools/seed_config.py --config <blog_root>/.blog-craft.yaml \
-    --key voice_level --default balanced \
-    --comment "How thick the persona frame is." \
-    --values "dry,balanced,rich"
-```
-
-It sets how thick the persona frame is (see
+`.blog-craft.yaml::voice_level` (already seeded in Step 0 if missing), else
+`balanced`. It sets how thick the persona frame is (see
 `educational-writing/references/voice.md`) — a "too dry" complaint usually means
 bumping `balanced` warmer, or the blog was left at `dry`.
 

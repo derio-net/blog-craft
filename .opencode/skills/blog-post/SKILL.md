@@ -29,6 +29,18 @@ arguments:
 
 ## Procedure
 
+### Step 0: Seed missing config
+
+Before anything else, check that `voice_level` is set in the blog's config. If
+the key is absent, seed it:
+
+```
+python3 <plugin_root>/tools/seed_config.py --config <blog_root>/.blog-craft.yaml \
+    --key voice_level --default balanced \
+    --comment "How thick the persona frame is." \
+    --values "dry,balanced,rich"
+```
+
 ### Step 1: Find and validate the blog
 
 Walk up from CWD looking for `.blog-craft.yaml`. If not found anywhere up to root, refuse:
@@ -96,17 +108,7 @@ block near the top of its section), tabulate reference facts, include an
 unmissable recovery path for operational posts, and demote the war-story / *why*
 into a clearly-labelled Explanation section.
 
-**Seed `voice_level` if missing:**
-
-```
-python3 <plugin_root>/tools/seed_config.py --config <blog_root>/.blog-craft.yaml \
-    --key voice_level --default balanced \
-    --comment "How thick the persona frame is." \
-    --values "dry,balanced,rich"
-```
-
-Then frame at the blog's `voice_level` (`dry`/`balanced`/`rich`, default `balanced`
-— see `<plugin_root>/skills/educational-writing/references/voice.md`): keep the
+Then frame at the blog's `voice_level` (already seeded in Step 0 if missing; `dry`/`balanced`/`rich`, default `balanced` — see `<plugin_root>/skills/educational-writing/references/voice.md`): keep the
 persona a frame, never the substance. Write code snippets **expanded/multi-line**
 (not compressed flow-style) with non-obvious lines commented, and make every
 **Verify** step the real command + its success/failure signature. Use ` ```mermaid `
