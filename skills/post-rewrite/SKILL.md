@@ -69,9 +69,15 @@ Show the diagnosis to the user before rewriting.
 
 Identify the source repo/feature the post chronicles — from the `source` arg,
 frontmatter, in-post links, or by asking the user one question if it's not
-inferable. Dispatch the **post-researcher** subagent at that target; it returns a
-structured evidence brief (real commands, `file:line`, config values, tests, the
-failure/recovery path). See `agents/post-researcher.md`.
+inferable. Dispatch the **post-researcher** subagent at that target. It **reads
+the actual code** (not commit messages or docs alone), reads the repo's design
+substrate — `docs/superpowers/{specs,plans}` and
+`docs/superpowers/implemented/{specs,plans}` (plus any `docs/investigations/` the
+post references), if present — and **cross-checks the spec's intent against what
+the code shipped**. It returns a structured evidence brief (design-intent-vs-shipped,
+real commands, `file:line`, config values, tests, the failure/recovery path). The
+divergences it surfaces are often the post's most useful troubleshooting material.
+See `agents/post-researcher.md`.
 
 If the source is unavailable (no repo access), proceed with the evidence already
 in the post and the user's input, and **flag** in the draft what still needs live

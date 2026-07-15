@@ -24,22 +24,43 @@ evidence and why. Your brief is the raw material that reference describes.
    - README / runbook / docs that describe operating it.
    - Commit history around the change (via any commit references you can read in-repo — e.g. CHANGELOG, commit messages surfaced in files).
 
-2. **Capture reproducible evidence.** For the behaviour the post teaches:
+   **Read the actual code, don't infer it.** Open the real source files and read
+   what they *do* — do not reconstruct behaviour from commit messages, docs, or a
+   spec alone. Every command, config value, flag, and `file:line` you report must
+   come from a file you actually read. If a doc says one thing and the code does
+   another, the code wins and the divergence is evidence (see step 4).
+
+2. **Read the design substrate — specs and plans.** If the repo uses a
+   spec/plan workflow, read the design docs behind the change. Check these
+   locations (both the active and the archived/implemented trees), if present:
+   - `docs/superpowers/specs/` and `docs/superpowers/plans/`
+   - `docs/superpowers/implemented/specs/` and `docs/superpowers/implemented/plans/`
+   - and any adjacent `docs/investigations/` / research files the post references.
+
+   These give you the *intended* design and the *why*. Then **cross-check intent
+   against the code**: where the implementation diverged from the spec — a helm
+   key that didn't exist, a plan that assumed a component the cluster lacks, a
+   test that asserted the wrong thing — that gap is usually the single most useful
+   thing the post can teach. It's the difference between "here's the happy path"
+   and "here's the happy path *and* the wall you'll hit."
+
+3. **Capture reproducible evidence.** For the behaviour the post teaches:
    - The **exact commands** an operator runs, with the file/flag they come from.
    - **Real output** you can find committed (test fixtures, example logs, docs snippets, sample output files). Mark clearly what you found vs. what the author must capture live at runtime.
    - **Config values** with their file and the reason the value matters (thresholds, timeouts, paths).
-   - **`file:line`** for every significant definition.
+   - **`file:line`** for every significant definition — read the file, cite the line.
 
-3. **Find the failure and recovery path.** Operational posts live or die on this.
+4. **Find the failure and recovery path.** Operational posts live or die on this.
    Look for: what fires on the triggering event, what happens if it *doesn't*,
    the log lines at the decision point, and the command that recovers. If the
    repo records an incident (postmortem, issue, timeline), extract the sequence
-   with timestamps.
+   with timestamps. Divergences you found in step 2 (spec said X, code does Y)
+   belong here too — they're the reader's most likely walls.
 
-4. **Note what's missing.** Anything the post will need but the repo can't prove —
+5. **Note what's missing.** Anything the post will need but the repo can't prove —
    so the author knows what to capture live or cut.
 
-5. **Return the brief.** Structured markdown, exactly these sections:
+6. **Return the brief.** Structured markdown, exactly these sections:
 
    ```markdown
    # Evidence Brief: <target>
@@ -49,6 +70,13 @@ evidence and why. Your brief is the raw material that reference describes.
 
    ## Suggested Diátaxis mode
    <how-to | tutorial | reference | explanation> — <one line why>
+
+   ## Design intent vs. what shipped
+   <from the specs/plans read in step 2. What the design intended, and where the
+   code diverged. Cite the spec/plan file AND the code file:line for each gap.
+   Omit the section only if the repo has no spec/plan docs.>
+   | Intended (spec/plan) | What shipped (code) | Source |
+   |----------------------|---------------------|--------|
 
    ## Commands & Output
    | Command | Source (file:line) | Output available? |

@@ -7,12 +7,15 @@ and what counts.
 ## What counts as evidence (in rough order of value)
 
 1. **Real command + real output.** The actual invocation and what it printed, in a fenced block. Not paraphrased, not idealized. If output is long, trim with `# …` and keep the lines that matter.
-2. **`file:line` references** into the source repo — for the config, the script, the test. A reader can open exactly that line.
-3. **Commit SHAs** — the change that introduced the behaviour, so a reader can `git show` it.
-4. **Test names + how to run them** — proof the behaviour holds, and a way to re-verify. `pytest tests/…::test_x` beats "it's tested."
-5. **Config values in context** — the key, its file, the chosen value, and *why that value* (the threshold that matters for the reader's goal).
-6. **Incident/failure timeline** — when the post chronicles something breaking, timestamps and the sequence: what fired, what didn't, what the log said, what recovered it.
-7. **Media** — a screenshot or asciinema cast (via `/media`) only where a picture advances understanding a code block can't.
+2. **The actual source code**, read — not inferred. Open the files the post is about and report what they *do*. Every config value, flag, and behaviour must come from a file you read, not from a commit message, a doc, or a spec. When a doc and the code disagree, the code wins.
+3. **`file:line` references** into the source repo — for the config, the script, the test. A reader can open exactly that line.
+4. **Design docs — specs and plans.** If the repo uses a spec/plan workflow, read the design substrate: `docs/superpowers/{specs,plans}` and `docs/superpowers/implemented/{specs,plans}` (and any `docs/investigations/` the post references). They carry the *why* and the intended design.
+5. **Intent-vs-implementation divergence.** Where the shipped code departed from the spec — a key that didn't exist, a component the plan assumed but the system lacks, a test that asserted the wrong thing — that gap is often the single most useful thing to teach: it's the wall the reader will hit.
+6. **Commit SHAs** — the change that introduced the behaviour, so a reader can `git show` it.
+7. **Test names + how to run them** — proof the behaviour holds, and a way to re-verify. `pytest tests/…::test_x` beats "it's tested."
+8. **Config values in context** — the key, its file, the chosen value, and *why that value* (the threshold that matters for the reader's goal).
+9. **Incident/failure timeline** — when the post chronicles something breaking, timestamps and the sequence: what fired, what didn't, what the log said, what recovered it.
+10. **Media** — a screenshot or asciinema cast (via `/media`) only where a picture advances understanding a code block can't.
 
 If a sentence asserts something a reader would want to trust ("it fails over in
 under 2s", "this is safe", "it shuts down gracefully"), it needs one of the above
@@ -23,10 +26,11 @@ next to it — or it gets cut or softened to what you can show.
 Heavy codebase exploration burns the drafting context. Dispatch the
 `post-researcher` agent (see `agents/post-researcher.md`) at the source repo /
 feature / incident. It is read-only and returns a **structured evidence brief**:
-key files with `file:line`, the real commands and outputs it could capture from
-tests/docs, the relevant config with values, the commit history behind the
-change, and any failure/recovery path it found. You draft from the brief; the
-exploration stays out of your context.
+key files with `file:line` (read, not inferred), the design intent from the
+repo's specs/plans cross-checked against what the code actually does, the real
+commands and outputs it could capture from tests/docs, the relevant config with
+values, the commit history behind the change, and any failure/recovery path it
+found. You draft from the brief; the exploration stays out of your context.
 
 Dispatch it when:
 - The post chronicles work in another repo (the classic building/operating split).

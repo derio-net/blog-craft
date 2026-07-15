@@ -70,11 +70,16 @@ The body and summary are both written by the agent from available context, not b
 
 **Gather evidence.** If the post chronicles work in a source repo (the classic
 building/operating case), dispatch the `post-researcher` subagent
-(`<plugin_root>/agents/post-researcher.md`) at that repo/feature. It returns a
-structured evidence brief — real commands, `file:line`, config values, tests, the
-failure/recovery path — so the post cites instead of asserts, and heavy
-exploration stays out of this context. Never fabricate a command, output,
-`file:line`, or commit; mark anything needing live capture with a MEDIA marker.
+(`<plugin_root>/agents/post-researcher.md`) at that repo/feature. It **reads the
+actual code** (not commit messages or docs alone), reads the repo's design
+substrate — `docs/superpowers/{specs,plans}` and
+`docs/superpowers/implemented/{specs,plans}` (plus any `docs/investigations/` the
+post references), if present — **cross-checks the spec against what shipped**, and
+returns a structured evidence brief (design-intent-vs-shipped, real commands,
+`file:line`, config values, tests, the failure/recovery path) so the post cites
+instead of asserts and heavy exploration stays out of this context. Never
+fabricate a command, output, `file:line`, or commit; mark anything needing live
+capture with a MEDIA marker.
 
 **Reader goal + mode.** State the **`reader_goal`** in one line (what the reader
 can *do* after reading) and pick the **`diataxis`** mode(s) (one or more of
