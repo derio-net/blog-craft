@@ -1,0 +1,45 @@
+schema_version: 2
+phase:
+  number: 3
+  title: Defaults (global Mermaid theme, explainer render fix, last-updated shortcode)
+  tag: agentic
+  depends_on:
+  - 1
+  tracking_issue: null
+tasks:
+- number: 1
+  title: Global Mermaid theme (TDD)
+  steps:
+  - id: P3.T1.S1
+    text: |-
+      Extend `tests/unit/test_css_split.py` (red): `test_default_mermaid_theme_is_global` — a render with no papers/features still contains `.content .mermaid` and the default node fill `#1f3a5f`, and NO `.paper-post`; `test_global_mermaid_palette_override_without_papers` — with `features.css.mermaid_palette` set (no papers), the "GLOBAL config palette override" block and its four colours are present and `.paper-post` absent. Run → fails.
+  - id: P3.T1.S2
+    text: |-
+      In `templates/hugo-hextra/assets/css/custom.css.tmpl`, add an always-present `.content .mermaid` theme block (nodes/labels/edges/arrowheads/dashed/edge-labels/clusters/title, dark default + light overrides, `!important`) in the structural section, plus a GLOBAL `features.css.mermaid_palette` override (`.content .mermaid …`, `!important`, so it wins everywhere incl. Papers). Leave the papers `.paper-post` surface gated as-is. Run the tests → green; existing `test_css_split.py` cases stay green.
+- number: 2
+  title: Standalone explainer Mermaid fix + theming (TDD)
+  steps:
+  - id: P3.T2.S1
+    text: |-
+      Strengthen `tests/unit/test_explainers_standalone.py::test_render_includes_mermaid_js` (red): assert the fence becomes a real `<pre class="mermaid">` (not a codehilite code block), `graph TD` present, and the init carries `"theme": "base"`. Run → fails (codehilite mangles the fence; init is default).
+  - id: P3.T2.S2
+    text: |-
+      In `tools/render_explainer.py`: stash ```mermaid fences BEFORE `markdown()` (codehilite wraps them in highlight spans so a post-hoc regex never matches) and re-insert as `<pre class="mermaid">`; add `_mermaid_init(is_dark)` producing `mermaid.initialize({theme:'base', themeVariables:{…}})` with a light/dark palette matching the page, threaded through `render()`→`_wrap()`. Run → green.
+- number: 3
+  title: last-updated shortcode + prefer-Mermaid guidance
+  steps:
+  - id: P3.T3.S1
+    text: |-
+      Add `templates/hugo-hextra/layouts/shortcodes/last-updated.html` reading `last_updated` + `last_updated_commit` and rendering `Last updated <date> · <sha>` (sha linked when the commit value is a URL; emits nothing if `last_updated` absent). Verify: render a page with both params → the stamp appears; without → nothing.
+  - id: P3.T3.S2
+    text: |-
+      Add the "prefer Mermaid over hand-drawn ASCII" guidance to `educational-writing/SKILL.md` (Diagrams note) and a one-line pointer in `blog-post`/`post-rewrite` Step 4/6. Verify: re-read.
+state:
+  steps:
+    P3.T1.S1: {state: ' ', ticked_at: null, note: null}
+    P3.T1.S2: {state: ' ', ticked_at: null, note: null}
+    P3.T2.S1: {state: ' ', ticked_at: null, note: null}
+    P3.T2.S2: {state: ' ', ticked_at: null, note: null}
+    P3.T3.S1: {state: ' ', ticked_at: null, note: null}
+    P3.T3.S2: {state: ' ', ticked_at: null, note: null}
+  completion: {at: null, note: null, observed_prs: []}

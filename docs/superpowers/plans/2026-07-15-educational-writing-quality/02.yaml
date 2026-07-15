@@ -1,0 +1,37 @@
+schema_version: 2
+phase:
+  number: 2
+  title: Authoring surface (post-rewrite, post-researcher, blog-post wiring, voice/orientation guidance)
+  tag: agentic
+  depends_on:
+  - 1
+  tracking_issue: null
+tasks:
+- number: 1
+  title: post-researcher subagent
+  steps:
+  - id: P2.T1.S1
+    text: |-
+      Create `agents/post-researcher.md` — read-only (Glob/Grep/Read) evidence gatherer for narrative/operational posts. It must: read the ACTUAL code (not commit messages/docs), read the design substrate (`docs/superpowers/{specs,plans}` + `implemented/` + referenced `docs/investigations/`), and cross-check intent vs shipped. Output: a structured brief with a "Design intent vs. what shipped" table, Commands & Output, Key Files, Config that matters, Failure & recovery path, Tests, Gaps. Verify: re-read against the spec's subagent section; confirm no WebFetch/WebSearch and no file writes.
+- number: 2
+  title: /post-rewrite skill
+  steps:
+  - id: P2.T2.S1
+    text: |-
+      Create `skills/post-rewrite/SKILL.md` — args `post`, `source?`, `voice_level?`. Lifecycle: load methodology → locate+validate blog/post (refuse papers/explainers series) → diagnose (failure signatures + run the gate) → dispatch `post-researcher` → set `reader_goal`/`diataxis` → rewrite at resolved `voice_level` (orientation + foundation-with-redirects, lead-with-how-to, reference block, missteps table, recovery path, labelled explanation, verbose snippets, Mermaid not ASCII, register "what we did", no drafting-artifact meta-commentary, `last_updated` stamp) to a side-by-side draft → approval loop → `.bak` + write → `/media` → re-run the gate (must pass). Non-destructive; never fabricate an artifact. Verify: re-read against spec.
+- number: 3
+  title: /blog-post + bootstrap wiring
+  steps:
+  - id: P2.T3.S1
+    text: |-
+      Wire `skills/blog-post/SKILL.md` Step 4: load `educational-writing`; dispatch `post-researcher` when the post chronicles a source repo; set `reader_goal` + `diataxis`; pass them to `blog-post-create.sh` (args 9/10); apply orientation, `voice_level`, verbose snippets, runnable Verify, Mermaid, register. Add a Step "Run the quality gate" before the preview step (fail → return to Step 4). Verify: re-read; the helper invocation passes the two new args.
+  - id: P2.T3.S2
+    text: |-
+      Add a `voice_level` step to `skills/bootstrap-blog/SKILL.md` Step 4 (default `balanced`; `dry`/`rich` explained) writing `voice_level` into answers; render it via the config template's optional passthrough. Add the default-on `quality` block to bootstrap's Step 6 toggles. Verify: bootstrap with `voice_level` in answers → `.blog-craft.yaml` carries it.
+state:
+  steps:
+    P2.T1.S1: {state: ' ', ticked_at: null, note: null}
+    P2.T2.S1: {state: ' ', ticked_at: null, note: null}
+    P2.T3.S1: {state: ' ', ticked_at: null, note: null}
+    P2.T3.S2: {state: ' ', ticked_at: null, note: null}
+  completion: {at: null, note: null, observed_prs: []}

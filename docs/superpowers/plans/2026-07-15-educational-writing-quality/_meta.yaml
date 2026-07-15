@@ -1,0 +1,7 @@
+schema_version: 2
+plan: 2026-07-15-educational-writing-quality
+spec: 2026-07-15--quality--educational-writing-and-defaults-design.md
+target_repo: derio-net/blog-craft
+fr_version: '>=3.0.0,<4.0.0'
+created: '2026-07-15'
+retrospective: true
