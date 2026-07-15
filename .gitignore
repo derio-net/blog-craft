@@ -10,3 +10,4 @@ __pycache__/
 /tmp/
 tests/golden-output*/
 .devcontainer/*/devcontainer-lock.json
+docs/acceptance/report.html

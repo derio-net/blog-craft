@@ -1,0 +1,52 @@
+---
+schema_version: 2
+phase:
+  number: 3
+  title: "Install script"
+  tag: agentic
+  depends_on: [2]
+  tracking_issue: null
+tasks:
+- number: 1
+  title: "Preflight checks and variables"
+  steps:
+  - id: "P3.T1.S1"
+    text: |-
+      Define SCRIPT_DIR, PLUGIN_ROOT, CLAUDE_DIR, MARKETPLACE_DIR, OPENCODE dirs.
+  - id: "P3.T1.S2"
+    text: |-
+      Require jq/rsync/git. Git preflight. cleanup_tmps trap.
+- number: 2
+  title: "Claude marketplace and plugin registration"
+  steps:
+  - id: "P3.T2.S1"
+    text: |-
+      Register derio-net marketplace in settings.json and known_marketplaces.json.
+  - id: "P3.T2.S2"
+    text: |-
+      rsync plugin to cache. Install plugin. Enable plugin.
+- number: 3
+  title: "OpenCode delivery"
+  steps:
+  - id: "P3.T3.S1"
+    text: |-
+      Run uv run scripts/sync-opencode.py. Copy skills/commands to ~/.config/opencode/.
+- number: 4
+  title: "Uninstall and completion"
+  steps:
+  - id: "P3.T4.S1"
+    text: |-
+      Implement --uninstall: remove marketplace, plugin, OpenCode artifacts.
+  - id: "P3.T4.S2"
+    text: |-
+      Print verification commands.
+state:
+  steps:
+    P3.T1.S1: {state: " ", ticked_at: null, note: null}
+    P3.T1.S2: {state: " ", ticked_at: null, note: null}
+    P3.T2.S1: {state: " ", ticked_at: null, note: null}
+    P3.T2.S2: {state: " ", ticked_at: null, note: null}
+    P3.T3.S1: {state: " ", ticked_at: null, note: null}
+    P3.T4.S1: {state: " ", ticked_at: null, note: null}
+    P3.T4.S2: {state: " ", ticked_at: null, note: null}
+  completion: {at: null, note: null, observed_prs: []}

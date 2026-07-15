@@ -1,0 +1,16 @@
+[project]
+name = "blog-craft"
+version = "0.4.0"
+description = "Portable teaching-blog scaffolding and authoring skills for Claude Code and OpenCode"
+requires-python = ">=3.11"
+dependencies = ["pyyaml>=6.0"]
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.6", "pillow>=10", "markdown>=3"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
