@@ -27,6 +27,8 @@ INSTALLED_PLUGINS="$PLUGINS_DIR/installed_plugins.json"
 PLUGIN_NAME="blog-craft"
 OPENCODE_SKILLS_DIR="$HOME/.config/opencode/skills"
 OPENCODE_COMMANDS_DIR="$HOME/.config/opencode/commands"
+OPENCODE_INSTRUCTIONS_DIR="$HOME/.config/opencode/instructions"
+OPENCODE_PLUGIN_DIR="$HOME/.config/opencode/plugins/blog-craft"
 
 if [[ "${1:-}" == "--uninstall" ]]; then
   echo "Uninstalling blog-craft..."
@@ -47,6 +49,12 @@ if [[ "${1:-}" == "--uninstall" ]]; then
         echo "  Removed $OPENCODE_COMMANDS_DIR/$skill.md"
       fi
     done
+  fi
+  rm -f "$OPENCODE_INSTRUCTIONS_DIR/blog-craft.md"
+  echo "  Removed OpenCode instruction"
+  if [ -d "$OPENCODE_PLUGIN_DIR" ]; then
+    rm -rf "$OPENCODE_PLUGIN_DIR"
+    echo "  Removed $OPENCODE_PLUGIN_DIR"
   fi
   if command -v jq &>/dev/null; then
     if [ -f "$SETTINGS" ]; then
@@ -194,6 +202,26 @@ if [ -d "$OPENCODE_COMMANDS_DIR" ] || mkdir -p "$OPENCODE_COMMANDS_DIR" 2>/dev/n
 else
   echo "  WARNING: cannot install OpenCode commands — $OPENCODE_COMMANDS_DIR not writable" >&2
 fi
+
+echo ""
+echo "Installing blog-craft plugin directory (tools, agents, templates)..."
+mkdir -p "$OPENCODE_PLUGIN_DIR"
+rsync -a --delete --exclude='.git' --exclude='__pycache__' --exclude='.venv' --exclude='node_modules' \
+  "$PLUGIN_ROOT/" "$OPENCODE_PLUGIN_DIR/"
+echo "  Installed plugin root at $OPENCODE_PLUGIN_DIR"
+
+echo ""
+echo "Installing OpenCode global instruction..."
+mkdir -p "$OPENCODE_INSTRUCTIONS_DIR"
+cat > "$OPENCODE_INSTRUCTIONS_DIR/blog-craft.md" << INSTR
+# blog-craft plugin root
+
+The blog-craft plugin is installed at \`$OPENCODE_PLUGIN_DIR\`.
+When a skill references \`<plugin_root>\`, resolve it to this absolute path.
+This is where \`tools/\`, \`agents/\`, \`templates/\`, \`migrations/\`, \`docs/\`,
+and \`skills/\` reside.
+INSTR
+echo "  Installed $OPENCODE_INSTRUCTIONS_DIR/blog-craft.md"
 
 echo ""
 echo "Installation complete. Restart Claude Code to pick up plugin changes."
