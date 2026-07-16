@@ -36,6 +36,12 @@ jobs:
       - name: Validate post quality (educational-writing)
         run: python3 scripts/validate_educational.py --config .blog-craft.yaml content/docs/*/*/index.md
 {{- end }}{{- end }}
+      # Mermaid syntax gate: lint every ```mermaid fence (posts, explainers,
+      # papers) before render so a broken diagram fails CI instead of shipping
+      # dead. On by default; opt out with `quality.mermaid_syntax: false`. Ships
+      # at scripts/ (mirrored from blog-craft tools/) for plugin-free CI.
+      - name: Validate mermaid syntax
+        run: python3 scripts/validate_mermaid.py --config .blog-craft.yaml content/docs/*/*/index.md
       - name: Hugo build
         run: hugo --minify
 {{- with .ci }}

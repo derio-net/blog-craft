@@ -103,6 +103,12 @@ def validate_config(cfg: dict) -> list[str]:
                 if not isinstance(s, dict) or "key" not in s or "title" not in s:
                     errors.append(f"series[{i}] must have at least key + title")
 
+    # optional quality block: mermaid_syntax opt-out (default on) must be a bool.
+    quality = cfg.get("quality")
+    if isinstance(quality, dict) and "mermaid_syntax" in quality:
+        if not isinstance(quality["mermaid_syntax"], bool):
+            errors.append("quality.mermaid_syntax must be a boolean")
+
     # optional series_index block: style cards|table|none (default cards at render
     # time), optional layers registry (opts into layer colour-coding).
     si = cfg.get("series_index")
