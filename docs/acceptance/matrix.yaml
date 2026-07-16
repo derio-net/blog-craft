@@ -168,3 +168,36 @@ rows:
       - blog-craft:tests/unit/test_mermaid_validator.py
     status: ci
     notes: flag validated as bool in validate_config; default on (#27)
+  - id: version-lockstep-guard
+    capability: controlled versioning
+    acceptance: bump_version.py --check fails when pyproject.toml and the plugin manifests
+      drift
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-16-controlled-versioning-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_version.py
+    status: ci
+    notes: pyproject.toml canonical; syncs plugin.json + marketplace.json (#18)
+  - id: version-bump-required
+    capability: controlled versioning
+    acceptance: a PR changing templates/ or tools/ without a version bump fails CI
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-16-controlled-versioning-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_version.py
+    status: ci
+    notes: check_version_bump_needed.py, wired in ci.yml; auto-tag.yml cuts vX.Y.Z on
+      merge (#18)
+  - id: client-version-stamped
+    capability: controlled versioning
+    acceptance: bootstrap stamps a resolvable blog_craft_version tag so update.py can
+      recover the 3-way base
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-16-controlled-versioning-design.md
+    levels:
+      int:
+      - blog-craft:tests/smoke-bootstrap.sh
+    status: ci
+    notes: bootstrap-render.sh injects blog_craft_version=v<version>; smoke A1.c (#18)

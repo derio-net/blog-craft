@@ -25,6 +25,19 @@ if [[ -f "$TARGET/.blog-craft.yaml" ]]; then
 fi
 mkdir -p "$TARGET"
 
+# Stamp blog_craft_version = the current release tag (#18) so tools/update.py
+# can always resolve a real git ref (`git archive <ref>`). Skip if the operator
+# already set one. The version is canonical in pyproject.toml.
+VERSION=$(grep -E '^version[[:space:]]*=' "$PLUGIN_ROOT/pyproject.toml" | head -1 \
+  | sed -E 's/^version[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/')
+if [[ -n "$VERSION" ]] && ! grep -qE '^blog_craft_version:' "$ANSWERS"; then
+  AUGMENTED=$(mktemp)
+  cat "$ANSWERS" >"$AUGMENTED"
+  printf '\nblog_craft_version: "v%s"\n' "$VERSION" >>"$AUGMENTED"
+  ANSWERS="$AUGMENTED"
+  echo "[bootstrap] stamped blog_craft_version: v$VERSION"
+fi
+
 # Read features.series_overview_posts from the answers YAML using a small Python one-liner.
 # Avoids adding yq as a dependency.
 overview_value=$(cd "$RENDERER_DIR" && go run . --answers "$ANSWERS" --get-bool features.series_overview_posts 2>/dev/null || echo "true")
