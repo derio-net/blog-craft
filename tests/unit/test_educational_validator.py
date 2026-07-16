@@ -28,6 +28,10 @@ GOOD_BODY = """
 upsc myups battery.charge
 ```
 
+```mermaid
+flowchart TD; UPS-->Host
+```
+
 The charge threshold is 30%.
 """
 
@@ -78,7 +82,7 @@ def test_mermaid_does_not_count_as_command_block():
 
 
 def test_min_command_blocks_configurable():
-    body = "## Verify\n\n```bash\nls\n```\n"
+    body = "## Verify\n\n```bash\nls\n```\n\n```mermaid\nflowchart TD; A-->B\n```\n"
     assert validate_post(GOOD_FM, body, gate={"min_command_blocks": 2})
     assert validate_post(GOOD_FM, body, gate={"min_command_blocks": 1}) == []
 
@@ -91,7 +95,7 @@ def test_no_actionable_section_fails():
 def test_actionable_headings_recognized():
     for h in ("Reproduce", "Runbook", "Recover", "Verify", "Try it yourself",
               "Step-by-step", "Rollback", "Procedure"):
-        body = f"## {h}\n\n```bash\nls\n```\n"
+        body = f"## {h}\n\n```bash\nls\n```\n\n```mermaid\nflowchart TD; A-->B\n```\n"
         assert validate_post(GOOD_FM, body) == [], h
 
 
@@ -104,6 +108,68 @@ def test_split_frontmatter_roundtrip():
     fm, body = split_frontmatter('---\ntitle: "X"\n---\n\nhello\n')
     assert fm["title"] == "X"
     assert body.strip() == "hello"
+
+
+# --- require_diagram: how-to / tutorial posts need a Mermaid diagram -------
+
+_MERMAID = "\n```mermaid\nflowchart TD; A-->B\n```\n"
+
+
+def test_howto_without_diagram_fails():
+    body = "## Runbook\n\n```bash\nls\n```\n"  # evidence present, no diagram
+    fails = validate_post(dict(GOOD_FM, diataxis=["how-to"]), body)
+    assert any("diagram" in f for f in fails)
+
+
+def test_howto_with_diagram_passes_diagram_check():
+    body = "## Runbook\n\n```bash\nls\n```\n" + _MERMAID
+    fails = validate_post(dict(GOOD_FM, diataxis=["how-to"]), body)
+    assert not any("diagram" in f for f in fails)
+
+
+def test_tutorial_without_diagram_fails():
+    body = "## Steps\n\n```bash\nls\n```\n"
+    fails = validate_post(dict(GOOD_FM, diataxis=["tutorial"]), body)
+    assert any("diagram" in f for f in fails)
+
+
+def test_reference_without_diagram_passes():
+    body = "## Verify\n\n```bash\nls\n```\n"
+    fails = validate_post(dict(GOOD_FM, diataxis=["reference"]), body)
+    assert not any("diagram" in f for f in fails)
+
+
+def test_explanation_without_diagram_passes():
+    body = "## Verify\n\n```bash\nls\n```\n"
+    fails = validate_post(dict(GOOD_FM, diataxis=["explanation"]), body)
+    assert not any("diagram" in f for f in fails)
+
+
+def test_diagram_exempt_waives_requirement():
+    body = "## Runbook\n\n```bash\nls\n```\n"
+    fm = dict(GOOD_FM, diataxis=["how-to"], diagram_exempt="topology is trivial")
+    assert not any("diagram" in f for f in validate_post(fm, body))
+
+
+def test_require_diagram_toggle_off():
+    body = "## Runbook\n\n```bash\nls\n```\n"
+    fm = dict(GOOD_FM, diataxis=["how-to"])
+    fails = validate_post(fm, body, gate={"require_diagram": False})
+    assert not any("diagram" in f for f in fails)
+
+
+def test_require_diagram_composes_with_alias():
+    # `howto` normalizes to `how-to`, so the diagram rule still applies.
+    body = "## Runbook\n\n```bash\nls\n```\n"
+    assert any("diagram" in f for f in validate_post(dict(GOOD_FM, diataxis="howto"), body))
+
+
+def test_has_mermaid_detects_fence():
+    from validate_educational import _has_mermaid
+    assert _has_mermaid("```mermaid\ngraph TD; A-->B\n```")
+    assert _has_mermaid("```mermaid  \nx\n```")            # trailing space on info line
+    assert not _has_mermaid("```bash\necho mermaid\n```")  # prose mention, not a fence
+    assert not _has_mermaid("no fences here")
 
 
 # --- CLI: content-type routing + exit codes -------------------------------
@@ -163,7 +229,7 @@ def test_cli_passes_good_post(tmp_path):
     p = tmp_path / "good.md"
     _write(p, {"title": "x", "series": ["building"],
                "reader_goal": "do the thing", "diataxis": ["how-to"]},
-           "## Runbook\n\n```bash\nls\n```\n")
+           "## Runbook\n\n```bash\nls\n```\n\n```mermaid\nflowchart TD; A-->B\n```\n")
     r = _run(cfg, p)
     assert r.returncode == 0, r.stderr
     assert "1 post(s) checked" in r.stdout

@@ -3,6 +3,7 @@
 Some tools are both a blog-craft tool (canonical, tested here) AND shipped into a
 materialized blog so a plain-python CI / operator can run them without the plugin:
   - compose.py            -> templates/hugo-hextra/scripts/           (every blog)
+  - validate_educational  -> templates/hugo-hextra/scripts/           (quality gate on)
   - the papers validators -> templates/content-type-papers/shared/scripts/ (papers on)
   - scaffold-explainer.sh -> templates/content-type-explainers/shared/scripts/ (explainers on)
   - render-explainer.py   -> templates/content-type-explainers/shared/scripts/ (explainers on)
@@ -14,6 +15,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 
 MIRRORS = [
     ("tools/compose.py", "templates/hugo-hextra/scripts/compose.py"),
+    ("tools/validate_educational.py", "templates/hugo-hextra/scripts/validate_educational.py"),
     ("tools/dossier_parser.py", "templates/content-type-papers/shared/scripts/dossier_parser.py"),
     ("tools/validate_papers.py", "templates/content-type-papers/shared/scripts/validate_papers.py"),
     ("tools/validate_dossier.py", "templates/content-type-papers/shared/scripts/validate_dossier.py"),

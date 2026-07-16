@@ -14,6 +14,8 @@ Enforced (each toggle lives in `quality.gate`):
   - command blocks   >= min_command_blocks fenced code blocks (mermaid excluded)
   - actionable       >= 1 heading a reader can follow under pressure
                      (Reproduce / Runbook / Steps / Verify / Recover / ...)
+  - diagram          how-to / tutorial posts carry >= 1 ```mermaid block
+                     (waive one post with `diagram_exempt: <reason>`)
 
 Scope: only `content_type: posts` posts. Papers and explainers ship their own
 validators and their own structure, so a post whose series is a papers/explainers
@@ -58,7 +60,11 @@ _DEFAULT_GATE = {
     "require_diataxis_mode": True,
     "min_command_blocks": 1,
     "require_actionable_section": True,
+    "require_diagram": True,
 }
+
+# Diátaxis modes that teach a procedure — these must carry a diagram.
+_DIAGRAM_MODES = {"how-to", "tutorial"}
 
 
 def split_frontmatter(text: str) -> tuple[dict, str]:
@@ -116,6 +122,26 @@ def _count_command_blocks(body: str) -> int:
     return count
 
 
+def _has_mermaid(body: str) -> bool:
+    """True if the body contains at least one ```mermaid fenced block.
+
+    Only the opening fence's info string is inspected — a bare "mermaid"
+    mentioned in prose or inside another code block never counts.
+    """
+    in_block = False
+    for line in body.splitlines():
+        fence = re.match(r"^(`{3,}|~{3,})(.*)$", line.strip())
+        if fence is None:
+            continue
+        if not in_block:
+            in_block = True
+            if fence.group(2).strip().lower().startswith("mermaid"):
+                return True
+        else:
+            in_block = False
+    return False
+
+
 def _has_actionable_heading(body: str) -> bool:
     for line in body.splitlines():
         m = re.match(r"^#{2,6}\s+(.*)$", line)
@@ -170,6 +196,16 @@ def validate_post(fm: dict, body: str, gate: dict | None = None) -> list[str]:
             fails.append(
                 "no actionable section: add a heading a reader under pressure can "
                 "follow (e.g. 'Reproduce', 'Runbook', 'Steps', 'Verify', 'Recover')"
+            )
+
+    if g.get("require_diagram") and not fm.get("diagram_exempt"):
+        modes = _normalize_modes(fm.get("diataxis"))
+        if (_DIAGRAM_MODES & set(modes)) and not _has_mermaid(body):
+            fails.append(
+                "missing diagram: a how-to/tutorial post should carry at least one "
+                "```mermaid block — add a topology/flow diagram so visual learners "
+                "can follow the architecture in seconds (or set "
+                "`diagram_exempt: <reason>` to waive just this check)"
             )
 
     return fails
@@ -237,8 +273,9 @@ def _main(argv):
             for x in fs:
                 print(f"    x {x}", file=sys.stderr)
         print(
-            "\n  See skills/educational-writing/ for the methodology, or set "
-            "`quality_exempt: <reason>` to opt a non-teaching post out.",
+            "\n  See skills/educational-writing/ for the methodology, set "
+            "`quality_exempt: <reason>` to opt a non-teaching post out, or "
+            "`diagram_exempt: <reason>` to waive just the diagram check.",
             file=sys.stderr,
         )
         return 1
