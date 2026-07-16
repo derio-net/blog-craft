@@ -147,7 +147,9 @@ judge prose, but it enforces the evidence a genuinely useful post carries.
 
 Scope: only `content_type: posts` posts. Papers and explainers ship their own
 validators and structure, so they're skipped. A single non-teaching post may opt
-out with `quality_exempt: <reason>` in its frontmatter (use sparingly).
+out with `quality_exempt: <reason>` in its frontmatter (use sparingly). A post
+that legitimately needs no diagram waives *just* that one check with
+`diagram_exempt: <reason>` while staying subject to the rest of the gate.
 
 | Key | Default | Meaning |
 |-----|---------|---------|
@@ -156,6 +158,7 @@ out with `quality_exempt: <reason>` in its frontmatter (use sparingly).
 | `gate.require_diataxis_mode` | `true` | Frontmatter `diataxis:` present and valid — one or more of `tutorial`, `how-to`, `reference`, `explanation`. |
 | `gate.min_command_blocks` | `1` | Minimum fenced command/output code blocks (mermaid fences don't count). |
 | `gate.require_actionable_section` | `true` | At least one heading a reader under pressure can follow (Reproduce / Runbook / Steps / Verify / Recover / …). |
+| `gate.require_diagram` | `true` | A post whose `diataxis` includes `how-to` or `tutorial` must carry ≥ 1 ` ```mermaid ` block — for visual learners a topology/flow diagram is the difference between understanding and guessing. Waive one post with `diagram_exempt: <reason>`. |
 
 Run it directly:
 
