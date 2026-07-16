@@ -171,6 +171,29 @@ The validator ships into every blog at `scripts/validate_educational.py` (a
 byte-identical copy of `tools/validate_educational.py`), so a plain-python CI runs
 it without the plugin.
 
+### Mermaid syntax gate (`quality.mermaid_syntax`)
+
+Separate from the post-quality gate above, and content-type-agnostic: a
+build-time linter that catches common ` ```mermaid ` syntax errors —
+subgraph-targeting edges, bare `<br>` (use `<br/>`), unbalanced brackets — with
+`file:line`, across posts, explainers, and papers, so a broken diagram fails CI
+instead of shipping dead. **On by default.** Opt out per blog:
+
+```yaml
+quality:
+  mermaid_syntax: false   # default true (absent → on)
+```
+
+Run it directly:
+
+```bash
+python <blog-craft>/tools/validate_mermaid.py --config .blog-craft.yaml \
+    content/docs/*/*/index.md
+```
+
+Ships at `scripts/validate_mermaid.py` (byte-identical mirror) and runs as a CI
+step before the Hugo build.
+
 ### Frontmatter added by the methodology
 
 Every `content_type: posts` post carries two fields, set by `/blog-post` and

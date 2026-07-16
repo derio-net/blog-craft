@@ -33,6 +33,18 @@ def test_b_missing_required_key_named():
     assert any("composition_order" in e for e in errs)
 
 
+def test_quality_mermaid_syntax_must_be_bool():
+    cfg = _valid()
+    cfg["quality"] = {"mermaid_syntax": "yes"}
+    assert any("mermaid_syntax" in e for e in validate_config(cfg))
+
+
+def test_quality_mermaid_syntax_bool_ok():
+    cfg = _valid()
+    cfg["quality"] = {"mermaid_syntax": False}
+    assert validate_config(cfg) == []
+
+
 def test_c_composition_order_names_unknown_layer():
     cfg = _valid()
     cfg["image"]["composition_order"] = ["base_style", "nope_layer", "scene"]

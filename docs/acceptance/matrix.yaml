@@ -146,3 +146,25 @@ rows:
     status: ci
     notes: bundled Fraunces+Newsreader (OFL); reproducible via fetch_broadsheet_fonts.py
       (#22)
+  - id: mermaid-syntax-flags-subgraph-edge
+    capability: mermaid syntax gate
+    acceptance: validate_mermaid flags a subgraph-targeting edge with file:line and
+      fails CI
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-16-mermaid-syntax-validator-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_mermaid_validator.py
+    status: ci
+    notes: standalone tools/validate_mermaid.py, all content types, blocking, on by
+      default (#27)
+  - id: mermaid-syntax-opt-out
+    capability: mermaid syntax gate
+    acceptance: quality.mermaid_syntax false disables the mermaid syntax gate
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-16-mermaid-syntax-validator-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_mermaid_validator.py
+    status: ci
+    notes: flag validated as bool in validate_config; default on (#27)

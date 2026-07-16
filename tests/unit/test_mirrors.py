@@ -16,6 +16,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 MIRRORS = [
     ("tools/compose.py", "templates/hugo-hextra/scripts/compose.py"),
     ("tools/validate_educational.py", "templates/hugo-hextra/scripts/validate_educational.py"),
+    ("tools/validate_mermaid.py", "templates/hugo-hextra/scripts/validate_mermaid.py"),
     ("tools/dossier_parser.py", "templates/content-type-papers/shared/scripts/dossier_parser.py"),
     ("tools/validate_papers.py", "templates/content-type-papers/shared/scripts/validate_papers.py"),
     ("tools/validate_dossier.py", "templates/content-type-papers/shared/scripts/validate_dossier.py"),
