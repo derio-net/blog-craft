@@ -76,3 +76,27 @@ rows:
     status: not-implemented
     notes: 'Post-merge, operator-driven on frank''s blog: DevTools network check + visual
       spot-check + PNG masters untouched'
+  - id: batch-gate-fails-bad-post
+    capability: batch post-rewrite workflow
+    acceptance: The batch gate validates a set of posts and fails the batch when any
+      post fails the educational gate
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-16-batch-rewrite-workflow-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_batch_gate.py
+    status: ci
+    notes: reproducible scripts/batch-gate.sh; build check skippable via BATCH_GATE_SKIP_BUILD
+      (#26)
+  - id: batch-rewrite-documented
+    capability: batch post-rewrite workflow
+    acceptance: post-rewrite documents a batch/campaign mode with in-place edits and
+      a reproducible per-batch gate
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-16-batch-rewrite-workflow-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_batch_gate.py
+    status: ci
+    notes: SKILL.md 'Batch / campaign mode' section; shape test guards doc<->script
+      drift (#26)
