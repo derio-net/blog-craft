@@ -104,14 +104,32 @@ blog-craft blog. No `.blog-craft.yaml` needed.
 
 ### Style customization
 
-The `--style` argument controls the visual theme. Three built-in themes:
-`light` (default), `dark` (code-friendly), `minimal` (bare-bones). Any
-file path given as `--style` is loaded as custom CSS, so each explainer can
-have its own look:
+The `--style` argument controls the visual theme. Four built-in themes:
+`light` (default), `dark` (code-friendly), `minimal` (bare-bones), and
+`broadsheet` (a warm-dark editorial theme — display + body serif, a
+two-accent brass/teal system, hairline rules). Each style themes its own
+Mermaid diagrams. Any file path given as `--style` is loaded as custom CSS,
+so each explainer can have its own look:
 
 ```bash
 python <blog-craft>/tools/render-explainer.py post.md --style ./my-theme.css
 ```
+
+**Self-contained fonts (`--embed-fonts`).** `broadsheet`'s distinctive type
+needs web fonts. `--embed-fonts` inlines the bundled Fraunces + Newsreader
+woff2 as base64 `@font-face` data URIs, so the page carries its fonts with no
+external requests (offline-safe, Artifact-CSP-safe). Without it, broadsheet
+falls back to system serifs.
+
+```bash
+python <blog-craft>/tools/render-explainer.py post.md --style broadsheet --embed-fonts
+```
+
+The bundled fonts (latin + latin-ext, ~744K, SIL OFL 1.1) live under
+`templates/content-type-explainers/shared/fonts/broadsheet/`; regenerate them
+with `tools/fetch_broadsheet_fonts.py`. For archetypes where Mermaid's
+auto-layout fights the content, see `references/schematics.md` for CSS-only
+schematic primitives.
 
 The frontmatter field `standalone_style` lets the *document itself* declare
 its preferred theme — overrides the CLI default, but CLI `--style` still
