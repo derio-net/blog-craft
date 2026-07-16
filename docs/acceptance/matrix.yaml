@@ -76,3 +76,26 @@ rows:
     status: not-implemented
     notes: 'Post-merge, operator-driven on frank''s blog: DevTools network check + visual
       spot-check + PNG masters untouched'
+  - id: diagram-gate-requires-diagram
+    capability: educational-writing quality gate
+    acceptance: A how-to or tutorial post with no Mermaid diagram fails the quality
+      gate
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-16-diagram-quality-gate-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_educational_validator.py
+    status: ci
+    notes: require_diagram gate check, on by default; folds into validate_educational.py
+      (#25)
+  - id: diagram-gate-exempt-waives
+    capability: educational-writing quality gate
+    acceptance: diagram_exempt frontmatter waives the diagram requirement for a single
+      post
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-16-diagram-quality-gate-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_educational_validator.py
+    status: ci
+    notes: targeted per-post opt-out, distinct from whole-post quality_exempt (#25)
