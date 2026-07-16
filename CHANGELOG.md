@@ -1,0 +1,43 @@
+# Changelog
+
+All notable changes to blog-craft are recorded here. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and blog-craft adheres
+to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+The canonical version lives in `pyproject.toml`; `tools/bump_version.py` keeps
+the plugin manifests in lockstep, and `.github/workflows/auto-tag.yml` cuts the
+matching `vX.Y.Z` tag on merge (#18).
+
+## [Unreleased]
+
+## [0.5.0] - 2026-07-16
+
+The first release under controlled versioning — it also establishes the scheme
+itself and folds in four features that had merged without a version bump.
+
+### Added
+- **Controlled versioning (#18):** `pyproject.toml` is the single canonical
+  version; `tools/bump_version.py` syncs both `.claude-plugin` manifests;
+  `tools/check_version_bump_needed.py` fails a PR that changes the shipped
+  surface (`templates/`, `tools/`, `skills/`, `agents/`, `.claude-plugin/`)
+  without a bump; `.github/workflows/auto-tag.yml` cuts `vX.Y.Z` + a Release on
+  merge. Bootstrapped blogs now stamp a resolvable `blog_craft_version` tag.
+- **Diagram quality gate (#25):** how-to / tutorial posts must carry a
+  `mermaid` diagram (`gate.require_diagram`, on by default; `diagram_exempt`
+  opt-out).
+- **Batch / campaign post-rewrite mode (#26):** a documented small-batch,
+  in-place, live-preview workflow plus the reproducible `scripts/batch-gate.sh`.
+- **Broadsheet explainer style (#22):** a warm-dark editorial `--style`,
+  `--embed-fonts` self-contained web-font embedding, per-style Mermaid theming,
+  and `references/schematics.md`.
+- **Build-time Mermaid syntax validator (#27):** `tools/validate_mermaid.py`
+  lints `mermaid` fences (subgraph-targeting edges, bare `<br>`, unbalanced
+  brackets) across all content types; on by default, opt out with
+  `quality.mermaid_syntax: false`.
+
+### Fixed
+- Registered the `validate_educational.py` and (now) `validate_mermaid.py`
+  tool↔template mirror pairs in the byte-identity guard (#25/#27).
+
+[Unreleased]: https://github.com/derio-net/blog-craft/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/derio-net/blog-craft/releases/tag/v0.5.0

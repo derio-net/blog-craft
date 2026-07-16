@@ -9,6 +9,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # full history for the version-bump base diff
       - uses: actions/setup-go@v5
         with:
           go-version: '1.22'
@@ -23,6 +25,15 @@ jobs:
         run: |
           python3 -m pip install --quiet pyyaml pillow pytest markdown
           sudo apt-get update -qq && sudo apt-get install -y -qq pngquant optipng
+      - name: Version lockstep (pyproject.toml == both manifests)
+        run: python3 tools/bump_version.py --check
+      - name: Version bump required for shipped-surface changes
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git fetch --no-tags origin "$BASE_REF"
+          python3 tools/check_version_bump_needed.py "origin/$BASE_REF"
       - name: Unit + reproduction tests
         run: PYTHON=python3 BLOG_CRAFT_TEST_VENV=/tmp/bcv bash tests/run-unit.sh tests/unit tests/reproduction
       - name: Smoke tests

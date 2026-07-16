@@ -35,6 +35,13 @@ if [[ -f "$TARGET/.blog-craft.yaml" ]]; then
   else
     fail "A1.b .blog-craft.yaml does not parse"
   fi
+  # A1.c: bootstrap stamps a resolvable blog_craft_version tag (#18) so
+  # tools/update.py can recover the 3-way base via `git archive <ref>`.
+  if grep -qE '^blog_craft_version:[[:space:]]*"?v[0-9]+\.[0-9]+\.[0-9]+"?' "$TARGET/.blog-craft.yaml"; then
+    pass "A1.c blog_craft_version stamped as a vX.Y.Z tag"
+  else
+    fail "A1.c blog_craft_version not stamped"
+  fi
 else
   fail "A1.a .blog-craft.yaml missing"
 fi
