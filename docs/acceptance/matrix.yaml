@@ -76,3 +76,26 @@ rows:
     status: not-implemented
     notes: 'Post-merge, operator-driven on frank''s blog: DevTools network check + visual
       spot-check + PNG masters untouched'
+  - id: explainer-broadsheet-style
+    capability: standalone explainer rendering
+    acceptance: render_explainer offers a broadsheet editorial style with per-style
+      Mermaid theming
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-16-broadsheet-style-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_explainers_broadsheet.py
+    status: ci
+    notes: broadsheet --style + per-style _MERMAID_VARS; byte-mirrored (#22)
+  - id: explainer-embed-fonts
+    capability: standalone explainer rendering
+    acceptance: --embed-fonts inlines the bundled broadsheet web fonts as base64 data
+      URIs for a self-contained page
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-16-broadsheet-style-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_explainers_broadsheet.py
+    status: ci
+    notes: bundled Fraunces+Newsreader (OFL); reproducible via fetch_broadsheet_fonts.py
+      (#22)
