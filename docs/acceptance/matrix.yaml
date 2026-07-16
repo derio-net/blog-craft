@@ -201,3 +201,24 @@ rows:
       - blog-craft:tests/smoke-bootstrap.sh
     status: ci
     notes: bootstrap-render.sh injects blog_craft_version=v<version>; smoke A1.c (#18)
+  - id: changelog-hoists-conventions
+    capability: batch post-rewrite workflow
+    acceptance: assemble_changelog hoists items common to every post into the Conventions
+      table and leaves per-post residuals
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-16-batch-rewrite-changelog-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_assemble_changelog.py
+    status: ci
+    notes: tools/assemble_changelog.py set-intersection dedup (#28)
+  - id: changelog-no-batch-headers
+    capability: batch post-rewrite workflow
+    acceptance: the assembled changelog carries no batch section headers
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-16-batch-rewrite-changelog-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_assemble_changelog.py
+    status: ci
+    notes: 'frank format; per-post ### tables only (#28)'

@@ -10,6 +10,16 @@ matching `vX.Y.Z` tag on merge (#18).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-07-16
+
+### Added
+- **Batch-rewrite changelog (#28):** `tools/assemble_changelog.py` assembles a
+  per-post campaign changelog from per-post change entries — hoisting the items
+  common to every post into a "Conventions Applied to Every Post" table
+  (set-intersection, no manual dedup) and rendering the frank format. Documented
+  in `skills/educational-writing/references/changelog.md` and wired as the
+  end-of-campaign step in `post-rewrite`'s batch mode.
+
 ## [0.5.0] - 2026-07-16
 
 The first release under controlled versioning — it also establishes the scheme
@@ -39,5 +49,6 @@ itself and folds in four features that had merged without a version bump.
 - Registered the `validate_educational.py` and (now) `validate_mermaid.py`
   tool↔template mirror pairs in the byte-identity guard (#25/#27).
 
-[Unreleased]: https://github.com/derio-net/blog-craft/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/derio-net/blog-craft/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/derio-net/blog-craft/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/derio-net/blog-craft/releases/tag/v0.5.0

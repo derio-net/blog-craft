@@ -8,7 +8,7 @@
         {
             "name": "blog-craft",
             "description": "Bootstrap a Hugo + Hextra teaching blog, then author (and rewrite) posts against an evidence-first, Diátaxis-grounded quality methodology and a per-blog .blog-craft.yaml",
-            "version": "0.5.0",
+            "version": "0.6.0",
             "source": "./"
         }
     ]

@@ -222,12 +222,27 @@ go stale and confuse), no `.bak` clutter.
    to run only the content gate when Hugo isn't handy.)
 5. **Commit the batch**, then move to the next round.
 
+### At the end of the campaign — the changelog
+
+Once every batch has landed, produce a durable **per-post changelog** (distinct
+from the ephemeral per-post summaries): keep a YAML of per-post change entries as
+you go, then let `tools/assemble_changelog.py` hoist the items common to every
+post into a "Conventions Applied to Every Post" table and write the file:
+
+```bash
+python <plugin_root>/tools/assemble_changelog.py rewrite-<Series>-entries.yaml \
+    -o docs/blog/rewrite-<Series>-changelog.md
+```
+
+Format + input shape: `educational-writing/references/changelog.md`. Don't
+dedup the conventions by hand — the tool computes the intersection.
+
 ### Operator checklist (per batch)
 
 ```
 [ ] read the batch      [ ] gather git evidence   [ ] rewrite in-place
 [ ] live-preview each    [ ] per-post summaries    [ ] scripts/batch-gate.sh
-[ ] commit the batch
+[ ] commit the batch     [ ] (end of campaign) assemble_changelog.py
 ```
 
 Some steps are inherently manual (the approval round, judging rewrite depth) —
