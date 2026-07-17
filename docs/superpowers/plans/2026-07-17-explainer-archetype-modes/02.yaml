@@ -1,0 +1,51 @@
+schema_version: 2
+phase:
+  number: 2
+  title: 'Scaffold: --archetype flag + per-archetype sections'
+  tag: agentic
+  depends_on:
+  - 1
+  tracking_issue: null
+  acceptance:
+  - explainer-archetype-scaffold
+tasks:
+- number: 1
+  title: scaffold-explainer.sh emits archetype-specific sections
+  steps:
+  - id: P2.T1.S1
+    text: |
+      [RED] Extend tests/unit/test_scaffold_explainer.py. Add an ARCHETYPE_SECTIONS dict (id -> ordered '## ' heading list) mirroring the validator's. Tests: (a) parametrize all 6 archetypes: run scaffold --archetype <id> in standalone mode (tmp --output), assert frontmatter archetype==id, every canonical heading present, and NO foreign canonical heading from another archetype leaks in (e.g. skill-presentation must not contain '## Code walkthrough'); (b) default (no flag) → archetype=='feature-deep-dive'; (c) round-trip: each scaffolded file through validate_explainers.validate_post(fm, body=body) == []; (d) unknown --archetype bogus → returncode != 0. Run: fr isolation exec --branch feat/explainer-modes -- bash tests/run-unit.sh -k scaffold_explainer. EXPECT new tests fail, default passes.
+  - id: P2.T1.S2
+    text: |
+      [GREEN] Edit tools/scaffold-explainer.sh: parse --archetype <id> in the while/case loop (default feature-deep-dive); up-front `case "$ARCHETYPE" in` validating the 6 ids, unknown → echo error + exit 1; a sections_for() function (case over ARCHETYPE) printing the correct heading block (headings + one italic budget line each, per spec); frontmatter line archetype: ${ARCHETYPE} (was hardcoded); heredoc body uses "$(sections_for)". Mirror byte-identically into templates/content-type-explainers/ shared/scripts/scaffold-explainer.sh. Run: fr isolation exec --branch feat/explainer-modes -- bash tests/run-unit.sh -k 'scaffold_explainer or mirrors'. EXPECT all green.
+- number: 2
+  title: REFACTOR + quality gate (phase 2)
+  steps:
+  - id: P2.T2.S1
+    text: |
+      [REFACTOR — optional] Tidy sections_for() (consistent heredoc style, no trailing whitespace that would break the mirror). Stay green. Skip if clean.
+  - id: P2.T2.S2
+    text: |
+      [VERIFY] Full unit suite green. Run: rm -rf /tmp/pytest-of-vscode; fr isolation exec --branch feat/explainer-modes -- bash tests/run-unit.sh. EXPECT all pass.
+state:
+  steps:
+    P2.T1.S1:
+      state: x
+      ticked_at: '2026-07-17T06:19:30+00:00'
+      note: null
+    P2.T1.S2:
+      state: x
+      ticked_at: '2026-07-17T06:19:31+00:00'
+      note: null
+    P2.T2.S1:
+      state: '-'
+      ticked_at: '2026-07-17T06:19:33+00:00'
+      note: sections_for case is clean; nothing to refactor
+    P2.T2.S2:
+      state: x
+      ticked_at: '2026-07-17T06:19:32+00:00'
+      note: null
+  completion:
+    at: '2026-07-17T06:19:34+00:00'
+    note: null
+    observed_prs: []

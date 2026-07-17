@@ -222,3 +222,25 @@ rows:
       - blog-craft:tests/unit/test_assemble_changelog.py
     status: ci
     notes: 'frank format; per-post ### tables only (#28)'
+  - id: explainer-archetype-scaffold
+    capability: explainer archetypes
+    acceptance: scaffold-explainer.sh --archetype <id> emits that archetype's section
+      structure for all 6 archetypes
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-17-explainer-archetype-modes-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_scaffold_explainer.py
+    status: ci
+    notes: ''
+  - id: explainer-archetype-structure-validation
+    capability: explainer archetypes
+    acceptance: 'validate_explainers rejects a post whose ## sections do not match its
+      declared archetype, and rejects unknown archetypes'
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-17-explainer-archetype-modes-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_explainers_validators.py
+    status: ci
+    notes: ''

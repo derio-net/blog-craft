@@ -10,6 +10,20 @@ matching `vX.Y.Z` tag on merge (#18).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-07-17
+
+### Added
+- **Explainer archetype modes:** `scaffold-explainer.sh --archetype <id>` now
+  scaffolds all six explainer modes (`feature-deep-dive`, `skill-presentation`,
+  `skill-comparison`, `testing-pyramid`, `deployment-strategy`,
+  `security-posture`), each emitting that mode's section structure — previously
+  five were guidance-only prose with no scaffold. `validate_explainers.py`
+  gained a structural check: a post's `##` sections must match its declared
+  archetype's recipe (every heading, in order; extra sections allowed), and an
+  unknown archetype is rejected. Both scripts mirror into
+  `templates/content-type-explainers/shared/scripts/`; docs updated in
+  `skills/explainers/SKILL.md` and `references/archetypes.md`.
+
 ## [0.6.0] - 2026-07-16
 
 ### Added

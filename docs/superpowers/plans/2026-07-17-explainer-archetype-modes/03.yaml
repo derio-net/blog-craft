@@ -1,0 +1,49 @@
+schema_version: 2
+phase:
+  number: 3
+  title: Docs, version bump, acceptance rows
+  tag: agentic
+  depends_on:
+  - 1
+  - 2
+  tracking_issue: null
+  acceptance:
+  - explainer-archetype-scaffold
+  - explainer-archetype-structure-validation
+tasks:
+- number: 1
+  title: 'Docs: SKILL.md + archetypes.md'
+  steps:
+  - id: P3.T1.S1
+    text: |
+      Edit skills/explainers/SKILL.md: drop 'only fully-scaffolded' language; list all 6 archetype ids; show `scaffold-explainer.sh --archetype <id>` in the scaffold steps (blog + standalone); note the validator now enforces archetype section structure. Edit skills/explainers/references/archetypes.md: add an `id:` line to each of the 5 recipes and note they are now scaffolded (not guidance-only). Run: fr isolation exec --branch feat/explainer-modes -- bash tests/run-unit.sh. EXPECT all pass.
+- number: 2
+  title: Version bump + CHANGELOG
+  steps:
+  - id: P3.T2.S1
+    text: |
+      Bump 0.6.0 -> 0.7.0. Run: fr isolation exec --branch feat/explainer-modes -- python tools/bump_version.py minor. Add a CHANGELOG.md 0.7.0 entry (explainer archetype modes: --archetype scaffold + structural validation for all 6 archetypes). Verify: fr isolation exec --branch feat/explainer-modes -- python tools/bump_version.py --check. EXPECT consistent at 0.7.0.
+- number: 3
+  title: Acceptance rows verified (added at plan setup, same PR)
+  steps:
+  - id: P3.T3.S1
+    text: |
+      [VERIFY] The two rows (explainer-archetype-scaffold, explainer-archetype-structure-validation, both status ci, origin = this spec) were added via `fr acceptance add` at plan setup. With phase-1/2 tests now present, confirm consistency: fr isolation exec --branch feat/explainer-modes -- fr acceptance check. EXPECT refs resolve, no failing rows.
+state:
+  steps:
+    P3.T1.S1:
+      state: x
+      ticked_at: '2026-07-17T06:23:43+00:00'
+      note: null
+    P3.T2.S1:
+      state: x
+      ticked_at: '2026-07-17T06:23:44+00:00'
+      note: null
+    P3.T3.S1:
+      state: x
+      ticked_at: '2026-07-17T06:23:45+00:00'
+      note: null
+  completion:
+    at: '2026-07-17T06:23:46+00:00'
+    note: null
+    observed_prs: []
