@@ -25,11 +25,27 @@ All thresholds, paths, and the weight offset come from
 
 ## Archetypes
 
-The `archetype` frontmatter field records which recipe produced the post.
-The default (and only fully-scaffolded) archetype is `feature-deep-dive`.
-Five additional guidance-only archetypes are documented in
-`skills/explainers/references/archetypes.md` — no scaffold, no validator,
-follow the same lifecycle using that recipe for section structure.
+The `archetype` frontmatter field records which recipe produced the post, and
+`scaffold-explainer.sh --archetype <id>` emits that archetype's section
+structure. All six modes are scaffolded and validated:
+
+| id | mode |
+|---|---|
+| `feature-deep-dive` (default) | Walking through one feature of a codebase |
+| `skill-presentation` | Presenting a single Claude Skill |
+| `skill-comparison` | Comparing two similar skills |
+| `testing-pyramid` | The testing layers of a specific repo |
+| `deployment-strategy` | How code gets from merge to production |
+| `security-posture` | What's enforced, what's manual, the threat surface |
+
+`feature-deep-dive`'s recipe is the scaffolded six-section skeleton; the other
+five recipes (section structure + content guidance) live in
+`skills/explainers/references/archetypes.md`. `validate_explainers.py` enforces
+that a post's `##` sections match its declared archetype (every recipe heading,
+in order; extra sections allowed) and rejects an unknown archetype. The check
+counts only plain ATX `## ` headings — keep the scaffolded heading style (not
+setext underlines or `## Foo ##`), and `## ` lines inside ``` / `~~~` code
+fences are ignored.
 
 ## Lifecycle
 
@@ -45,18 +61,21 @@ follow the same lifecycle using that recipe for section structure.
 
 3. **Scaffold** — create the page bundle:
    ```bash
-   bash <blog-craft>/tools/scaffold-explainer.sh --config .blog-craft.yaml <NN> <slug>
+   bash <blog-craft>/tools/scaffold-explainer.sh --config .blog-craft.yaml \
+       [--archetype <id>] <NN> <slug>
    ```
    Writes `content/docs/<series>/<NN>-<slug>/index.md` with
-   `weight = NN + weight_offset` and the six-section skeleton (Overview, Why
-   it exists, How it works, Code walkthrough, Tradeoffs & alternatives, Try it
-   yourself).
+   `weight = NN + weight_offset` and the selected archetype's section skeleton.
+   `--archetype` defaults to `feature-deep-dive` (Overview, Why it exists, How
+   it works, Code walkthrough, Tradeoffs & alternatives, Try it yourself); the
+   other five ids emit their own recipe's sections.
 
-4. **Draft** — fill every section using the research brief. For
-   `feature-deep-dive`, follow the scaffolded section headings and their
-   budget comments. For guidance-only archetypes, use the recipe in
-   `references/archetypes.md` for section structure instead of the scaffolded
-   headings.
+4. **Draft** — fill every section using the research brief, following the
+   scaffolded section headings and their budget comments. For the five
+   non-`feature-deep-dive` archetypes, `references/archetypes.md` gives the
+   fuller content guidance (what each section should contain, recommended
+   visuals). **Keep the scaffolded `##` headings** — the validator enforces
+   them per archetype (you may append extra sections).
 
 5. **Visuals** — Mermaid fences for diagrams/flows (Hextra renders these
    natively); Hextra `cards`/`tabs`/`callout` shortcodes for side-by-side
@@ -70,8 +89,8 @@ follow the same lifecycle using that recipe for section structure.
    python <blog-craft>/tools/validate_explainers.py --config .blog-craft.yaml \
        content/docs/<series>/<NN>-<slug>/index.md
    ```
-   Frontmatter + weight invariant only (no dossier fields). Set
-   `draft: false` when ready.
+   Frontmatter + weight invariant + archetype section structure (no dossier
+   fields). Set `draft: false` when ready.
 
 ## Standalone mode
 
@@ -86,10 +105,12 @@ blog-craft blog. No `.blog-craft.yaml` needed.
    bash <blog-craft>/tools/scaffold-explainer.sh --standalone \
        --target <path-to-codebase> \
        --output <dir> \
+       [--archetype <id>] \
        <NN> <slug>
    ```
    Writes `<dir>/<NN>-<slug>.md` with `standalone: true` and `target: <path>`
-   in its frontmatter. No Hugo bundle, no blog root.
+   in its frontmatter (and the selected archetype's sections). No Hugo bundle,
+   no blog root.
 
 3. **Draft** — fill every section same as blog mode.
 
@@ -104,14 +125,32 @@ blog-craft blog. No `.blog-craft.yaml` needed.
 
 ### Style customization
 
-The `--style` argument controls the visual theme. Three built-in themes:
-`light` (default), `dark` (code-friendly), `minimal` (bare-bones). Any
-file path given as `--style` is loaded as custom CSS, so each explainer can
-have its own look:
+The `--style` argument controls the visual theme. Four built-in themes:
+`light` (default), `dark` (code-friendly), `minimal` (bare-bones), and
+`broadsheet` (a warm-dark editorial theme — display + body serif, a
+two-accent brass/teal system, hairline rules). Each style themes its own
+Mermaid diagrams. Any file path given as `--style` is loaded as custom CSS,
+so each explainer can have its own look:
 
 ```bash
 python <blog-craft>/tools/render-explainer.py post.md --style ./my-theme.css
 ```
+
+**Self-contained fonts (`--embed-fonts`).** `broadsheet`'s distinctive type
+needs web fonts. `--embed-fonts` inlines the bundled Fraunces + Newsreader
+woff2 as base64 `@font-face` data URIs, so the page carries its fonts with no
+external requests (offline-safe, Artifact-CSP-safe). Without it, broadsheet
+falls back to system serifs.
+
+```bash
+python <blog-craft>/tools/render-explainer.py post.md --style broadsheet --embed-fonts
+```
+
+The bundled fonts (latin + latin-ext, ~744K, SIL OFL 1.1) live under
+`templates/content-type-explainers/shared/fonts/broadsheet/`; regenerate them
+with `tools/fetch_broadsheet_fonts.py`. For archetypes where Mermaid's
+auto-layout fights the content, see `references/schematics.md` for CSS-only
+schematic primitives.
 
 The frontmatter field `standalone_style` lets the *document itself* declare
 its preferred theme — overrides the CLI default, but CLI `--style` still

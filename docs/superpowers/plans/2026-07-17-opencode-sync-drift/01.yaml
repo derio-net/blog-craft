@@ -1,0 +1,43 @@
+schema_version: 2
+phase:
+  number: 1
+  title: OpenCode mirror enforcement + resync
+  tag: agentic
+  depends_on: []
+  tracking_issue: null
+  acceptance:
+  - opencode-mirror-sync-enforced
+tasks:
+- number: 1
+  title: Enforce and fix .opencode mirror parity
+  steps:
+  - id: P1.T1.S1
+    text: |
+      [RED — done] tests/unit/test_opencode_sync.py added: shells `python scripts/sync-opencode.py --check` and asserts exit 0. Confirmed RED (explainers + post-rewrite mirrors drift from canonical).
+  - id: P1.T1.S2
+    text: |
+      [GREEN] Regenerate the mirrors and commit them: fr isolation exec --branch fix/opencode-sync-drift -- uv run --quiet python scripts/sync-opencode.py. This overwrites .opencode/skills/{explainers,post-rewrite}/SKILL.md from canonical (deterministic; no script logic change). Re-run: fr isolation exec --branch fix/opencode-sync-drift -- bash tests/run-unit.sh -k opencode_sync. EXPECT green. NOTE: `uv run` also rewrites uv.lock's blog-craft version 0.4.0 -> 0.7.0 — that reconciliation is intended and rides into phase 2.
+- number: 2
+  title: Verify (phase 1)
+  steps:
+  - id: P1.T2.S1
+    text: |
+      [VERIFY] Full unit suite green. Run: rm -rf /tmp/pytest-of-vscode; fr isolation exec --branch fix/opencode-sync-drift -- bash tests/run-unit.sh. EXPECT all pass (version tripwire still 3-surface here — uv.lock not yet in versions()).
+state:
+  steps:
+    P1.T1.S1:
+      state: x
+      ticked_at: '2026-07-17T07:59:29+00:00'
+      note: null
+    P1.T1.S2:
+      state: x
+      ticked_at: '2026-07-17T07:59:31+00:00'
+      note: null
+    P1.T2.S1:
+      state: x
+      ticked_at: '2026-07-17T07:59:33+00:00'
+      note: null
+  completion:
+    at: '2026-07-17T07:59:34+00:00'
+    note: null
+    observed_prs: []

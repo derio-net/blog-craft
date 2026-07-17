@@ -10,6 +10,20 @@ matching `vX.Y.Z` tag on merge (#18).
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-07-17
+
+### Fixed
+- **OpenCode mirror + uv.lock sync drift:** `scripts/install.sh` no longer
+  leaves the working tree dirty on every run. The committed `.opencode/` skill
+  mirrors were stale (broadsheet #22 and archetype-modes #35 never re-synced);
+  they are now regenerated to match canonical `skills/`, and
+  `tests/unit/test_opencode_sync.py` fails CI on any future mirror drift.
+  `uv.lock` pinned the project at 0.4.0 while `pyproject.toml` had moved on
+  (bumps never touched the lockfile); `tools/bump_version.py` now keeps
+  `uv.lock`'s blog-craft `version` in lockstep (name-anchored — the line-1
+  `version = 1` schema is never touched) and `--check` (the committed-repo
+  self-consistency tripwire) now covers it.
+
 ## [0.7.0] - 2026-07-17
 
 ### Added
