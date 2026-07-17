@@ -1,0 +1,50 @@
+schema_version: 2
+phase:
+  number: 1
+  title: 'Validator: structural archetype check'
+  tag: agentic
+  depends_on: []
+  tracking_issue: null
+  acceptance:
+  - explainer-archetype-structure-validation
+tasks:
+- number: 1
+  title: ARCHETYPE_SECTIONS map + extract_h2 + structural check in validate_post
+  steps:
+  - id: P1.T1.S1
+    text: |
+      [RED] Extend tests/unit/test_explainers_validators.py with a helper that builds a body from a list of `## ` headings. Add tests: (a) unknown archetype value fails WITH and WITHOUT body (failure mentions 'archetype'); (b) each of the 6 archetypes with a body of exactly its canonical headings → validate_post(_fm(archetype=id), body=good) == []; (c) missing required section fails ('missing section'); (d) reordered required sections fail ('order'); (e) an extra '## Further reading' appended after the canonical set → still []; (f) a '## Fake' heading INSIDE a fenced code block is NOT counted; (g) backward-compat: validate_post(_fm()) with NO body → [] (structural check skipped). Run: rm -rf /tmp/pytest-of-vscode; fr isolation exec --branch feat/explainer-modes -- bash tests/run-unit.sh -k explainers_validators. EXPECT new tests fail, old ones pass.
+  - id: P1.T1.S2
+    text: |
+      [GREEN] Edit tools/validate_explainers.py: add module-level ARCHETYPE_SECTIONS (6 canonical heading lists from the spec, text without leading '## '); add extract_h2(body) that strips ```...``` fenced blocks first (DOTALL) then collects ordered level-2 headings via ^##[ \t]+(.+?)\s*$ (MULTILINE, '###' must not match); extend validate_post(fm, weight_offset=1, explainers_key='explainers', body=None): archetype present but not in ARCHETYPE_SECTIONS → fail always; body not None and archetype known → required=ARCHETYPE_SECTIONS[archetype], found=extract_h2(body), fail each required not in found ('missing section'), present=[h for h in found if h in set(required)], expected=[r for r in required if r in set(found)], present!=expected → 'section order' fail; body None → skip structural. CLI _main: read full text, fm=parse_frontmatter(text) (unchanged dict return), split body after closing '---' inline, call validate_post(fm, offset, ek, body=body). Mirror byte-identically into templates/content-type-explainers/shared/ scripts/validate_explainers.py. Run: fr isolation exec --branch feat/explainer-modes -- bash tests/run-unit.sh -k 'explainers_validators or mirrors'. EXPECT all green.
+- number: 2
+  title: REFACTOR + quality gate (phase 1)
+  steps:
+  - id: P1.T2.S1
+    text: |
+      [REFACTOR — optional] If the CLI body-split duplicates parse_frontmatter, extract a small split_frontmatter_body(text)->(fm_text, body) helper used by both; else leave as-is. Stay green. Skip if nothing to clean.
+  - id: P1.T2.S2
+    text: |
+      [VERIFY] Full unit suite green. Run: rm -rf /tmp/pytest-of-vscode; fr isolation exec --branch feat/explainer-modes -- bash tests/run-unit.sh. EXPECT all pass.
+state:
+  steps:
+    P1.T1.S1:
+      state: x
+      ticked_at: '2026-07-17T06:15:49+00:00'
+      note: null
+    P1.T1.S2:
+      state: x
+      ticked_at: '2026-07-17T06:15:50+00:00'
+      note: null
+    P1.T2.S1:
+      state: '-'
+      ticked_at: '2026-07-17T06:15:52+00:00'
+      note: no cleanup needed — split_body extracted inline
+    P1.T2.S2:
+      state: x
+      ticked_at: '2026-07-17T06:15:51+00:00'
+      note: null
+  completion:
+    at: '2026-07-17T06:15:53+00:00'
+    note: null
+    observed_prs: []

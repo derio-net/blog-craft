@@ -1,13 +1,17 @@
-# Explainer Archetypes — Guidance Recipes
+# Explainer Archetypes — Content Recipes
 
-Each recipe gives a section structure and content guidance for one
-guidance-only archetype. **No scaffold, no validator** — follow the same
-find/research/draft/publish lifecycle as the `feature-deep-dive` archetype,
-using this recipe for section structure instead of the scaffolded headings.
+Each recipe gives the content guidance for one explainer archetype. All five
+are **scaffolded and validated**: `scaffold-explainer.sh --archetype <id>`
+emits the section headings below, and `validate_explainers.py` enforces them.
+Use this recipe for what each section should contain (and its recommended
+visual); follow the same find/research/draft/publish lifecycle as
+`feature-deep-dive`.
 
 ---
 
 ## Presenting a Claude Skill
+
+`id: skill-presentation`
 
 **When to use:** Writing about a single skill — what it does, when it
 triggers, its workflow, and how to invoke it.
@@ -32,6 +36,8 @@ examples.
 
 ## Comparing Two Similar Skills
 
+`id: skill-comparison`
+
 **When to use:** Side-by-side comparison of two skills or tools that overlap
 in function.
 
@@ -52,6 +58,8 @@ in function.
 ---
 
 ## Testing Pyramid
+
+`id: testing-pyramid`
 
 **When to use:** Explaining the testing layers and their distribution in a
 specific repo.
@@ -75,6 +83,8 @@ specific repo.
 
 ## Deployment Strategy
 
+`id: deployment-strategy`
+
 **When to use:** Walking through how code gets from merge to production in a
 specific repo.
 
@@ -96,6 +106,8 @@ specific repo.
 ---
 
 ## Security Posture
+
+`id: security-posture`
 
 **When to use:** Explaining what's enforced, what's manual, and what the
 threat surface looks like for a specific repo or feature.
