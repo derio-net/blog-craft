@@ -244,3 +244,25 @@ rows:
       - blog-craft:tests/unit/test_explainers_validators.py
     status: ci
     notes: ''
+  - id: opencode-mirror-sync-enforced
+    capability: opencode compatibility
+    acceptance: committed .opencode/ skill mirrors always match canonical skills/ (unit-enforced;
+      advances OC-1/OC-2)
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-17-opencode-sync-drift-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_opencode_sync.py
+    status: ci
+    notes: ''
+  - id: version-lockstep-covers-uvlock
+    capability: controlled versioning
+    acceptance: uv.lock project version stays in lockstep with pyproject.toml; bump_version.py
+      syncs it and --check catches drift
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-17-opencode-sync-drift-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_version.py
+    status: ci
+    notes: ''

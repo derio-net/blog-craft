@@ -1,0 +1,50 @@
+schema_version: 2
+phase:
+  number: 2
+  title: uv.lock lockstep in bump_version.py + reconcile
+  tag: agentic
+  depends_on: []
+  tracking_issue: null
+  acceptance:
+  - version-lockstep-covers-uvlock
+tasks:
+- number: 1
+  title: Teach bump_version.py to keep uv.lock in lockstep
+  steps:
+  - id: P2.T1.S1
+    text: |
+      [RED] Extend tests/unit/test_version.py: _mk_repo gains an optional uv.lock param that writes a minimal lock with a `[[package]]` / name = "blog-craft" / version = "<v>" block (plus a `version = 1` schema line to prove it is NOT touched). New tests: (a) versions() includes "uv.lock" with the blog-craft version when the lockfile is present; (b) bv.check fails when only uv.lock's blog-craft version is drifted; (c) bv.bump/write_all updates uv.lock's blog-craft version but leaves the schema `version = 1` line unchanged; (d) versions()/bump still work when uv.lock is ABSENT (no KeyError/crash). Run: fr isolation exec --branch fix/opencode-sync-drift -- bash tests/run-unit.sh -k test_version. EXPECT new tests fail.
+  - id: P2.T1.S2
+    text: |
+      [GREEN] Edit tools/bump_version.py: add `_uvlock(root)`; a name-anchored regex `(?m)^(name = "blog-craft"\nversion = ")[^"]*(")` (matches only the blog-craft package block — never line 1's `version = 1` schema, never other packages). versions(): if uv.lock exists and the block is present, add out["uv.lock"]. write_all(): if uv.lock exists, rewrite the block version (count=1, minimal-diff). Update check()/bump() print strings to mention uv.lock when present. Run: fr isolation exec --branch fix/opencode-sync-drift -- bash tests/run-unit.sh -k test_version. EXPECT green.
+- number: 2
+  title: Reconcile uv.lock + bump 0.7.0 -> 0.8.0 + CHANGELOG
+  steps:
+  - id: P2.T2.S1
+    text: |
+      Bump (new synced surface + enforcement → minor): fr isolation exec --branch fix/opencode-sync-drift -- python tools/bump_version.py minor. This rewrites pyproject + both manifests + uv.lock to 0.8.0 (the new lockstep code writes uv.lock). Add a CHANGELOG.md 0.8.0 entry (opencode mirror resync + CI enforcement; uv.lock lockstep in bump_version). Verify: fr isolation exec --branch fix/opencode-sync-drift -- python tools/bump_version.py --check. EXPECT: pyproject + plugin.json + marketplace.json + uv.lock all agree at 0.8.0.
+  - id: P2.T2.S2
+    text: |
+      [VERIFY] Full unit suite green (now includes uv.lock in the self-consistency tripwire). Run: rm -rf /tmp/pytest-of-vscode; fr isolation exec --branch fix/opencode-sync-drift -- bash tests/run-unit.sh. EXPECT all pass.
+state:
+  steps:
+    P2.T1.S1:
+      state: x
+      ticked_at: '2026-07-17T08:06:12+00:00'
+      note: null
+    P2.T1.S2:
+      state: x
+      ticked_at: '2026-07-17T08:06:13+00:00'
+      note: null
+    P2.T2.S1:
+      state: x
+      ticked_at: '2026-07-17T08:06:15+00:00'
+      note: null
+    P2.T2.S2:
+      state: x
+      ticked_at: '2026-07-17T08:06:17+00:00'
+      note: null
+  completion:
+    at: '2026-07-17T08:06:19+00:00'
+    note: null
+    observed_prs: []

@@ -181,8 +181,76 @@ that fails the gate). On pass, tell the user:
 
 Do **not** auto-launch the server, regenerate the cover, or commit.
 
+## Batch / campaign mode
+
+For rewriting a **whole series** (many posts), not a single post. Discovered
+during a 51-post campaign: the mechanical "rewrite all N at once" attempt was
+rejected for producing shallow, templated content. The working pattern is
+*guided* automation — small batches, real depth, a reproducible gate.
+
+**Safety model differs from single-post mode.** Single-post is non-destructive
+(`/tmp` draft → approve → `.bak` → apply). Batch mode edits **in-place** — it
+overwrites each `index.md` directly, with **git** (plus live preview + the
+per-batch gate + per-post summaries) as the safety net. No `/tmp` copies (they
+go stale and confuse), no `.bak` clutter.
+
+### The loop — 3–5 posts per round
+
+1. **Rewrite each post in the batch.** For each post run the per-post
+   **Steps 3–6** (diagnose → gather evidence via post-researcher → determine
+   `reader_goal`/mode → rewrite to the methodology), but write the result
+   **straight to `index.md` in-place**. Depth over speed: real git-history
+   missteps, real command output, a Mermaid diagram per post — never templated
+   "what if" scenarios.
+2. **Live preview.** Keep `hugo server` running in a second terminal:
+   ```bash
+   cd <blog-root> && bash scripts/hugo-serve.sh --buildDrafts
+   ```
+   Reload `localhost:1313` after each edit to verify structure, diagrams, and
+   formatting before showing the operator.
+3. **Per-post summary — before the approval round.** Emit 3–5 lines per post so
+   the operator can spot-check without re-reading:
+   > **NN-title** — Added: `<frontmatter / diagram / missteps w/ commit SHAs>`.
+   > Changed: `<structural moves>`. Preserved: `<sections kept>`.
+   This catches shallow/templated rewrites before the operator has to.
+4. **Gate the batch — reproducible, one command:**
+   ```bash
+   bash scripts/batch-gate.sh content/docs/<series>/<NN>-<slug>/index.md [more...]
+   ```
+   Runs the educational gate over every post in the batch, then a Hugo build
+   check (0 errors). Must pass before committing. (Set `BATCH_GATE_SKIP_BUILD=1`
+   to run only the content gate when Hugo isn't handy.)
+5. **Commit the batch**, then move to the next round.
+
+### At the end of the campaign — the changelog
+
+Once every batch has landed, produce a durable **per-post changelog** (distinct
+from the ephemeral per-post summaries): keep a YAML of per-post change entries as
+you go, then let `tools/assemble_changelog.py` hoist the items common to every
+post into a "Conventions Applied to Every Post" table and write the file:
+
+```bash
+python <plugin_root>/tools/assemble_changelog.py rewrite-<Series>-entries.yaml \
+    -o docs/blog/rewrite-<Series>-changelog.md
+```
+
+Format + input shape: `educational-writing/references/changelog.md`. Don't
+dedup the conventions by hand — the tool computes the intersection.
+
+### Operator checklist (per batch)
+
+```
+[ ] read the batch      [ ] gather git evidence   [ ] rewrite in-place
+[ ] live-preview each    [ ] per-post summaries    [ ] scripts/batch-gate.sh
+[ ] commit the batch     [ ] (end of campaign) assemble_changelog.py
+```
+
+Some steps are inherently manual (the approval round, judging rewrite depth) —
+full automation isn't the goal, guided automation is. The mechanical part (the
+gate) is code, so it's reproducible and can't be skipped by accident.
+
 ## Notes
 
-- **Non-destructive:** the original is always backed up to `.bak`; the new draft is shown for approval before anything is written.
+- **Non-destructive (single-post mode):** the original is always backed up to `.bak`; the new draft is shown for approval before anything is written. (Batch mode edits in-place — see above.)
 - **The cover stays.** Rewriting the words doesn't invalidate the art. If the user wants a new cover, that's `/blog-post`'s image flow, run separately.
 - **Idempotent:** re-running on an already-rewritten post just re-diagnoses (it'll likely pass the gate) and offers further tightening.
