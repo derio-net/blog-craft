@@ -42,6 +42,12 @@ jobs:
       # at scripts/ (mirrored from blog-craft tools/) for plugin-free CI.
       - name: Validate mermaid syntax
         run: python3 scripts/validate_mermaid.py --config .blog-craft.yaml content/docs/*/*/index.md
+      # Image-entry gate: prompt_for_images.yaml entries stay generable — no
+      # duplicate keys, no dead references: paths, no selector that silently
+      # resolves to nothing (an out-of-range torso_variant would drop that
+      # layer from every future regen). Ships at scripts/ for plugin-free CI.
+      - name: Validate image entries
+        run: python3 scripts/validate_images.py --config .blog-craft.yaml
       - name: Hugo build
         run: hugo --minify
 {{- with .ci }}

@@ -59,10 +59,67 @@ def test_d_scene_is_reserved_not_a_layer():
     assert any("scene" in e.lower() for e in errs)
 
 
-def test_version_must_be_2():
+def test_versions_2_through_4_accepted():
+    for v in (2, 3, 4):
+        cfg = _valid()
+        cfg["version"] = v
+        assert validate_config(cfg) == [], f"version {v} should be valid"
+
+
+def test_out_of_range_versions_rejected():
+    for v in (1, 5, "2"):
+        cfg = _valid()
+        cfg["version"] = v
+        assert validate_config(cfg), f"version {v!r} should be invalid"
+
+
+# --- v4: site_dir, _select, image.character_sheet (spec D1/D3/D8) ---
+
+def test_site_dir_relative_ok():
     cfg = _valid()
-    cfg["version"] = 1
-    assert validate_config(cfg)
+    cfg["site_dir"] = "blog"
+    assert validate_config(cfg) == []
+
+
+def test_site_dir_absolute_or_nonstring_rejected():
+    for bad in ("/abs/path", 3, ["blog"]):
+        cfg = _valid()
+        cfg["site_dir"] = bad
+        assert any("site_dir" in e for e in validate_config(cfg)), bad
+
+
+def test_scalar_layer_named_torso_is_valid_in_v4():
+    # the engine hardcodes no layer names; a scalar torso is fine now
+    cfg = _valid()
+    cfg["image"]["composition_order"] = ["torso", "scene"]
+    cfg["image"]["layers"] = {"torso": "always this torso"}
+    assert validate_config(cfg) == []
+
+
+def test_select_shape_ok():
+    cfg = _valid()
+    cfg["image"]["composition_order"] = ["torso", "scene"]
+    cfg["image"]["layers"] = {"torso": {"_select": [["torso", "series"], "torso_variant"],
+                                        "building": ["t0"]}}
+    assert validate_config(cfg) == []
+
+
+def test_select_bad_shapes_rejected():
+    for bad in ("torso_variant", [3], [{"f": 1}], [["a", 2]]):
+        cfg = _valid()
+        cfg["image"]["composition_order"] = ["torso", "scene"]
+        cfg["image"]["layers"] = {"torso": {"_select": bad, "building": ["t0"]}}
+        assert any("_select" in e for e in validate_config(cfg)), bad
+
+
+def test_character_sheet_layers_shape():
+    cfg = _valid()
+    cfg["image"]["character_sheet"] = {"layers": ["persona", "visual_constants"]}
+    assert validate_config(cfg) == []
+    cfg["image"]["character_sheet"] = {"layers": "persona"}
+    assert any("character_sheet" in e for e in validate_config(cfg))
+    cfg["image"]["character_sheet"] = {"layers": [1]}
+    assert any("character_sheet" in e for e in validate_config(cfg))
 
 
 # --- series_index block (optional; style cards|table|none, optional layers registry) ---

@@ -10,6 +10,64 @@ matching `vX.Y.Z` tag on merge (#18).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-07-20
+
+### Added
+- **Generic `_select` layer walk (config schema v4).** The composition engine's
+  last two hardcoded layer names — `torso` (series + variant index) and `mood`
+  (named preset with free-form passthrough) — become config data: any map
+  layer resolves through a declared `_select` walk (default: the layer's own
+  name selects; free-form passthrough at the last step; intermediate misses
+  skip). frank's rule ships as `_select: [[torso, series], torso_variant]`,
+  written by `migrations/003_to_004.py`, and the parity fixtures' expected
+  strings are untouched — byte-identical composed prompts, engine vocabulary
+  zero (#39 / spec D1).
+- **`site_dir` config key.** A blog may keep `.blog-craft.yaml` at the repo
+  root with the Hugo site in a subdirectory (frank: `blog/`). `/blog-post`
+  scaffolding and `/update` both honour it (#39 item 4).
+- **`/update` path mapping + `--only` scoping.** Update destinations follow
+  the blog's config (`site_dir`, `image.reference_pool`,
+  `image.prompts_file`); `--only '<glob>'` scopes a run — migrating just the
+  image machinery into an existing blog is now one command. Adoption of
+  never-bootstrapped blogs documented in the update skill (spec D6).
+- **Config-declared character sheets.** `gen-character-sheet.py` reads
+  `image.character_sheet.layers` (default `[persona, visual_constants]`,
+  byte-identical output; a frank-style blog sets `[base_character]`) instead
+  of hardcoding layer names (spec D8).
+- **`validate_images.py` image-entry gate.** Duplicate keys, missing fields,
+  dead `references:` paths, escaping outputs, and selector walks that silently
+  resolve to nothing now fail blog CI (unconditional step, mermaid-gate
+  style). Replaces frank's orphaned image-pipeline suite (spec D8).
+- **`extract-subject.swift`** (Apple Vision subject isolation, macOS-only)
+  ships as a framework script for building `.reference-pool/*/subjects/`
+  renders; workflow documented in the pool README.
+- **`blog_config.py`** — dotted-path config reader for shell tooling, mirrored
+  into blogs like the validators.
+
+### Fixed
+- **`blog-post-create.sh` ignored every documented `image.*` key (#39).** It
+  now reads `site_dir`, `image.prompts_file`, `image.output_dir` from the
+  config it already required; the appended entry is **scene-only** with
+  selector fields (`--entry-field k=v`, ints stay ints) so the engine composes
+  layers around it instead of double-composing; `--output` overrides the cover
+  path; `--no-generate` creates bundle + entry without an API call so
+  `--print-prompt` can preview first; and the hard requirement on
+  `static/images/reference.png` (`exit 3`) is gone — the generator's own
+  reference precedence decides.
+- **An image entry's `references:` anchors never reached the model (#39
+  item 5).** Absorbed from PR #40 (`entry_reference_paths()`, payload-order
+  `--dry-run` listing, ordering + signature guards) — and fixed the second
+  `_gen_bytes` caller PR #40 missed: `gen-character-sheet.py` now passes
+  `root`, with an ast+inspect guard so the call sites can't drift again.
+  Supersedes PR #40.
+- **Skills spoke a dead vocabulary (#39 item 3).** `blog-post` Step 6
+  hand-composed prompts from `metaphor.*` keys the shipped config never had
+  (double-composing on layered blogs) and Step 7 read `image_gen.api_key_env`;
+  `bootstrap-blog` collected `metaphor.*`/`image_gen.*` and wrote
+  `metaphor.reference_image` while the generator reads
+  `image.reference_image`. All skills now speak the shipped `image.*`
+  contract, and `--print-prompt` is the single source of composed prompts.
+
 ## [0.8.0] - 2026-07-17
 
 ### Fixed

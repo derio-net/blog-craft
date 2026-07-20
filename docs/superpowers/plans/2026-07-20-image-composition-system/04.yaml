@@ -1,0 +1,80 @@
+schema_version: 2
+phase:
+  number: 4
+  title: 'site_dir + blog_config.py + config-driven scaffolder (spec D3, D4 — closes
+    #39 items 1, 2, 4)'
+  tag: agentic
+  depends_on:
+  - 3
+  tracking_issue: null
+  acceptance:
+  - IMG-COMP-2
+  - IMG-COMP-3
+tasks:
+- number: 1
+  title: tools/blog_config.py reader, test-first
+  steps:
+  - id: P4.T1.S1
+    text: |
+      [RED] tests/unit/test_blog_config.py: `python tools/blog_config.py --config <cfg> get image.prompts_file` prints the value; `get missing.key --default x` prints x; `get missing.key` exits 1; `get site_dir --default .` prints `.` when absent, `blog` when set. Run -k blog_config. EXPECT RED.
+  - id: P4.T1.S2
+    text: |
+      [GREEN] Write tools/blog_config.py (~40 lines: argparse, yaml.safe_load, dotted-path walk, --default). Mirror to templates/hugo-hextra/scripts/blog_config.py (byte-identical, like validate_educational.py) and add BOTH the manifest framework entry (`scripts/blog_config.py` in templates/manifest.yaml) and the mirror-parity check if the repo enforces one (check how validate_educational.py's mirror is asserted in tests). EXPECT green.
+- number: 2
+  title: Rewrite tools/blog-post-create.sh config-driven, test-first
+  steps:
+  - id: P4.T2.S1
+    text: |
+      [RED] Add tests/unit/test_blog_post_create.py driving the script with BLOG_CRAFT_TEST_MODE=1 against two fixtures:
+        (a) default-shaped blog (site_dir absent): behavior identical to today EXCEPT no forced reference (delete stub reference.png from the fixture; scaffold must still succeed — generator falls back per its own precedence);
+        (b) frank-shaped blog (site_dir: blog, prompts_file: blog/prompt_for_images.yaml, custom output_dir, reference_pool): bundle lands at <root>/blog/content/docs/<series>/<NN>-<slug>/index.md; entry appended to blog/prompt_for_images.yaml; entry carries `series:` + every `--entry-field k=v` given (e.g. mood=cautious torso_variant=0) + scene-only `prompt:`; `--output` override honored; NO composed layers in the prompt (assert the entry prompt == the scene file content).
+      Run -k blog_post_create. EXPECT RED (script hardcodes everything).
+  - id: P4.T2.S2
+    text: |
+      [GREEN] Rewrite tools/blog-post-create.sh:
+        - resolve PROMPTS_YAML, OUTPUT_DIR, REFERENCE_POOL, SITE_DIR via `python3 "$TOOLS_DIR/blog_config.py" --config "$BLOG_ROOT/.blog-craft.yaml" get <key> --default <d>` (script locates blog_config.py next to itself, falling back to <blog>/scripts/);
+        - BUNDLE_DIR="$BLOG_ROOT/$SITE_DIR/content/docs/$SERIES/$NUMBER-$SLUG" (normalize `.`);
+        - new repeated arg `--entry-field k=v` and optional `--output <path>` (default "$OUTPUT_DIR/$KEY-cover.png"); positional args preserved for compatibility, new flags parsed first;
+        - entry emission: key, series, output, description, each --entry-field as a scalar field, prompt: | <scene>;
+        - DELETE the forced --reference and the exit-3 block; invoke `python3 scripts/generate-images.py --only "$KEY"` from "$BLOG_ROOT" (generator's own reference precedence decides).
+      Run -k blog_post_create. EXPECT green.
+  - id: P4.T2.S3
+    text: |
+      Update tests/smoke-blog-post.sh: drop the stub-reference seeding requirement (keep one path seeding it to exercise the reference branch), fix the stale comment (generate-images.py.tmpl/_TINY_PNG -> generate-images.py/_ONE_PX_PNG), add an assert that the appended entry's prompt is scene-only. Run: bash tests/smoke-blog-post.sh. EXPECT 10/10 (or new count) ALL OK.
+- number: 3
+  title: Verify (phase 4)
+  steps:
+  - id: P4.T3.S1
+    text: |
+      [VERIFY] bash tests/run-unit.sh && bash tests/smoke-blog-post.sh && bash tests/smoke-bootstrap.sh
+      EXPECT: all green — bootstrap smoke proves default-blog scaffolding unaffected.
+state:
+  steps:
+    P4.T1.S1:
+      state: x
+      ticked_at: '2026-07-20T11:53:11+00:00'
+      note: null
+    P4.T1.S2:
+      state: x
+      ticked_at: '2026-07-20T11:53:12+00:00'
+      note: null
+    P4.T2.S1:
+      state: x
+      ticked_at: '2026-07-20T11:53:13+00:00'
+      note: null
+    P4.T2.S2:
+      state: x
+      ticked_at: '2026-07-20T11:53:15+00:00'
+      note: null
+    P4.T2.S3:
+      state: x
+      ticked_at: '2026-07-20T11:53:16+00:00'
+      note: null
+    P4.T3.S1:
+      state: x
+      ticked_at: '2026-07-20T11:53:17+00:00'
+      note: null
+  completion:
+    at: '2026-07-20T11:53:19+00:00'
+    note: null
+    observed_prs: []

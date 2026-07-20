@@ -266,3 +266,111 @@ rows:
       - blog-craft:tests/unit/test_version.py
     status: ci
     notes: ''
+  - id: IMG-COMP-1
+    capability: image-composition
+    acceptance: The engine composes any config-declared layer map — no hardcoded layer
+      vocabulary; frank's and gondor's composed prompts reproduce byte-identically
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-20-image-composition-system-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_compose.py
+      - blog-craft:tests/unit/test_image_compose.py
+    status: ci
+    notes: Generic _select walk replaces torso/mood special cases; parity fixtures in
+      test_image_compose.py
+  - id: IMG-COMP-2
+    capability: image-composition
+    acceptance: /blog-post scaffolding honours the documented image.* config keys and
+      site_dir — a frank-shaped blog can use it
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-20-image-composition-system-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_blog_post_create.py
+      - blog-craft:tests/unit/test_blog_config.py
+      int:
+      - blog-craft:tests/smoke-blog-post.sh
+    status: ci
+    notes: 'Closes #39 items 1+4; blog-post-create.sh reads config via blog_config.py'
+  - id: IMG-COMP-3
+    capability: image-composition
+    acceptance: A scaffolded prompt entry is scene-only with selector fields — the generator
+      composes it without double-composition
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-20-image-composition-system-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_blog_post_create.py
+      int:
+      - blog-craft:tests/smoke-blog-post.sh
+    status: ci
+    notes: 'Closes #39 item 2; --entry-field k=v interface'
+  - id: IMG-COMP-4
+    capability: image-composition
+    acceptance: 'An entry''s references: anchors reach the model payload after the master
+      sheet, verifiable via --dry-run'
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-20-image-composition-system-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_generate_images_references.py
+      - blog-craft:tests/unit/test_character_sheet_caller.py
+    status: ci
+    notes: 'Absorbs PR #40 + fixes gen-character-sheet.py caller (#39 item 5)'
+  - id: IMG-COMP-5
+    capability: image-composition
+    acceptance: /update migrates an existing blog's image machinery in place, honouring
+      site_dir and --only scoping
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-20-image-composition-system-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_update_mapping.py
+      int:
+      - blog-craft:tests/smoke-update.sh
+    status: ci
+    notes: map_dest path mapping + --only glob filter in tools/update.py
+  - id: IMG-COMP-6
+    capability: image-composition
+    acceptance: Config migration to v4 rewrites metaphor.*/image_gen.* and encodes torso
+      selection as data, preserving composed output
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-20-image-composition-system-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_migration_004.py
+      - blog-craft:tests/unit/test_migration_ladder.py
+      - blog-craft:tests/unit/test_config_schema.py
+    status: ci
+    notes: migrations/003_to_004.py; gondor rides 002→003→004
+  - id: IMG-COMP-7
+    capability: image-composition
+    acceptance: Character-sheet generation draws its prose from config-declared layers
+      — any persona vocabulary works
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-20-image-composition-system-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_character_sheet_layers.py
+    status: ci
+    notes: image.character_sheet.layers, default [persona, visual_constants]; frank
+      sets [base_character]
+  - id: IMG-COMP-8
+    capability: image-composition
+    acceptance: frank migrated via /update generates unchanged — byte-identical --print-prompt,
+      identical --dry-run payload
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-20-image-composition-system-design.md
+    levels: {}
+    status: not-implemented
+    notes: 'Manual: Test Plan A in spec (post-merge, operator-driven)'
+  - id: IMG-COMP-9
+    capability: image-composition
+    acceptance: gondor-blog migrated via /update generates unchanged — byte-identical
+      --print-prompt
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-20-image-composition-system-design.md
+    levels: {}
+    status: not-implemented
+    notes: 'Manual: Test Plan B in spec (post-merge, operator-driven)'

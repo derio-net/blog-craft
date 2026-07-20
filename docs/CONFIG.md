@@ -1,13 +1,19 @@
-# `.blog-craft.yaml` — config contract (v2)
+# `.blog-craft.yaml` — config contract (v4)
 
 The single per-repo file that distinguishes one blog-craft blog from another.
-Validated by `tools/validate_config.py --check <path>`.
+Validated by `tools/validate_config.py --check <path>` (accepts schema
+versions 2–4; `tools/migrate_config.py` climbs the ladder).
 
 ```yaml
-version: 2
+version: 4
 blog_craft_version: "<release applied>"   # set by bootstrap/update
 
 project: { name, tagline, base_url, base_path, module_path }
+
+site_dir: .               # optional; where the Hugo site lives relative to this
+                          # file (e.g. `blog` when the config sits at the repo
+                          # root). Consumed by /blog-post scaffolding + /update
+                          # path mapping. Default `.`.
 
 image:
   provider: gemini
@@ -16,10 +22,16 @@ image:
   output_dir: static/images
   prompts_file: prompt_for_images.yaml
   reference_pool: .reference-pool
+  reference_image: static/images/reference.png   # optional; the master
+                          # character sheet — 2nd in the generator's reference
+                          # precedence (CLI --reference beats it; pool follows)
   curation: { count_default: 1, archive_cap: 30, contact_sheet: true }
   composition_order: [ <layer names…>, scene ]
   layers:
-    <name>: <scalar | list | indexed-table>
+    <name>: <scalar | list | selector-table>     # see §4.1
+  character_sheet:        # optional; which layers define the character for
+    layers: [persona, visual_constants]          # scripts/gen-character-sheet.py
+                          # (default shown; a frank-style blog sets [base_character])
   optimize:               # optional; build-time WebP pipeline (see §6). Absent → raw images.
     enabled: true
     format: webp
@@ -56,23 +68,59 @@ ci:
   deploy: { kind: container_pages | pages | none }
 ```
 
-## §4.1 Layer-resolution rule
+## §4.1 Layer-resolution rule (v4 — the `_select` walk)
 
 The image generator concatenates the layers named in `image.composition_order`,
-in order. Each name resolves against `image.layers`:
+in order, joining non-empty sections with a blank line. Each name resolves
+against `image.layers`:
 
 | Layer value | Resolves to |
 |---|---|
 | **scalar** (string) | the string, verbatim |
 | **list** | each element as a `- ` bulleted line |
-| **indexed-table** (map: `torso`, `mood`) | the entry selected by the per-image field — `torso` by `entry.series` + `entry.torso_variant`, `mood` by `entry.mood` (name) |
+| **selector-table** (map) | the **selector walk** below |
 | **`scene`** (reserved) | the per-image entry's `prompt` field |
+
+**The selector walk.** A map layer may declare `_select:` — a list of
+selection steps; each step is an entry-field name, or a list of names (first
+present wins). Absent → one step: the layer's own name (a same-named entry
+field selects). Keys beginning `_` are directives, never prose. Walking:
+
+- the entry field is **missing** → the layer resolves to nothing (skipped);
+- the field's value is a **key** of the current map / a valid **int index** of
+  the current list → descend;
+- the value is a **string** that selects nothing and this is the **last** step
+  → the string is used verbatim (**free-form passthrough** — write bespoke
+  prose straight into the entry field; a non-string that selects nothing
+  skips);
+- it selects nothing at an **intermediate** step → skipped (a bad group never
+  leaks into the prompt). `scripts/validate_images.py` flags entries whose
+  walk silently resolves to nothing.
+
+frank's torso table, as pure data:
+
+```yaml
+layers:
+  torso:
+    _select: [[torso, series], torso_variant]   # group by torso|series, then index
+    building: ["work clothes", "overalls", …]
+    papers:   ["white shirt + black tie", …]
+  mood:                                         # default _select: [mood]
+    focused: "focused, concentrating"
+```
+
+**Standard entry fields** — consumed by the generator itself, never selector
+data: `key`, `series` (also drives pool reference selection), `output`,
+`description`, `prompt` (the scene), `aspect_ratio`, `image_size`,
+`references` (extra anchor images, appended after the master sheet),
+`operator_generated`, `post_process`. Every **other** entry field exists to be
+selected on by some layer's `_select`.
 
 A missing selector skips that layer. `scene` must appear in `composition_order`
 and must **not** be a key in `layers`. The generator hardcodes no layer
-vocabulary or order — frank and stoa ship different `composition_order` +
-`layers`, and both are pure data. This is what lets one generator reproduce both
-blogs' exact composed prompts.
+vocabulary, order, or selection rule — frank and gondor ship entirely
+different `composition_order` + `layers`, and both are pure data. This is what
+lets one generator reproduce both blogs' exact composed prompts.
 
 ## §5 Series index (`series_index`)
 
@@ -127,9 +175,9 @@ nothing (nil-safe).
 panoramic aspect ratio banners use, so `operator_generated: true` entries are
 generated by hand in the Gemini web UI rather than through the API. That doesn't
 mean writing the prompt by hand too — `generate-images.py --print-prompt <key>`
-composes the full description (`base_style` + `persona` + `visual_constants` +
-the entry's own `prompt` + `reference_guidance`) for *any* key, including
-operator-generated ones; only the generation loop skips them, not `--print-prompt`.
+composes the full description (every `composition_order` layer around the
+entry's own `prompt`) for *any* key, including operator-generated ones; only
+the generation loop skips them, not `--print-prompt`.
 Run it, paste the output into the Gemini web UI (attaching `image.reference_image`
 if the blog uses one), and drop the resulting PNG into `assets/images/`.
 

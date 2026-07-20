@@ -1,0 +1,84 @@
+schema_version: 2
+phase:
+  number: 7
+  title: Skills to the shipped contract + docs + versioning + delivery prep (spec
+    D5, D9)
+  tag: agentic
+  depends_on:
+  - 5
+  - 6
+  tracking_issue: null
+  acceptance:
+  - IMG-COMP-1
+  - IMG-COMP-2
+  - IMG-COMP-3
+  - IMG-COMP-4
+  - IMG-COMP-5
+  - IMG-COMP-6
+  - IMG-COMP-7
+tasks:
+- number: 1
+  title: skills/blog-post Steps 5–8 rewrite
+  steps:
+  - id: P7.T1.S1
+    text: |
+      Rewrite skills/blog-post/SKILL.md Steps 5–8 per spec D5: Step 5 collects the scene brief AND, for each dict layer in image.layers (read composition_order + layers), proposes a selector value listing that table's keys (free-form allowed — passthrough is an engine rule now); Step 6 is inverted — the helper appends the entry FIRST (scene + selector fields via --entry-field), then previews with `python <site_dir>/scripts/generate-images.py --print-prompt <key>`; approval loop edits the ENTRY (fields/scene), never a hand-composed blob; Step 7 reads image.api_key_env; Step 8's helper invocation documents --entry-field/--output. No metaphor.* or image_gen.* tokens remain (grep the file).
+- number: 2
+  title: skills/bootstrap-blog rewrite
+  steps:
+  - id: P7.T2.S1
+    text: |
+      Rewrite skills/bootstrap-blog/SKILL.md Steps 2/5/7/8 per spec D5: the metaphor interview writes image.layers {base_style, persona, visual_constants, reference_guidance} + composition_order [base_style, persona, visual_constants, scene, reference_guidance]; image_gen.* -> image.*; reference destination -> image.reference_image; Step 8 previews via --print-prompt. Mention gen-character-sheet.py + image.character_sheet.layers for reference-less bootstraps. Grep: zero metaphor.*/image_gen.* remain in skills/.
+- number: 3
+  title: /update runbook, CONFIG.md v4, docs sweep
+  steps:
+  - id: P7.T3.S1
+    text: |
+      skills/update/SKILL.md: add the migration runbook (config ladder -> plan -> scoped/full apply -> parity check via --print-prompt snapshot diff; adoption flow for never-rendered blogs incl. conflict-(no-base) expectation and recording blog_craft_version after first apply). CONFIG.md: header v4; §4.1 rewritten (resolution table, _select walk, standard entry fields, universal passthrough note); site_dir; image.character_sheet; image.reference_image documented in the schema block (it was code-read but undocumented); validate_images §. Sweep docs/USING-ON-A-HOST.md + prompt_for_images.yaml.tmpl comments + .reference-pool/README.md for stale vocabulary.
+- number: 4
+  title: Matrix, OpenCode mirrors, CHANGELOG, version
+  steps:
+  - id: P7.T4.S1
+    text: |
+      Matrix: rows IMG-COMP-1..7 move not-implemented -> ci with level refs (unit=blog-craft:tests/unit/<file>, smoke refs where applicable) via `fr acceptance add`-equivalent edits; IMG-COMP-8/9 stay not-implemented (manual Test Plans). Run: fr acceptance check. EXPECT: 32 rows OK, no staleness errors.
+      OpenCode mirrors: skills changed -> `uv run --quiet python scripts/sync-opencode.py` and commit mirror updates (mirror-parity unit test enforces).
+  - id: P7.T4.S2
+    text: |
+      CHANGELOG under [0.9.0]: the #39 close (scaffolder config keys, scene-only entries, site_dir), the absorbed #40 text (references payload; note supersedes PR #40 incl. its gen-character-sheet fix), generic _select engine + v4 migration, /update mapping + --only, character-sheet config, validate_images, extract-subject. Version: python tools/bump_version.py minor (0.8.0 -> 0.9.0; pyproject + plugin.json + marketplace.json + uv.lock lockstep). Run: python tools/bump_version.py --check && python tools/check_version_bump_needed.py origin/main. EXPECT both pass.
+- number: 5
+  title: Verify (phase 7 — full gate)
+  steps:
+  - id: P7.T5.S1
+    text: |
+      [VERIFY] bash tests/run-unit.sh && for s in tests/smoke-*.sh; do bash "$s" || exit 1; done && fr acceptance check
+      EXPECT: full unit suite green, every smoke ALL OK, matrix clean. This is the delivery gate for the PR.
+state:
+  steps:
+    P7.T1.S1:
+      state: x
+      ticked_at: '2026-07-20T12:19:11+00:00'
+      note: null
+    P7.T2.S1:
+      state: x
+      ticked_at: '2026-07-20T12:19:12+00:00'
+      note: null
+    P7.T3.S1:
+      state: x
+      ticked_at: '2026-07-20T12:19:13+00:00'
+      note: null
+    P7.T4.S1:
+      state: x
+      ticked_at: '2026-07-20T12:19:14+00:00'
+      note: null
+    P7.T4.S2:
+      state: x
+      ticked_at: '2026-07-20T12:19:15+00:00'
+      note: null
+    P7.T5.S1:
+      state: x
+      ticked_at: '2026-07-20T12:19:16+00:00'
+      note: null
+  completion:
+    at: '2026-07-20T12:19:17+00:00'
+    note: null
+    observed_prs: []

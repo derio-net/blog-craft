@@ -1,0 +1,72 @@
+schema_version: 2
+phase:
+  number: 6
+  title: Character sheet from config + validate_images + extract-subject (spec D8)
+  tag: agentic
+  depends_on:
+  - 2
+  tracking_issue: null
+  acceptance:
+  - IMG-COMP-7
+tasks:
+- number: 1
+  title: gen-character-sheet.py reads image.character_sheet.layers, test-first
+  steps:
+  - id: P6.T1.S1
+    text: |
+      [RED] tests/unit/test_character_sheet_layers.py: build_prompt with default config (no character_sheet key, layers persona+visual_constants present) returns EXACTLY today's output (byte-parity capture first); with image.character_sheet.layers: [base_character] the prompt carries base_character prose under the CHARACTER label and no persona/visual_constants; unknown named layer -> clear error. Run -k character_sheet_layers. EXPECT RED.
+  - id: P6.T1.S2
+    text: |
+      [GREEN] Rework build_prompt: layer names from image.character_sheet.layers (default [persona, visual_constants]); resolve each via compose.resolve_layer (import the sibling module); first layer under "CHARACTER — draw THIS character:\n", list-shaped layers under "HOLD ALL OF THESE CONSTANT (they define the character):\n"; frame (SHEET_STYLE/SHEET_LAYOUT) unchanged. EXPECT green incl. byte-parity case.
+- number: 2
+  title: tools/validate_images.py, test-first
+  steps:
+  - id: P6.T2.S1
+    text: |
+      [RED] tests/unit/test_validate_images.py: PASS on a healthy frank-shaped fixture; FAIL cases — duplicate key; missing key/output; missing prompt on a non-operator_generated entry; references path absent; dict-layer selector walk dead-ends (int index out of range; walk exhausts on non-scalar); output escaping the blog tree. Each failure names the entry key + reason with file context. Run -k validate_images. EXPECT RED.
+  - id: P6.T2.S2
+    text: |
+      [GREEN] Write tools/validate_images.py (argparse --config, loads config + prompts_file, reuses compose.py's walk logic for selector checking — import, don't duplicate). Mirror to templates/hugo-hextra/scripts/validate_images.py; manifest framework entry; wire as optional `images` validator in the shipped blog CI template exactly where validate_mermaid.py is wired (present in ci.validators -> step runs). EXPECT green.
+- number: 3
+  title: Port extract-subject.swift
+  steps:
+  - id: P6.T3.S1
+    text: |
+      Copy /Users/derio/Docs/projects/DERIO_NET/frank/scripts/extract-subject.swift to templates/hugo-hextra/scripts/extract-subject.swift VERBATIM (it is operator-tested); add manifest framework entry; extend templates/hugo-hextra/.reference-pool/README.md's curation section: subjects/ isolation via `swift scripts/extract-subject.swift <in> <out>` (macOS-only — Apple Vision; on other platforms use any background-removal tool, same contract: transparent-background single-figure PNG). Sanity: `swiftc -parse` if available, else skip (macOS toolchain optional in CI).
+- number: 4
+  title: Verify (phase 6)
+  steps:
+  - id: P6.T4.S1
+    text: |
+      [VERIFY] bash tests/run-unit.sh && bash tests/smoke-character-sheet.sh
+      EXPECT: green.
+state:
+  steps:
+    P6.T1.S1:
+      state: x
+      ticked_at: '2026-07-20T12:07:37+00:00'
+      note: null
+    P6.T1.S2:
+      state: x
+      ticked_at: '2026-07-20T12:07:38+00:00'
+      note: null
+    P6.T2.S1:
+      state: x
+      ticked_at: '2026-07-20T12:07:39+00:00'
+      note: null
+    P6.T2.S2:
+      state: x
+      ticked_at: '2026-07-20T12:07:40+00:00'
+      note: null
+    P6.T3.S1:
+      state: x
+      ticked_at: '2026-07-20T12:07:42+00:00'
+      note: null
+    P6.T4.S1:
+      state: x
+      ticked_at: '2026-07-20T12:07:43+00:00'
+      note: null
+  completion:
+    at: '2026-07-20T12:07:44+00:00'
+    note: null
+    observed_prs: []

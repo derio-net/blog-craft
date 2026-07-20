@@ -1,0 +1,63 @@
+schema_version: 2
+phase:
+  number: 1
+  title: 'Absorb PR #40 — entry references reach the model + fix the second _gen_bytes
+    caller'
+  tag: agentic
+  depends_on: []
+  tracking_issue: null
+  acceptance:
+  - IMG-COMP-4
+tasks:
+- number: 1
+  title: 'Take PR #40''s content changes without its version bump'
+  steps:
+  - id: P1.T1.S1
+    text: |
+      Take the two content files from the PR branch (no cherry-pick — avoids version-bump conflicts; versioning happens once, in Phase 7):
+        git fetch origin fix/generate-images-entry-references
+        git checkout origin/fix/generate-images-entry-references -- templates/hugo-hextra/scripts/generate-images.py tests/unit/test_generate_images_references.py
+      Run: bash tests/run-unit.sh -k generate_images_references
+      EXPECT: 6 passed (entry_reference_paths resolution, missing-anchor skip, order preservation, absent/empty/None, signature guard on root, ordering guard).
+- number: 2
+  title: 'Fix gen-character-sheet.py for the new _gen_bytes signature (the failing
+    check on #40)'
+  steps:
+  - id: P1.T2.S1
+    text: |
+      [RED] Add tests/unit/test_character_sheet_caller.py: importlib-load templates/hugo-hextra/scripts/gen-character-sheet.py's source and assert its _gen_bytes call site is signature-compatible — simplest robust form: run the shipped smoke in test mode against a bootstrapped fixture, or statically assert `inspect.signature(genimg._gen_bytes)` binds the args gen-character-sheet passes (parse with ast: the Call node for `_gen_bytes` has 6 positional args). Run: bash tests/run-unit.sh -k character_sheet_caller
+      EXPECT: RED — TypeError/binding failure, exactly the failure from PR #40's CI (gen-character-sheet.py:83 passes 5 args, root missing).
+  - id: P1.T2.S2
+    text: |
+      [GREEN] templates/hugo-hextra/scripts/gen-character-sheet.py line 83: `b = genimg._gen_bytes(prompt, None, model, image_cfg, entry, ROOT)`.
+      Run: bash tests/run-unit.sh -k character_sheet_caller && bash tests/smoke-character-sheet.sh
+      EXPECT: unit green; smoke green (this is the check that failed on PR #40).
+- number: 3
+  title: Verify (phase 1)
+  steps:
+  - id: P1.T3.S1
+    text: |
+      [VERIFY] bash tests/run-unit.sh && bash tests/smoke-blog-post.sh
+      EXPECT: full unit suite green (266+ tests), smoke 10/10.
+state:
+  steps:
+    P1.T1.S1:
+      state: x
+      ticked_at: '2026-07-20T11:28:42+00:00'
+      note: null
+    P1.T2.S1:
+      state: x
+      ticked_at: '2026-07-20T11:30:07+00:00'
+      note: null
+    P1.T2.S2:
+      state: x
+      ticked_at: '2026-07-20T11:30:08+00:00'
+      note: null
+    P1.T3.S1:
+      state: x
+      ticked_at: '2026-07-20T11:32:02+00:00'
+      note: null
+  completion:
+    at: '2026-07-20T11:32:03+00:00'
+    note: null
+    observed_prs: []

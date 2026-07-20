@@ -27,12 +27,32 @@ import yaml
 from PIL import Image
 
 SCRIPTS = Path(__file__).resolve().parent
-ROOT = SCRIPTS.parent
+
+
+def _load_config(start: Path):
+    """Find .blog-craft.yaml by walking up (a site_dir blog keeps it ABOVE the
+    site dir — frank: config at the repo root, scripts under blog/scripts).
+    Returns (config_root, cfg)."""
+    d = Path(start).resolve()
+    for cand in [d, *d.parents]:
+        f = cand / ".blog-craft.yaml"
+        if f.is_file():
+            return cand, (yaml.safe_load(f.read_text()) or {})
+    raise SystemExit(f"no .blog-craft.yaml found from {start}")
 
 # Reuse the exact archive + API plumbing from generate-images.py (hyphenated → importlib).
 _spec = importlib.util.spec_from_file_location("genimg", SCRIPTS / "generate-images.py")
 genimg = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(genimg)
+
+# Layer resolution comes from the same engine the per-post generator uses.
+_cspec = importlib.util.spec_from_file_location("compose_for_sheet", SCRIPTS / "compose.py")
+_compose = importlib.util.module_from_spec(_cspec)
+_cspec.loader.exec_module(_compose)
+
+# The character-defining layers when image.character_sheet.layers is absent —
+# the pre-v4 hardcoding, kept as the default so existing blogs need no edit.
+DEFAULT_CHARACTER_LAYERS = ["persona", "visual_constants"]
 
 # Format directive only — the RENDERING style (chibi/painterly/outlines/palette) is
 # carried by the blog's own persona + visual_constants, so this stays subject-neutral.
@@ -55,13 +75,44 @@ SHEET_LAYOUT = (
 
 
 def build_prompt(image_cfg: dict) -> str:
+    """Sheet prompt from the config-declared character layers (spec D8).
+
+    `image.character_sheet.layers` names the layers that define the character
+    (frank: [base_character]); absent -> DEFAULT_CHARACTER_LAYERS, where a
+    missing layer is tolerated. An explicitly named layer that doesn't exist
+    is an error — a silent skip would generate a sheet of nothing.
+    """
     layers = image_cfg.get("layers", {}) or {}
-    persona = (layers.get("persona") or "").strip()
-    constants = layers.get("visual_constants") or []
-    const_block = "\n".join(f"- {c}" for c in constants)
-    parts = [SHEET_STYLE, f"CHARACTER — draw THIS character:\n{persona}"]
-    if const_block:
-        parts.append(f"HOLD ALL OF THESE CONSTANT (they define the character):\n{const_block}")
+    declared = (image_cfg.get("character_sheet") or {}).get("layers")
+    names = declared or DEFAULT_CHARACTER_LAYERS
+    parts = [SHEET_STYLE]
+    first = True
+    for name in names:
+        if name not in layers:
+            if declared:
+                raise SystemExit(f"image.character_sheet.layers names '{name}' "
+                                 f"but image.layers has no such layer")
+            continue
+        resolved = _compose.resolve_layer(name, layers.get(name), {}).strip()
+        if not resolved:
+            if declared:
+                # e.g. a selector-table layer against an empty entry — declaring
+                # it would silently produce a sheet of nothing
+                raise SystemExit(f"image.character_sheet.layers names '{name}' "
+                                 f"but it resolves to no prose (selector-table "
+                                 f"layers need an entry; use scalar/list layers)")
+            continue
+        if first:
+            parts.append(f"CHARACTER — draw THIS character:\n{resolved}")
+            first = False
+        elif isinstance(layers.get(name), list):
+            parts.append(f"HOLD ALL OF THESE CONSTANT (they define the character):\n{resolved}")
+        else:
+            parts.append(resolved)
+    if first:
+        raise SystemExit(
+            "no character-defining prose resolved — set image.character_sheet.layers "
+            f"(tried: {', '.join(names)})")
     parts.append(SHEET_LAYOUT)
     return "\n\n".join(parts)
 
@@ -69,7 +120,10 @@ def build_prompt(image_cfg: dict) -> str:
 def main(argv: list[str]) -> int:
     count = int(argv[0]) if len(argv) > 0 else 12
     key = argv[1] if len(argv) > 1 else "reference"
-    cfg = yaml.safe_load((ROOT / ".blog-craft.yaml").read_text())
+    # walk up from the scripts dir: a site_dir blog keeps the config above the
+    # site (frank: repo root); archive + reference paths resolve from there,
+    # matching generate-images.py's config-relative convention
+    ROOT, cfg = _load_config(SCRIPTS.parent)
     image_cfg = cfg.get("image", {}) or {}
     model = image_cfg.get("model", "gemini-3-pro-image-preview")
     dest = Path(image_cfg.get("reference_image", "static/images/reference.png"))
@@ -80,7 +134,7 @@ def main(argv: list[str]) -> int:
     print(f"model={model}  key={key}  count={count}  prompt={len(prompt)} chars")
     variants = []
     for i in range(count):
-        b = genimg._gen_bytes(prompt, None, model, image_cfg, entry)
+        b = genimg._gen_bytes(prompt, None, model, image_cfg, entry, ROOT)
         if not b:
             print(f"  [{i+1}/{count}] no image returned", file=sys.stderr)
             continue

@@ -23,8 +23,10 @@ bash "$REPO_ROOT/tools/bootstrap-render.sh" "$FIX/stoa-v2.expected.yaml" "$BASE"
 cp -r "$BASE" "$LOCAL"
 cp -r "$BASE" "$STG"
 
-# Operator edit to a merged file (README line 1).
-sed -i '1s/.*/# OPERATOR RENAMED BLOG/' "$LOCAL/README.md"
+# Operator edit to a merged file (README line 1). (-i.bak: portable across
+# GNU and BSD/macOS sed — bare -i is GNU-only and silently no-ops the edit
+# path on macOS.)
+sed -i.bak '1s/.*/# OPERATOR RENAMED BLOG/' "$LOCAL/README.md" && rm -f "$LOCAL/README.md.bak"
 # Simulate a vN+1 blog-craft release: a framework file changes + the same merged
 # file changes on a DIFFERENT line (non-conflicting with the operator's edit).
 echo "<!-- shipped in vN+1 -->" >> "$STG/layouts/shortcodes/screenshot.html"
@@ -68,6 +70,43 @@ with tempfile.TemporaryDirectory() as td:
     sys.exit(0 if not drift else (print("DRIFT", drift) or 1))
 PY
 then pass "reproduction harness runs on the updated blog"; else fail "reproduction drift after update"; fi
+
+echo "=== frank-shaped blog: site_dir mapping + --only scoping (spec D6) ==="
+# A blog with config at the root and the Hugo site under blog/ (frank's shape,
+# #39 item 4): scoped update replaces the vendored scripts under blog/scripts/
+# and touches nothing else.
+FR="$W/frank"
+mkdir -p "$FR/blog/scripts" "$FR/blog/content/docs"
+cp -r "$BASE/." "$FR/blog/"
+rm -f "$FR/blog/.blog-craft.yaml"
+"$PY" - "$BASE" "$FR" <<'PY'
+import sys, yaml
+base, fr = sys.argv[1], sys.argv[2]
+cfg = yaml.safe_load(open(base + "/.blog-craft.yaml"))
+cfg["site_dir"] = "blog"
+cfg["image"]["prompts_file"] = "blog/prompt_for_images.yaml"
+yaml.safe_dump(cfg, open(fr + "/.blog-craft.yaml", "w"))
+PY
+echo "STALE VENDORED COPY" > "$FR/blog/scripts/generate-images.py"
+SENTINEL_CONTENT="$FR/blog/content/docs/keep.md"; echo "operator content" > "$SENTINEL_CONTENT"
+
+FR_ACTIONS=$("$PY" - "$REPO_ROOT" "$FR" "$STG" <<'PY'
+import sys, yaml
+sys.path.insert(0, sys.argv[1] + "/tools")
+from update import plan_update, apply_plan, default_manifest
+fr, stg = sys.argv[2], sys.argv[3]
+cfg = yaml.safe_load(open(fr + "/.blog-craft.yaml"))
+plan = plan_update(fr, stg, None, default_manifest(), cfg=cfg, only=["scripts/**"])
+apply_plan(fr, stg, plan)
+print(";".join(f"{e['dest']}={e['action']}" for e in plan))
+PY
+)
+echo "  actions: $FR_ACTIONS"
+grep -q "blog/scripts/generate-images.py=replace" <<<"$FR_ACTIONS" && pass "site_dir: vendored script replaced under blog/" || fail "site_dir mapping missed blog/scripts"
+grep -vq "layouts" <<<"$FR_ACTIONS" && pass "--only scoped the plan to scripts/**" || fail "--only leaked non-script paths"
+grep -q "STALE VENDORED COPY" "$FR/blog/scripts/generate-images.py" && fail "vendored script not actually replaced" || pass "vendored script content updated on disk"
+grep -q "operator content" "$SENTINEL_CONTENT" && pass "content untouched by scoped update" || fail "scoped update touched content"
+[[ -e "$FR/scripts/generate-images.py" ]] && fail "wrote outside site_dir" || pass "nothing written outside site_dir"
 
 echo
 echo "=== Summary: $pass_n passed, $fail_n failed ==="

@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Validate a .blog-craft.yaml v2 config (schema + layer-resolution invariants, spec §4/§4.1).
+"""Validate a .blog-craft.yaml config (schema + layer-resolution invariants, spec §4/§4.1).
+
+Accepts schema versions 2..4 (the migration ladder's rungs); v4 additions —
+`site_dir`, dict-layer `_select`, `image.character_sheet` — are validated
+whenever present. The engine hardcodes no layer vocabulary (spec D1), so no
+layer NAME implies a shape.
 
 Library: `validate_config(cfg: dict) -> list[str]` (empty == valid).
 CLI:     `validate_config.py --check <path>` (exit 0 valid, 1 invalid).
@@ -13,9 +18,23 @@ SERIES_INDEX_STYLES = frozenset({"cards", "table", "none"})
 IMAGE_OPTIMIZE_FORMATS = frozenset({"webp"})
 REQUIRED_TOP = ("project", "image", "series", "voice")
 REQUIRED_IMAGE = ("composition_order", "layers")
-# Layers that, when named in composition_order, must be a mapping (indexed-table),
-# selected per-image (torso by series+index, mood by name).
-INDEXED_TABLE_LAYERS = ("torso", "mood")
+ACCEPTED_VERSIONS = (2, 3, 4)
+
+
+def _validate_select(name: str, select, errors: list[str]) -> None:
+    """`_select` is a list of steps; each step a field name or list of names."""
+    if not isinstance(select, list):
+        errors.append(f"image.layers.{name}._select must be a list of steps")
+        return
+    for step in select:
+        if isinstance(step, str):
+            continue
+        if isinstance(step, list) and step and all(isinstance(f, str) for f in step):
+            continue
+        errors.append(
+            f"image.layers.{name}._select steps must be strings or lists of strings"
+        )
+        return
 
 
 def validate_config(cfg: dict) -> list[str]:
@@ -24,12 +43,20 @@ def validate_config(cfg: dict) -> list[str]:
     if not isinstance(cfg, dict):
         return ["config is not a mapping"]
 
-    if cfg.get("version") != 2:
-        errors.append(f"version must be 2 (got {cfg.get('version')!r})")
+    if cfg.get("version") not in ACCEPTED_VERSIONS:
+        errors.append(
+            f"version must be one of {list(ACCEPTED_VERSIONS)} (got {cfg.get('version')!r})"
+        )
 
     for key in REQUIRED_TOP:
         if key not in cfg:
             errors.append(f"missing required top-level key: {key}")
+
+    # v4: optional site_dir — where the Hugo site lives relative to the config
+    site_dir = cfg.get("site_dir")
+    if site_dir is not None:
+        if not isinstance(site_dir, str) or site_dir.startswith("/"):
+            errors.append("site_dir must be a relative path string")
 
     image = cfg.get("image")
     if not isinstance(image, dict):
@@ -65,11 +92,25 @@ def validate_config(cfg: dict) -> list[str]:
                 errors.append(
                     f"image.composition_order names '{name}' but image.layers has no such layer"
                 )
-                continue
-            if name in INDEXED_TABLE_LAYERS and not isinstance(layers[name], dict):
-                errors.append(
-                    f"image.layers.{name} must be a mapping (indexed-table layer)"
-                )
+
+    # v4: any dict layer may declare a `_select` walk — validate its shape
+    if isinstance(layers, dict):
+        for name, layer in layers.items():
+            if isinstance(layer, dict) and "_select" in layer:
+                _validate_select(name, layer["_select"], errors)
+
+    # v4: optional image.character_sheet.layers — the character-defining layers
+    cs = image.get("character_sheet")
+    if cs is not None:
+        if not isinstance(cs, dict):
+            errors.append("image.character_sheet must be a mapping")
+        else:
+            cs_layers = cs.get("layers")
+            if cs_layers is not None and (
+                not isinstance(cs_layers, list)
+                or not all(isinstance(x, str) for x in cs_layers)
+            ):
+                errors.append("image.character_sheet.layers must be a list of layer names")
 
     # optional image.optimize block: the WebP build-time pipeline knob. Absent →
     # passthrough (raw images). enabled bool; format ∈ {webp}; quality int 1–100;

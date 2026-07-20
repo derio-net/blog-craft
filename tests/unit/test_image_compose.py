@@ -35,7 +35,10 @@ FRANK_CFG = {
         "composition_order": ["base_character", "base_atmosphere", "reference_guidance", "torso", "mood", "scene"],
         "layers": {
             "base_character": "CHAR", "base_atmosphere": "ATMO", "reference_guidance": "GUIDE",
-            "torso": {"building": ["b0", "b1"], "papers": ["p0"]},
+            # explicit _select — exactly what migration 003_to_004 writes for a
+            # dict layer named torso; the engine itself knows no layer names
+            "torso": {"_select": [["torso", "series"], "torso_variant"],
+                      "building": ["b0", "b1"], "papers": ["p0"]},
             "mood": {"focused": "FOC", "weighing": "WEI"},
         },
     },

@@ -119,7 +119,7 @@ bumping `balanced` warmer, or the blog was left at `dry`.
 Compose the new body to the methodology:
 
 - **Set the stage first** (methodology §2a) — open with motivation (the concrete problem, felt), what it solves, and the one load-bearing design choice. Then **name the foundation**: "to build this you need A, B, C" with **links to the earlier posts** where A/B/C were built, rather than re-explaining. A reader must feel oriented, not dropped into `Step 1`.
-- **Persona frame at the resolved `voice_level`** — keep the blog's `voice`/`metaphor.persona` register; `dry` = minimal, `balanced` = thin frame + warm orientation + memory-aiding asides, `rich` = voiced throughout but the how-to still leads.
+- **Persona frame at the resolved `voice_level`** — keep the blog's `voice` register (the character prose lives in `image.layers`, typically a `persona`/`base_character` layer); `dry` = minimal, `balanced` = thin frame + warm orientation + memory-aiding asides, `rich` = voiced throughout but the how-to still leads.
 - **Lead with the how-to** — the runnable steps first, the one command that matters in a copy-pasteable block near the top of its section.
 - **Reference block** — tabulate the config keys, flags, thresholds, paths a reader looks up.
 - **A missteps table** — the design-time wrong turns as *assumed → why wrong → what it cost*, each with enough context to stand alone (`references/evidence.md`). Keep it distinct from the runtime symptom→cause→fix troubleshooting table.

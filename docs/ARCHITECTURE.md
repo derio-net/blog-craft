@@ -59,7 +59,7 @@ bootstrap-blog wizard
         ▼                                  │
   later: blog-post / media skills    ──────┘
    ── walk up from CWD to find .blog-craft.yaml
-   ── consume identity/series/voice/image_gen
+   ── consume identity/series/voice/image
 ```
 
 The single discovery contract: a directory is "a blog-craft blog" iff it contains `.blog-craft.yaml`.
@@ -97,5 +97,4 @@ than reinvent or take a heavyweight dependency.
 
 - Deploy pipelines (each blog picks its own host)
 - Theme customisation beyond Hextra defaults (each blog edits its own `hugo.toml` and CSS)
-- Image-generation backend (Gemini hardcoded in v1; the `image_gen.provider` field is reserved for future backends but enforces `gemini` today)
-- Multi-character "lore bibles" (single persona + visual constants only)
+- Image-generation backend (Gemini hardcoded in v1; the `image.provider` field is reserved for future backends but enforces `gemini` today)

@@ -54,14 +54,23 @@ Derive these from `base_url`:
 - **`project.base_path`** — the URL path component, e.g., `https://example.com/blog/` → `/blog/`. If there's no path, use `/`.
 - **`project.module_path`** — host + path, no scheme/trailing-slash, e.g., `https://example.com/blog/` → `example.com/blog`.
 
-#### Step 2: Central metaphor
+#### Step 2: Central metaphor (the image layers)
+
+The answers land in `image.layers` + `image.composition_order` — the layered
+composition config the generator reads (docs/CONFIG.md §4.1). The default
+vocabulary for a new blog is `base_style`, `persona`, `visual_constants`,
+`reference_guidance` with `composition_order: [base_style, persona,
+visual_constants, scene, reference_guidance]` (`scene` is reserved — it's each
+entry's own `prompt`). A blog wanting different layers (multiple characters, a
+scenery dictionary, selector tables like frank's `torso`/`mood`) edits
+`image.layers` afterwards — the engine imposes no vocabulary.
 
 Free-text. Walk one at a time:
-- **`metaphor.persona`** — one or more paragraphs describing the persona/character. Frank's example: "Frank is a chibi Frankenstein monster made of server hardware. Stitched-together, slightly anxious, deeply opinionated, learning by breaking things."
-- **`metaphor.visual_constants`** — a list. Prompt: "What should stay the same in every image? Bullet rules. Type each, then `done` when finished." Example bullets: "Green skin", "Black messy hair", "RJ45 neck bolts", "Blue glow comes from environment, NOT eyes."
-- **Reference image** (optional) — prompt: "Path to a reference image to anchor consistency? (Type a file path, or `skip` to add later.)" If supplied, store the *source* path now; Step 7 will copy it to `<target>/static/images/reference.png` and write that fixed destination into `metaphor.reference_image`. If the user has no reference yet, that's fine — after bootstrap they can *generate* candidate character design sheets straight from this persona + visual_constants with `scripts/gen-character-sheet.py N`, browse them with `scripts/build-gallery.py`, and promote the keeper to `static/images/reference.png` (see the rendered `.reference-pool/README.md`).
-- **`metaphor.base_style`** — one paragraph describing the painter/medium/composition. Wraps every per-post prompt.
-- **`metaphor.reference_guidance`** — one paragraph instructing the image model how to use the reference (proportions, palette, outline weight, etc.).
+- **`image.layers.persona`** — one or more paragraphs describing the persona/character. Frank's example: "Frank is a chibi Frankenstein monster made of server hardware. Stitched-together, slightly anxious, deeply opinionated, learning by breaking things."
+- **`image.layers.visual_constants`** — a list. Prompt: "What should stay the same in every image? Bullet rules. Type each, then `done` when finished." Example bullets: "Green skin", "Black messy hair", "RJ45 neck bolts", "Blue glow comes from environment, NOT eyes."
+- **Reference image** (optional) — prompt: "Path to a reference image to anchor consistency? (Type a file path, or `skip` to add later.)" If supplied, store the *source* path now; Step 7 will copy it to `<target>/static/images/reference.png` and write that fixed destination into `image.reference_image` (the key the generator reads). If the user has no reference yet, that's fine — after bootstrap they can *generate* candidate character design sheets straight from these layers with `scripts/gen-character-sheet.py N` (which reads `image.character_sheet.layers`, default `[persona, visual_constants]`), browse them with `scripts/build-gallery.py`, and promote the keeper to `static/images/reference.png` (see the rendered `.reference-pool/README.md`).
+- **`image.layers.base_style`** — one paragraph describing the painter/medium/composition. Wraps every per-post prompt.
+- **`image.layers.reference_guidance`** — one paragraph instructing the image model how to use the reference (proportions, palette, outline weight, etc.).
 
 #### Step 3: Series
 
@@ -95,13 +104,17 @@ between "reads like docs" and "reads like a story"; it never changes the evidenc
 a post must carry or the quality gate. Capture into `voice_level:` (omit to accept
 the `balanced` default). See `skills/educational-writing/references/voice.md`.
 
-#### Step 5: Image-gen settings
+#### Step 5: Image settings
 
-- **`image_gen.provider`** — must be `gemini` in v1. Tell the user this and confirm.
-- **`image_gen.model`** — default `gemini-3-pro-image-preview`. Let the user override if they know a newer one.
-- **`image_gen.api_key_env`** — default `GEMINI_API_KEY`.
-- **`image_gen.output_dir`** — default `static/images`. Don't bother prompting unless the user is opinionated.
-- **`image_gen.prompts_file`** — default `prompt_for_images.yaml`. Same.
+These land under the same `image:` block as the Step-2 layers (the shipped
+config contract — the generator reads `image.*`, docs/CONFIG.md):
+
+- **`image.provider`** — must be `gemini` in v1. Tell the user this and confirm.
+- **`image.model`** — default `gemini-3-pro-image-preview`. Let the user override if they know a newer one.
+- **`image.api_key_env`** — default `GEMINI_API_KEY`.
+- **`image.output_dir`** — default `static/images`. Don't bother prompting unless the user is opinionated.
+- **`image.prompts_file`** — default `prompt_for_images.yaml`. Same.
+- **`site_dir`** (top-level, not under `image:`) — only ask if the user wants the Hugo site in a subdirectory of the repo (e.g. `blog/`) with `.blog-craft.yaml` at the root; default `.` (omit).
 
 #### Step 6: Optional toggles
 
@@ -149,12 +162,15 @@ Otherwise, defer to the same prompt-composition logic the `blog-post` skill uses
 
 If yes:
 
-1. Compose the full prompt by concatenating, in order: `metaphor.base_style`, `metaphor.persona`, the bullets in `metaphor.visual_constants` (one per line), the user's scene description, `metaphor.reference_guidance`. Show the composed prompt to the user for approval before proceeding.
-2. Edit `<target_dir>/prompt_for_images.yaml` and replace the empty `prompt: ""` value on the `overview-<first-series-key>` entry with the approved composed prompt.
-3. Confirm `<api_key_env>` is in the environment (read from `os.environ` if running interactively; if missing, ask the user to paste it and `export` it just for this step).
-4. Run image generation:
+1. Edit `<target_dir>/prompt_for_images.yaml` and replace the empty `prompt: ""` value on the `overview-<first-series-key>` entry with the user's **scene description only** — the generator composes `image.composition_order` around it; never write a hand-concatenated multi-layer prompt into an entry (it would double-compose).
+2. Preview the composed prompt without an API call and show it for approval:
    ```bash
-   ( cd <target_dir> && python scripts/generate-images.py --reference static/images/reference.png --only overview-<first-series-key> )
+   ( cd <target_dir> && python scripts/generate-images.py --print-prompt overview-<first-series-key> )
+   ```
+3. Confirm `<api_key_env>` is in the environment (read from `os.environ` if running interactively; if missing, ask the user to paste it and `export` it just for this step).
+4. Run image generation (the generator picks `image.reference_image` on its own):
+   ```bash
+   ( cd <target_dir> && python scripts/generate-images.py --only overview-<first-series-key> )
    ```
 5. Display the resulting PNG path. Offer to regen if the user is unhappy.
 
