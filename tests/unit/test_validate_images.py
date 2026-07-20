@@ -137,3 +137,69 @@ def test_mirror_is_byte_identical():
     mirror = os.path.join(ROOT, "templates", "hugo-hextra", "scripts", "validate_images.py")
     with open(TOOL, "rb") as a, open(mirror, "rb") as b:
         assert a.read() == b.read(), "tools/validate_images.py and its scripts/ mirror drifted"
+
+
+# ── v5 composition-block entries ──────────────────────────────────────────────
+
+CFG5 = {
+    "version": 5, "project": {"name": "x"}, "series": [], "voice": "v",
+    "image": {
+        "prompts_file": "prompt_for_images.yaml",
+        "composition_orders": {
+            "hero": ["base_character", "reference_guidance[anchor]", "clothing", "mood", "scene"],
+            "scenery": ["reference_guidance[anchor]", "scene"],
+        },
+        "layers": {
+            "base_character": "CHAR",
+            "reference_guidance": {"anchor": "A"},
+            "clothing": {"papers": {"default": "NECKTIE", "white_lab_coat": "COAT"}},
+            "mood": {"calm": "CALM"},
+        },
+    },
+}
+
+GOOD5 = {"key": "papers-01", "output": "static/images/p1.png",
+         "composition": {"reference_images": {"primary": "refs/sheet.png"},
+                         "modifiers": {"series": "papers",
+                                       "clothing": "papers[white_lab_coat]",
+                                       "mood": "calm"},
+                         "scene": "S"}}
+
+
+def test_v5_healthy_entry_passes(tmp_path):
+    r = _run(tmp_path, [GOOD5], cfg=CFG5, extra_files=["refs/sheet.png"])
+    assert r.returncode == 0, r.stderr
+
+
+def test_v5_missing_scene_flagged(tmp_path):
+    e = {"key": "k", "output": "o.png", "composition": {"modifiers": {}}}
+    r = _run(tmp_path, [e], cfg=CFG5)
+    assert r.returncode == 1 and "scene" in r.stderr
+
+
+def test_v5_unknown_order_name_flagged(tmp_path):
+    e = dict(GOOD5, composition=dict(GOOD5["composition"], order="composition_orders[nope]"))
+    r = _run(tmp_path, [e], cfg=CFG5, extra_files=["refs/sheet.png"])
+    assert r.returncode == 1 and "nope" in r.stderr
+
+
+def test_v5_bad_bracket_modifier_flagged(tmp_path):
+    e = dict(GOOD5, composition=dict(GOOD5["composition"],
+                                     modifiers={"clothing": "papers[nope]", "mood": "calm"}))
+    r = _run(tmp_path, [e], cfg=CFG5, extra_files=["refs/sheet.png"])
+    assert r.returncode == 1 and "clothing" in r.stderr
+
+
+def test_v5_missing_reference_files_flagged(tmp_path):
+    e = dict(GOOD5, composition=dict(GOOD5["composition"],
+                                     reference_images={"primary": "refs/sheet.png",
+                                                       "clothing": ["refs/gone.png"]}))
+    r = _run(tmp_path, [e], cfg=CFG5, extra_files=["refs/sheet.png"])
+    assert r.returncode == 1 and "gone.png" in r.stderr
+
+
+def test_v5_scenery_entry_without_modifiers_ok(tmp_path):
+    e = {"key": "s", "output": "o.png",
+         "composition": {"order": "composition_orders[scenery]", "scene": "S"}}
+    r = _run(tmp_path, [e], cfg=CFG5)
+    assert r.returncode == 0, r.stderr

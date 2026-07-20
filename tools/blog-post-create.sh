@@ -128,28 +128,37 @@ mkdir -p "$BUNDLE_DIR"
 } > "$BUNDLE_DIR/index.md"
 echo "  page bundle: $BUNDLE_DIR/index.md (body from $BODY_FILE, summary from $SUMMARY_FILE)"
 
-# 2. Append the SCENE-ONLY entry + selector fields. Indent scene lines by 6
-#    spaces (under "prompt: |" which sits at 4 spaces). Integer field values
-#    stay bare so the engine's int-index selection works; everything else is
-#    double-quoted.
-INDENTED_SCENE=$(sed 's/^/      /' "$SCENE_FILE")
+# 2. Append the v5 composition-block entry: SCENE-ONLY text + selector fields
+#    under composition.modifiers (docs/CONFIG.md §4.1, schema v5). Integer
+#    values stay bare; everything else is double-quoted. v5 references are
+#    explicit — when the config declares image.reference_image, freeze it into
+#    reference_images.primary (the operator will point at named character
+#    sheets over time).
+INDENTED_SCENE=$(sed 's/^/        /' "$SCENE_FILE")
+PRIMARY_REF=$(cfg image.reference_image --default "")
 {
   echo "  - key: $KEY"
-  echo "    series: $SERIES"
   echo "    output: $OUTPUT_IMAGE"
   echo "    description: \"Cover for $SERIES post $NUMBER — $TITLE_ESC\""
+  echo "    composition:"
+  if [[ -n "$PRIMARY_REF" ]]; then
+    echo "      reference_images:"
+    echo "        primary: $PRIMARY_REF"
+  fi
+  echo "      modifiers:"
+  echo "        series: $SERIES"
   for kv in ${ENTRY_FIELDS[@]+"${ENTRY_FIELDS[@]}"}; do
     k=${kv%%=*}; v=${kv#*=}    # value may itself contain '=' — split on the first only
     if [[ "$v" =~ ^-?[0-9]+$ ]]; then
-      echo "    $k: $v"
+      echo "        $k: $v"
     else
-      echo "    $k: \"$(yaml_escape "$v")\""
+      echo "        $k: \"$(yaml_escape "$v")\""
     fi
   done
-  echo "    prompt: |"
+  echo "      scene: |"
   echo "$INDENTED_SCENE"
 } >> "$PROMPTS_YAML"
-echo "  prompts entry: key=$KEY appended to $PROMPTS_YAML (scene-only + selectors)"
+echo "  prompts entry: key=$KEY appended to $PROMPTS_YAML (v5 composition block)"
 
 # 3. Image generation from the config root — the generator resolves every path
 #    (prompts_file, output, reference pool) relative to the config, and its own

@@ -160,7 +160,7 @@ Show the output and ask:
 
 > Prompt looks right? (y / adjust)
 > - **y** — proceed to Step 7
-> - **adjust** — edit the entry's scene or selector fields in `<image.prompts_file>`, then re-run `--print-prompt`
+> - **adjust** — edit the entry's `composition.scene` or `composition.modifiers` in `<image.prompts_file>`, then re-run `--print-prompt`
 
 `--dry-run` additionally lists every reference image in payload order (master sheet first, then the entry's `references:` anchors) — still no API call.
 
@@ -197,7 +197,7 @@ Optional helper flag: `--output <path>` overrides the cover path when the blog's
 
 The helper (all paths resolved from `.blog-craft.yaml` — `site_dir`, `image.prompts_file`, `image.output_dir`):
 1. Creates the page bundle at `<blog_root>/<site_dir>/content/docs/<series>/<number>-<slug>/index.md` with weight `<number>+1`, the **approved summary**, **`reader_goal`**, and **`diataxis`** in the frontmatter, and the **approved body** (markers and all) below it.
-2. Appends a `key: <series>-<number>` entry to `<image.prompts_file>`: `series:` + each `--entry-field` pair + the **scene only** under `prompt: |`.
+2. Appends a v5 `key: <series>-<number>` entry to `<image.prompts_file>`: a `composition:` block with `modifiers:` (`series:` + each `--entry-field` pair), the **scene only** under `scene: |`, and — when the config declares `image.reference_image` — an explicit `reference_images.primary` (v5 references are explicit; docs/CONFIG.md §4.1).
 3. Without `--no-generate`, runs `python <site_dir>/scripts/generate-images.py --only <series>-<number>` (with it, prints the preview command instead — this skill's flow). No reference image is required — the generator's own precedence (CLI override → `image.reference_image` → pool by series → generic pool → none) decides. Requires PyYAML + Pillow + google-genai installed (see the blog's `README.md` for venv setup). Generation honors the `<api_key_env>` from Step 7.
 4. Does **not** touch the series overview — its `{{< series-index >}}` shortcode lists the new post automatically on the next Hugo build (page-derived, always in sync).
 
