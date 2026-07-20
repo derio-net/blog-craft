@@ -116,6 +116,14 @@ directives and never prose). For each step, read the entry field:
 If the walk ends on a non-scalar (steps exhausted before reaching prose), the
 layer resolves to `""` — `validate_images.py` (D8) flags it.
 
+**Deliberate v4 semantic change:** today only `mood` passes an unknown selector
+value through as prose; a *generic* dict layer returns `""`. In v4 the
+passthrough-at-last-step rule is universal. No shipped fixture or known blog
+uses a generic dict layer (only `torso`/`mood` exist in the wild, and both are
+passthrough-compatible), the parity fixtures prove non-divergence, and
+`validate_images.py` flags selector values that silently miss their table —
+which is what makes universal passthrough safe to adopt.
+
 frank's `torso` becomes pure data:
 
 ```yaml
@@ -258,8 +266,12 @@ Pure + idempotent (runs only on `version == 3`; gondor at v2 rides the ladder
 - **`gen-character-sheet.py`:** character prose comes from config —
   `image.character_sheet.layers` (default `[persona, visual_constants]`, so
   existing blogs need no edit; frank's migration sets `[base_character]`).
-  Each named layer resolves through the same `resolve_layer` rules (scalar →
-  paragraph, list → constants block). The `_gen_bytes` call passes `root` (D2).
+  Each named layer resolves through the same `resolve_layer` rules; the sheet
+  prompt keeps its fixed frame (`SHEET_STYLE` … `SHEET_LAYOUT`) with the first
+  configured layer rendered under the "CHARACTER — draw THIS character:" label
+  and list layers under "HOLD ALL OF THESE CONSTANT" — so today's
+  persona+visual_constants output is reproduced exactly by the default config.
+  The `_gen_bytes` call passes `root` (D2).
 - **`tools/validate_images.py`** (mirrored to `scripts/validate_images.py`):
   validates `prompt_for_images.yaml` against the config — unique keys;
   required fields (`key`, `output`, `prompt` unless `operator_generated`);
@@ -326,9 +338,12 @@ Pure + idempotent (runs only on `version == 3`; gondor at v2 rides the ladder
 1. **Snapshot:** `--print-prompt` for all keys → `/tmp/gondor-prompts-before/`.
 2. **Config ladder:** v2 → v4 (002→003→004). Inspect: no `metaphor`/`image_gen`
    blocks exist, layers untouched, `version: 4`.
-3. **Update:** full `tools/update.py --config .blog-craft.yaml --blog .
-   --apply` (gondor is a bootstrapped blog; identity path mapping — plan should
-   show only genuinely newer framework files; no conflicts expected).
+3. **Update:** `tools/update.py --config .blog-craft.yaml --blog . --apply`
+   (identity path mapping). gondor has **no `blog_craft_version` pin**, so
+   merged-class files (`hugo.toml`, `README.md`, …) that differ locally will
+   surface as `conflict (no base to merge from)` — expected; resolve by
+   inspection, or scope the run with `--only 'scripts/**'` (like frank) if only
+   the image machinery should move. Framework replacements apply either way.
 4. **Parity:** re-run snapshots → **empty diff**.
 5. **Scaffold check:** run `/blog-post` end-to-end (test mode) — bundle lands
    in `content/docs/…`, entry is scene-only + selector-free (no dict layers),
