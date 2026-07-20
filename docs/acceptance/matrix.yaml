@@ -362,15 +362,23 @@ rows:
       identical --dry-run payload
     origin:
     - blog-craft:docs/superpowers/implemented/specs/2026-07-20-image-composition-system-design.md
-    levels: {}
-    status: not-implemented
-    notes: 'Manual: Test Plan A in spec (post-merge, operator-driven)'
+    levels:
+      int:
+      - frank:.blog-craft.yaml
+    status: skipped
+    notes: 'Proven live 2026-07-20 (frank#666): 84 prompts byte-identical, --dry-run
+      payload identical, validate_images OK — Test Plan A. Not in CI (one-shot
+      migration proof).'
   - id: IMG-COMP-9
     capability: image-composition
     acceptance: gondor-blog migrated via /update generates unchanged — byte-identical
       --print-prompt
     origin:
     - blog-craft:docs/superpowers/implemented/specs/2026-07-20-image-composition-system-design.md
-    levels: {}
-    status: not-implemented
-    notes: 'Manual: Test Plan B in spec (post-merge, operator-driven)'
+    levels:
+      int:
+      - gondor-blog:.blog-craft.yaml
+    status: skipped
+    notes: 'Proven live 2026-07-20 (gondor-blog#7): 16 prompts byte-identical,
+      /blog-post scaffold end-to-end in test mode — Test Plan B. Not in CI
+      (one-shot migration proof).'
