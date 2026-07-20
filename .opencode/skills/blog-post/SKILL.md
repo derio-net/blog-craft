@@ -78,7 +78,7 @@ The body and summary are both written by the agent from available context, not b
 - The most recent commits in the blog repo since the last post in this series (or, if applicable, the linked source repo for what the post chronicles).
 - Any user-supplied ticket, feature reference, or notes about what is being chronicled.
 - Prior posts in the same series (read a few to match register).
-- Read `.blog-craft.yaml::voice` for tone, and `.blog-craft.yaml::metaphor.persona` for narrator stance.
+- Read `.blog-craft.yaml::voice` for tone, and the blog's character prose in `.blog-craft.yaml::image.layers` (typically a `persona` or `base_character` layer) for narrator stance.
 
 **Gather evidence.** If the post chronicles work in a source repo (the classic
 building/operating case), dispatch the `post-researcher` subagent
@@ -131,36 +131,42 @@ Show the draft body, the draft summary, and the proposed `reader_goal` + `diatax
 
 Loop until approved. Save the final approved body to `/tmp/blog-post-body-<timestamp>.md`, the final approved summary to `/tmp/blog-post-summary-<timestamp>.txt`, and the final approved reader_goal to `/tmp/blog-post-readergoal-<timestamp>.txt` (each single line where noted, no surrounding quotes — the helper handles YAML escaping). Keep the approved `diataxis` mode(s) as a comma-separated string (e.g. `how-to,reference`) for Step 8.
 
-### Step 5: Collect the per-post image brief
+### Step 5: Collect the scene brief + layer selectors
 
-Now that the body is approved, propose a one-paragraph cover-image scene that matches what the post is about — `<persona>`'s posture, the setting, the mood. Show the proposal and ask:
+Now that the body is approved, read `image.composition_order` and `image.layers` from `.blog-craft.yaml` — the blog's layered composition config (docs/CONFIG.md §4.1). The skill composes NOTHING by hand: the entry carries the **scene only** plus selector fields, and `scripts/generate-images.py` composes the layers around it.
 
-> Cover scene brief? (y to use this proposal / paste your own / regen for a different proposal)
+1. **Scene brief.** Propose a one-paragraph cover-image scene that matches what the post is about — the character's posture, the setting, the action. Show it and ask:
 
-Capture the final brief as `<brief>`.
+   > Cover scene brief? (y to use this proposal / paste your own / regen for a different proposal)
 
-### Step 6: Compose the full image prompt
+   Save the approved scene (nothing else — no styles, no persona) to `/tmp/blog-post-scene-<timestamp>.txt`.
 
-Read `metaphor` from `.blog-craft.yaml`. Concatenate, in order, separated by blank lines:
+2. **Selector values.** For each layer in `image.layers` that is a **mapping** (a selector table — e.g. `torso`, `mood`, or any blog-specific dictionary), propose a value for its selecting entry field (the field(s) its `_select` names; default: a field named like the layer). List the table's keys as the menu; free-form prose is also valid (the engine passes an unmatched value through verbatim at the last selector step). Typical shape:
 
-1. `metaphor.base_style`
-2. `metaphor.persona`
-3. The bullets in `metaphor.visual_constants`, one per line, prefixed with `- `
-4. `<brief>` (the per-post scene)
-5. `metaphor.reference_guidance`
+   > mood — one of: cautious, focused, weighing … (or free-form)? → `mood=cautious`
+   > torso — variant index for series `<series>` (0–N) or free-form? → `torso_variant=1`
 
-Show the full composed prompt to the user and ask:
+   Collect the approved pairs for Step 8's `--entry-field` flags. A layer the user wants skipped gets no pair (a missing selector skips that layer).
 
-> Approve this prompt? (y / regen / edit)
-> - **y** — proceed to image generation
-> - **regen** — ask for a new brief and recompose
-> - **edit** — let the user paste a hand-edited version
+### Step 6: Preview the composed prompt
 
-Repeat until the user approves. Save the final approved text to `/tmp/blog-post-prompt-<timestamp>.txt`.
+The single source of composed prompts is the generator. After the helper appends the entry (Step 8 runs it), preview comes from `--print-prompt`. To preview **before** creating anything, compose nothing by hand — run Step 8 with the entry fields, then:
+
+```bash
+( cd <blog_root> && python <site_dir>/scripts/generate-images.py --config .blog-craft.yaml --print-prompt <series>-<number> )
+```
+
+Show the output and ask:
+
+> Prompt looks right? (y / adjust)
+> - **y** — proceed
+> - **adjust** — edit the entry's scene or selector fields in `<image.prompts_file>` (or re-run the helper with different `--entry-field` values), then re-run `--print-prompt`
+
+`--dry-run` additionally lists every reference image in payload order (master sheet first, then the entry's `references:` anchors) without an API call.
 
 ### Step 7: Confirm the API key is in the environment
 
-Read `image_gen.api_key_env` from `.blog-craft.yaml` (default `GEMINI_API_KEY`). Check whether it's set in the current shell (e.g. `printenv $api_key_env` returns non-empty). If missing:
+Read `image.api_key_env` from `.blog-craft.yaml` (default `GEMINI_API_KEY`). Check whether it's set in the current shell (e.g. `printenv $api_key_env` returns non-empty). If missing:
 
 > I need your `<api_key_env>` value for image generation. Paste it here and I'll export it for this session only — I will not write it to disk.
 
@@ -170,31 +176,34 @@ Capture and `export <api_key_env>=<value>` for the helper invocation.
 
 ```bash
 bash <plugin_root>/tools/blog-post-create.sh \
+  --entry-field mood=cautious --entry-field torso_variant=1 \   # Step 5's selector pairs (omit if none)
   <blog_root> <series> <number> <slug> <title> \
-  /tmp/blog-post-prompt-<timestamp>.txt \
+  /tmp/blog-post-scene-<timestamp>.txt \
   /tmp/blog-post-body-<timestamp>.md \
   /tmp/blog-post-summary-<timestamp>.txt \
   /tmp/blog-post-readergoal-<timestamp>.txt \
   "<diataxis>"    # comma-separated modes from Step 4, e.g. how-to,reference
 ```
 
-The helper:
-1. Creates the page bundle at `<blog_root>/content/docs/<series>/<number>-<slug>/index.md` with weight `<number>+1`, the **approved summary**, **`reader_goal`**, and **`diataxis`** in the frontmatter, and the **approved body** (markers and all) below it.
-2. Appends a `key: <series>-<number>` entry to `<blog_root>/prompt_for_images.yaml`, copying the approved prompt under `prompt: |`.
-3. Runs `python scripts/generate-images.py --only <series>-<number>`. Requires PyYAML + Pillow + google-genai installed (see the blog's `README.md` for venv setup). Honors the `<api_key_env>` from Step 7.
+Optional: `--output <path>` overrides the cover path when the blog's convention differs from `<image.output_dir>/<key>-cover.png` (check existing entries in `<image.prompts_file>` — some blogs keep covers inside page bundles).
+
+The helper (all paths resolved from `.blog-craft.yaml` — `site_dir`, `image.prompts_file`, `image.output_dir`):
+1. Creates the page bundle at `<blog_root>/<site_dir>/content/docs/<series>/<number>-<slug>/index.md` with weight `<number>+1`, the **approved summary**, **`reader_goal`**, and **`diataxis`** in the frontmatter, and the **approved body** (markers and all) below it.
+2. Appends a `key: <series>-<number>` entry to `<image.prompts_file>`: `series:` + each `--entry-field` pair + the **scene only** under `prompt: |`.
+3. Runs `python <site_dir>/scripts/generate-images.py --only <series>-<number>`. No reference image is required — the generator's own precedence (CLI override → `image.reference_image` → pool by series → generic pool → none) decides. Requires PyYAML + Pillow + google-genai installed (see the blog's `README.md` for venv setup). Honors the `<api_key_env>` from Step 7.
 4. Does **not** touch the series overview — its `{{< series-index >}}` shortcode lists the new post automatically on the next Hugo build (page-derived, always in sync).
 
 If the helper exits non-zero, surface the error and stop.
 
 ### Step 9: Show the cover and offer regen
 
-Display the generated cover at `<blog_root>/static/images/<series>-<number>-cover.png`. Ask:
+Display the generated cover at the entry's `output:` path. Ask:
 
 > Cover looks right? (y / regen)
 > - **y** — proceed to media fill
-> - **regen** — re-run only image-gen with the same prompt (or a tweaked one):
+> - **regen** — adjust the entry's scene/selector fields if desired, then re-run only image-gen:
 >   ```bash
->   ( cd <blog_root> && python scripts/generate-images.py --only <series>-<number> )
+>   ( cd <blog_root> && python <site_dir>/scripts/generate-images.py --only <series>-<number> )
 >   ```
 
 ### Step 10: Run /media to fill any markers
