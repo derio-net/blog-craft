@@ -324,8 +324,12 @@ rows:
       site_dir and --only scoping
     origin:
     - blog-craft:docs/superpowers/specs/2026-07-20-image-composition-system-design.md
-    levels: {}
-    status: not-implemented
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_update_mapping.py
+      int:
+      - blog-craft:tests/smoke-update.sh
+    status: ci
     notes: map_dest path mapping + --only glob filter in tools/update.py
   - id: IMG-COMP-6
     capability: image-composition
