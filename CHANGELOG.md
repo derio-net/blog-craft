@@ -10,6 +10,30 @@ matching `vX.Y.Z` tag on merge (#18).
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-07-20
+
+### Fixed
+- **An image entry's `references:` anchors never reached the model (#39).**
+  `_gen_bytes` appended only the master character sheet, so the per-entry
+  clothing/pose anchors were inert — even though the composed
+  `reference_guidance` prose promises the model that additional reference images
+  are exactly that. Covers drifted off the declared clothing/torso variant,
+  because only the text layer carried it. `generate-images.py` now resolves an
+  entry's references against the blog root via a new `entry_reference_paths()`
+  helper and appends them **after** the master sheet (order is load-bearing —
+  the first image is canonical for the face); a missing anchor warns and is
+  skipped rather than failing the run. `--dry-run` now lists every image in
+  payload order, so the behaviour is verifiable without spending an API call.
+  Guarded by `tests/unit/test_generate_images_references.py`.
+
+  This was a regression, not a missing feature: frank's pre-cutover
+  `generate-all-images.py` passed them (`contents = [full_prompt,
+  reference_image]; contents.extend(explicit_images)`). The cutover proved
+  "image-compose parity" on the composed *prompt text* — the one thing that had
+  not regressed — while nothing asserted which *images* were sent. A text-only
+  parity check structurally cannot catch this; the guard must assert the
+  payload. Ported from derio-net/frank#662.
+
 ## [0.8.0] - 2026-07-17
 
 ### Fixed
