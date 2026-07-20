@@ -89,6 +89,7 @@ def test_default_blog_scaffolds_without_reference(tmp_path):
     assert "title: \"First Post\"" in idx.read_text()
     entries = yaml.safe_load((blog / "prompt_for_images.yaml").read_text())["images"]
     assert entries[0]["key"] == "building-01"
+    assert entries[0]["composition"]["modifiers"]["series"] == "building"
     cover = blog / "static" / "images" / "building-01-cover.png"
     assert cover.is_file(), "cover generated even with no reference image anywhere"
 
@@ -106,13 +107,14 @@ def test_frank_shaped_blog_scene_only_entry(tmp_path):
     entries = yaml.safe_load((blog / "blog" / "prompt_for_images.yaml").read_text())["images"]
     e = entries[0]
     assert e["key"] == "building-02"
-    assert e["series"] == "building"
-    assert e["mood"] == "cautious"
-    assert e["torso_variant"] == 1
     assert e["output"] == "blog/static/images/building-02-cover.png"
-    # scene-only: the entry prompt is exactly the scene brief, no composed layers
-    assert e["prompt"].strip() == SCENE
-    assert "CHAR" not in e["prompt"]
+    mods = e["composition"]["modifiers"]
+    assert mods["series"] == "building"
+    assert mods["mood"] == "cautious"
+    assert mods["torso_variant"] == 1
+    # scene-only: the entry scene is exactly the brief, no composed layers
+    assert e["composition"]["scene"].strip() == SCENE
+    assert "CHAR" not in e["composition"]["scene"]
     cover = blog / "blog" / "static" / "images" / "building-02-cover.png"
     assert cover.is_file()
 
@@ -125,7 +127,7 @@ def test_entry_field_numbers_stay_numbers(tmp_path):
               str(inp / "scene.txt"), str(inp / "body.md"), str(inp / "summary.txt")])
     assert r.returncode == 0, r.stderr + r.stdout
     entries = yaml.safe_load((blog / "blog" / "prompt_for_images.yaml").read_text())["images"]
-    assert entries[0]["torso_variant"] == 0, "int selector must not become a string"
+    assert entries[0]["composition"]["modifiers"]["torso_variant"] == 0, "int selector must not become a string"
 
 
 def test_title_and_field_values_yaml_safe(tmp_path):
@@ -141,8 +143,9 @@ def test_title_and_field_values_yaml_safe(tmp_path):
     front = idx.read_text().split("---")[1]
     assert yaml.safe_load(front)["title"] == title
     entries = yaml.safe_load((blog / "prompt_for_images.yaml").read_text())["images"]
-    assert entries[0]["mood"] == 'quoted "and" back\\slashed'
-    assert entries[0]["note"] == "a=b=c", "value may contain = (split on first only)"
+    mods = entries[0]["composition"]["modifiers"]
+    assert mods["mood"] == 'quoted "and" back\\slashed'
+    assert mods["note"] == "a=b=c", "value may contain = (split on first only)"
 
 
 def test_bad_entry_field_key_rejected(tmp_path):

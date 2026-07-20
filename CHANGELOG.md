@@ -10,6 +10,25 @@ matching `vX.Y.Z` tag on merge (#18).
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-07-20
+
+### Added
+- **Config schema v5: composable composition (operator-directed refactor).**
+  `image.composition_orders` is a NAMED map of orders (`hero`, `scenery`, ...);
+  entries pick one via `composition.order` (a `composition_orders[name]`
+  reference or an inline token list; absent -> `hero`). Order tokens gain the
+  bracket form `layer[chunk]` (e.g. `reference_guidance[anchor]`), resolving a
+  dict layer's named chunk directly. Entries move to a `composition:` block —
+  `scene` (was `prompt`), `modifiers` (the selector fields; a value like
+  `papers[white_lab_coat]` descends a nested table directly), and
+  `reference_images` (`{primary, clothing: [...]}`), which is EXPLICIT: for v5
+  entries the v4 precedence chain (config `reference_image` -> pool) never
+  runs — what is declared is sent. Legacy v4 entries and configs keep working;
+  one engine serves both. New `migrations/004_to_005.py` (config) and
+  `tools/migrate_prompts.py` (entries, freezing the old precedence chain's
+  pick into explicit `primary`). The scaffolder emits v5 entries.
+
+
 ## [0.9.0] - 2026-07-20
 
 ### Added

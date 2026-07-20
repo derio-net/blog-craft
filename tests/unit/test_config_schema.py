@@ -59,15 +59,15 @@ def test_d_scene_is_reserved_not_a_layer():
     assert any("scene" in e.lower() for e in errs)
 
 
-def test_versions_2_through_4_accepted():
-    for v in (2, 3, 4):
+def test_versions_2_through_5_accepted():
+    for v in (2, 3, 4, 5):
         cfg = _valid()
         cfg["version"] = v
         assert validate_config(cfg) == [], f"version {v} should be valid"
 
 
 def test_out_of_range_versions_rejected():
-    for v in (1, 5, "2"):
+    for v in (1, 6, "2"):
         cfg = _valid()
         cfg["version"] = v
         assert validate_config(cfg), f"version {v!r} should be invalid"
@@ -205,3 +205,53 @@ def test_image_optimize_widths_must_be_positive_ints():
         for bad in (0, "wide", True, False):
             cfg["image"]["optimize"] = {key: bad}
             assert any("optimize" in e and key in e for e in validate_config(cfg)), (key, bad)
+
+
+# ── v5: composition_orders (named), bracket tokens ────────────────────────────
+
+def _v5(cfg):
+    cfg["version"] = 5
+    img = cfg["image"]
+    img["composition_orders"] = {"hero": img.pop("composition_order")}
+    return cfg
+
+
+def test_v5_named_orders_accepted():
+    assert validate_config(_v5(_valid())) == []
+
+
+def test_v5_orders_must_be_map_of_lists():
+    cfg = _v5(_valid())
+    cfg["image"]["composition_orders"] = {"hero": "not-a-list"}
+    assert any("composition_orders" in e for e in validate_config(cfg))
+    cfg["image"]["composition_orders"] = ["hero"]
+    assert any("composition_orders" in e for e in validate_config(cfg))
+
+
+def test_v5_every_order_needs_scene():
+    cfg = _v5(_valid())
+    cfg["image"]["composition_orders"]["scenery"] = ["base_style"]
+    errs = validate_config(cfg)
+    assert any("scenery" in e and "scene" in e for e in errs)
+
+
+def test_v5_bracket_token_resolves_against_layers():
+    cfg = _v5(_valid())
+    cfg["image"]["layers"]["reference_guidance"] = {"anchor": "A"}
+    cfg["image"]["composition_orders"]["hero"] = [
+        "base_style", "reference_guidance[anchor]", "scene"]
+    assert validate_config(cfg) == []
+    cfg["image"]["composition_orders"]["hero"] = ["nope_layer[anchor]", "scene"]
+    assert any("nope_layer" in e for e in validate_config(cfg))
+
+
+def test_v4_single_order_still_accepted_at_v5():
+    cfg = _valid()
+    cfg["version"] = 5
+    assert validate_config(cfg) == []
+
+
+def test_missing_both_order_forms_flagged():
+    cfg = _valid()
+    del cfg["image"]["composition_order"]
+    assert any("composition_order" in e for e in validate_config(cfg))

@@ -130,3 +130,73 @@ def test_unhashable_selector_skips_instead_of_crashing():
 
 def test_empty_sections_dropped():
     assert compose(["base_style", "scene"], {"base_style": ""}, {"prompt": "X"}) == "X"
+
+
+# ── v5 (schema v5, blog-craft #44): bracket tokens + bracket modifiers ────────
+# `name[sub]` in an order resolves a dict layer's named chunk directly (no
+# modifier involved); a modifier value `grp[sub]` descends a nested table
+# directly. Both coexist with every v4 behavior above.
+
+V5_LAYERS = {
+    "base_character": "CHAR",
+    "reference_guidance": {
+        "anchor": "ANCHOR PROSE",
+        "character": "CHARACTER-REF PROSE",
+        "clothing": "CLOTHING-REF PROSE",
+        "single_hero": "ONE HERO",
+        "drawing_instructions": "REDRAW",
+    },
+    "clothing": {
+        "building": {"default": "EXPOSED HARDWARE", "dirty": "DIRTY CLOTHES"},
+        "papers": {"default": "NECKTIE", "white_lab_coat": "LAB COAT"},
+    },
+    "mood": {"focused": "FOC"},
+    "constants": ["c1", "c2"],
+}
+
+
+def test_bracket_token_resolves_named_chunk():
+    out = compose(["reference_guidance[anchor]", "scene"], V5_LAYERS, {"prompt": "S"})
+    assert out == "ANCHOR PROSE\n\nS"
+
+
+def test_bracket_tokens_render_as_separate_sections():
+    out = compose(["reference_guidance[anchor]", "reference_guidance[single_hero]"],
+                  V5_LAYERS, {})
+    assert out == "ANCHOR PROSE\n\nONE HERO"
+
+
+def test_bracket_token_missing_sub_skips():
+    assert compose(["reference_guidance[nope]", "scene"], V5_LAYERS, {"prompt": "S"}) == "S"
+
+
+def test_bracket_token_on_scalar_layer_skips():
+    assert compose(["base_character[x]", "scene"], V5_LAYERS, {"prompt": "S"}) == "S"
+
+
+def test_bracket_token_list_chunk_bullets():
+    layers = {"rg": {"rules": ["a", "b"]}}
+    assert compose(["rg[rules]"], layers, {}) == "- a\n- b"
+
+
+def test_bracket_modifier_descends_nested_table():
+    out = compose(["clothing", "scene"], V5_LAYERS,
+                  {"clothing": "papers[white_lab_coat]", "prompt": "S"})
+    assert out == "LAB COAT\n\nS"
+
+
+def test_bracket_modifier_missing_path_skips():
+    out = compose(["clothing", "scene"], V5_LAYERS,
+                  {"clothing": "papers[nope]", "prompt": "S"})
+    assert out == "S"
+
+
+def test_plain_modifier_still_named_lookup_and_passthrough():
+    assert compose(["mood"], V5_LAYERS, {"mood": "focused"}) == "FOC"
+    assert compose(["mood"], V5_LAYERS, {"mood": "free-form"}) == "free-form"
+
+
+def test_plain_modifier_on_nested_table_skips_not_leaks():
+    # a two-level table needs a bracket path; a bare group name must not dump the dict
+    out = compose(["clothing", "scene"], V5_LAYERS, {"clothing": "papers", "prompt": "S"})
+    assert out == "S"

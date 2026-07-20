@@ -1,11 +1,11 @@
-# `.blog-craft.yaml` — config contract (v4)
+# `.blog-craft.yaml` — config contract (v5)
 
 The single per-repo file that distinguishes one blog-craft blog from another.
 Validated by `tools/validate_config.py --check <path>` (accepts schema
-versions 2–4; `tools/migrate_config.py` climbs the ladder).
+versions 2–5; `tools/migrate_config.py` climbs the ladder; `tools/migrate_prompts.py` migrates the entries file).
 
 ```yaml
-version: 4
+version: 5
 blog_craft_version: "<release applied>"   # set by bootstrap/update
 
 project: { name, tagline, base_url, base_path, module_path }
@@ -26,7 +26,9 @@ image:
                           # character sheet — 2nd in the generator's reference
                           # precedence (CLI --reference beats it; pool follows)
   curation: { count_default: 1, archive_cap: 30, contact_sheet: true }
-  composition_order: [ <layer names…>, scene ]
+  composition_orders:     # v5: NAMED orders; entries pick one (default: hero).
+    hero: [ <tokens…>, scene ]                   #   token = layer | layer[chunk]
+    scenery: [ <tokens…>, scene ]                # (legacy v4: a single composition_order list)
   layers:
     <name>: <scalar | list | selector-table>     # see §4.1
   character_sheet:        # optional; which layers define the character for
@@ -68,11 +70,41 @@ ci:
   deploy: { kind: container_pages | pages | none }
 ```
 
-## §4.1 Layer-resolution rule (v4 — the `_select` walk)
+## §4.1 Layer-resolution rule
 
-The image generator concatenates the layers named in `image.composition_order`,
-in order, joining non-empty sections with a blank line. Each name resolves
-against `image.layers`:
+**v5 orders and entries.** `image.composition_orders` is a map of NAMED token
+lists; an entry composes with `composition.order` — a
+`composition_orders[name]` reference or an inline token list — defaulting to
+`hero`. A token is a layer name or `layer[chunk]`, which resolves a dict
+layer's named chunk directly (e.g. `reference_guidance[anchor]` — chunk
+granularity is per-blog data: keep guidance as one chunk or split it). v5
+entries carry a `composition:` block:
+
+```yaml
+- key: papers-07
+  output: static/images/papers-07-cover.png
+  aspect_ratio: "16:9"
+  composition:
+    reference_images:            # EXPLICIT (v5): what is declared is sent,
+      primary: refs/sheet.png    # nothing else — the v4 precedence chain
+      clothing: [refs/coat.png]  # (config reference_image / pool) never
+    order: composition_orders[hero]   # optional; or an inline token list
+    modifiers: { series: papers, clothing: papers[white_lab_coat], mood: worried }
+    scene: >-                    # was `prompt` in v4
+      ...
+```
+
+A dict-layer **modifier** value may be a bracket path (`papers[white_lab_coat]`
+descends a nested table directly), a plain name (single-level lookup,
+free-form passthrough on miss), or absent (layer skipped). A plain value that
+lands on a container skips — bare group names never dump a table into the
+prompt. Legacy v4 entries (top-level `prompt` + selector fields, single
+`composition_order`, `_select` walks, the old reference precedence) keep
+working — one engine serves both schemas.
+
+The generator concatenates the resolved tokens in order, joining non-empty
+sections with a blank line. Each plain layer name resolves against
+`image.layers`:
 
 | Layer value | Resolves to |
 |---|---|

@@ -47,8 +47,8 @@ METAPHOR_CFG = {
 }
 
 
-def test_latest_version_is_4():
-    assert latest_version() == 4
+def test_004_is_present_in_ladder():
+    assert latest_version() >= 4
 
 
 def test_metaphor_becomes_layers_and_reference_image():
@@ -134,7 +134,7 @@ def test_version_gate():
         _load_004().migrate({"version": 2})
 
 
-def test_ladder_reaches_4_from_2():
+def test_ladder_passes_through_4_from_2():
     cfg = {"version": 2, "image": {"layers": {}}, "features": {}}
     out = upgrade(cfg)
-    assert out["version"] == 4
+    assert out["version"] >= 4
