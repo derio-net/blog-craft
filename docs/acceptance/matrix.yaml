@@ -382,3 +382,16 @@ rows:
     notes: 'Proven live 2026-07-20 (gondor-blog#7): 16 prompts byte-identical,
       /blog-post scaffold end-to-end in test mode — Test Plan B. Not in CI
       (one-shot migration proof).'
+  - id: IMG-COMP-10
+    capability: image-composition
+    acceptance: A multi-character, multi-location blog (stoa) expresses its whole prompt
+      vocabulary as generic cast/location selector layers — no engine change needed
+    origin:
+    - blog-craft:docs/superpowers/implemented/specs/2026-07-20-image-composition-system-design.md
+    levels:
+      int:
+      - stoa-blog:.blog-craft.yaml
+    status: skipped
+    notes: 'Proven live 2026-07-20 (stoa-blog#8): v1 double-composed prompts decomposed
+      into base_style/world_rules/cast/location layers; validate_images OK on 11 entries.
+      Not in CI (one-shot decomposition proof).'
