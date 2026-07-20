@@ -227,7 +227,7 @@ rows:
     acceptance: scaffold-explainer.sh --archetype <id> emits that archetype's section
       structure for all 6 archetypes
     origin:
-    - blog-craft:docs/superpowers/specs/2026-07-17-explainer-archetype-modes-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-07-17-explainer-archetype-modes-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_scaffold_explainer.py
@@ -238,7 +238,7 @@ rows:
     acceptance: 'validate_explainers rejects a post whose ## sections do not match its
       declared archetype, and rejects unknown archetypes'
     origin:
-    - blog-craft:docs/superpowers/specs/2026-07-17-explainer-archetype-modes-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-07-17-explainer-archetype-modes-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_explainers_validators.py
@@ -249,7 +249,7 @@ rows:
     acceptance: committed .opencode/ skill mirrors always match canonical skills/ (unit-enforced;
       advances OC-1/OC-2)
     origin:
-    - blog-craft:docs/superpowers/specs/2026-07-17-opencode-sync-drift-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-07-17-opencode-sync-drift-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_opencode_sync.py
@@ -260,7 +260,7 @@ rows:
     acceptance: uv.lock project version stays in lockstep with pyproject.toml; bump_version.py
       syncs it and --check catches drift
     origin:
-    - blog-craft:docs/superpowers/specs/2026-07-17-opencode-sync-drift-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-07-17-opencode-sync-drift-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_version.py
@@ -271,7 +271,7 @@ rows:
     acceptance: The engine composes any config-declared layer map — no hardcoded layer
       vocabulary; frank's and gondor's composed prompts reproduce byte-identically
     origin:
-    - blog-craft:docs/superpowers/specs/2026-07-20-image-composition-system-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-07-20-image-composition-system-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_compose.py
@@ -284,7 +284,7 @@ rows:
     acceptance: /blog-post scaffolding honours the documented image.* config keys and
       site_dir — a frank-shaped blog can use it
     origin:
-    - blog-craft:docs/superpowers/specs/2026-07-20-image-composition-system-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-07-20-image-composition-system-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_blog_post_create.py
@@ -298,7 +298,7 @@ rows:
     acceptance: A scaffolded prompt entry is scene-only with selector fields — the generator
       composes it without double-composition
     origin:
-    - blog-craft:docs/superpowers/specs/2026-07-20-image-composition-system-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-07-20-image-composition-system-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_blog_post_create.py
@@ -311,7 +311,7 @@ rows:
     acceptance: 'An entry''s references: anchors reach the model payload after the master
       sheet, verifiable via --dry-run'
     origin:
-    - blog-craft:docs/superpowers/specs/2026-07-20-image-composition-system-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-07-20-image-composition-system-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_generate_images_references.py
@@ -323,7 +323,7 @@ rows:
     acceptance: /update migrates an existing blog's image machinery in place, honouring
       site_dir and --only scoping
     origin:
-    - blog-craft:docs/superpowers/specs/2026-07-20-image-composition-system-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-07-20-image-composition-system-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_update_mapping.py
@@ -336,7 +336,7 @@ rows:
     acceptance: Config migration to v4 rewrites metaphor.*/image_gen.* and encodes torso
       selection as data, preserving composed output
     origin:
-    - blog-craft:docs/superpowers/specs/2026-07-20-image-composition-system-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-07-20-image-composition-system-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_migration_004.py
@@ -349,7 +349,7 @@ rows:
     acceptance: Character-sheet generation draws its prose from config-declared layers
       — any persona vocabulary works
     origin:
-    - blog-craft:docs/superpowers/specs/2026-07-20-image-composition-system-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-07-20-image-composition-system-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_character_sheet_layers.py
@@ -361,7 +361,7 @@ rows:
     acceptance: frank migrated via /update generates unchanged — byte-identical --print-prompt,
       identical --dry-run payload
     origin:
-    - blog-craft:docs/superpowers/specs/2026-07-20-image-composition-system-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-07-20-image-composition-system-design.md
     levels: {}
     status: not-implemented
     notes: 'Manual: Test Plan A in spec (post-merge, operator-driven)'
@@ -370,7 +370,7 @@ rows:
     acceptance: gondor-blog migrated via /update generates unchanged — byte-identical
       --print-prompt
     origin:
-    - blog-craft:docs/superpowers/specs/2026-07-20-image-composition-system-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-07-20-image-composition-system-design.md
     levels: {}
     status: not-implemented
     notes: 'Manual: Test Plan B in spec (post-merge, operator-driven)'
