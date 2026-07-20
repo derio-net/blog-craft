@@ -1,7 +1,8 @@
 schema_version: 2
 phase:
   number: 4
-  title: "site_dir + blog_config.py + config-driven scaffolder (spec D3, D4 — closes #39 items 1, 2, 4)"
+  title: 'site_dir + blog_config.py + config-driven scaffolder (spec D3, D4 — closes
+    #39 items 1, 2, 4)'
   tag: agentic
   depends_on:
   - 3
@@ -50,30 +51,30 @@ tasks:
 state:
   steps:
     P4.T1.S1:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-07-20T11:53:11+00:00'
       note: null
     P4.T1.S2:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-07-20T11:53:12+00:00'
       note: null
     P4.T2.S1:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-07-20T11:53:13+00:00'
       note: null
     P4.T2.S2:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-07-20T11:53:15+00:00'
       note: null
     P4.T2.S3:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-07-20T11:53:16+00:00'
       note: null
     P4.T3.S1:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-07-20T11:53:17+00:00'
       note: null
   completion:
-    at: null
+    at: '2026-07-20T11:53:19+00:00'
     note: null
     observed_prs: []

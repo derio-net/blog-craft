@@ -16,14 +16,15 @@ if [[ ! -f "$TARGET/.blog-craft.yaml" ]]; then
   "$REPO_ROOT/tools/bootstrap-render.sh" "$ANSWERS" "$TARGET" >/dev/null
 fi
 
-# Seed a reference image. In real use the bootstrap-blog SKILL.md (Step 7) copies
-# the operator's chosen reference image; the bootstrap helper itself doesn't, so
-# the smoke test has to place a stub. Use a 1px PNG written via stdlib only.
+# Seed a reference image so the generator's reference branch is exercised (in
+# real use bootstrap-blog Step 7 copies the operator's chosen reference). The
+# helper no longer REQUIRES one — B6 below proves a reference-less blog still
+# scaffolds (the generator's own precedence decides, #39).
 #
 # Note: this is a separately-rolled PNG from the one hardcoded in
-# templates/hugo-hextra/scripts/generate-images.py.tmpl's TEST_MODE
-# (_TINY_PNG bytes). The two paths never meet — this seeds reference.png
-# for the helper's pre-flight check; that one writes the per-post cover —
+# templates/hugo-hextra/scripts/generate-images.py's TEST_MODE
+# (_ONE_PX_PNG bytes). The two paths never meet — this seeds reference.png
+# as a generator input; that one writes the per-post cover —
 # so byte-equality is not load-bearing. Don't compare-by-bytes between them.
 REF="$TARGET/static/images/reference.png"
 if [[ ! -f "$REF" ]]; then
@@ -81,10 +82,15 @@ else
   fail "B1.a $BUNDLE missing"
 fi
 
-# B2: prompts entry appended
+# B2: prompts entry appended — scene-only, with the series selector field
 PROMPTS="$TARGET/prompt_for_images.yaml"
 grep -q "key: tutorials-01" "$PROMPTS" && pass "B2.a prompts entry key present" || fail "B2.a prompts entry missing"
-grep -q "Test prompt for hello-world cover image" "$PROMPTS" && pass "B2.b prompt body present" || fail "B2.b prompt body missing"
+grep -q "Test prompt for hello-world cover image" "$PROMPTS" && pass "B2.b scene present" || fail "B2.b scene missing"
+grep -A2 "key: tutorials-01" "$PROMPTS" | grep -q "series: tutorials" && pass "B2.c series selector emitted" || fail "B2.c series selector missing"
+# scene-only: the appended prompt block must be exactly the scene brief (one
+# line here), not a pre-composed multi-layer prompt (#39 item 2)
+ENTRY_PROMPT_LINES=$(sed -n '/key: tutorials-01/,/^  - key:\|^$/p' "$PROMPTS" | sed -n '/prompt: |/,$p' | sed '1d' | sed '/^[^ ]/q' | grep -c '[^[:space:]]' || true)
+[[ "$ENTRY_PROMPT_LINES" -eq 1 ]] && pass "B2.d entry prompt is scene-only (1 line)" || fail "B2.d entry prompt has $ENTRY_PROMPT_LINES lines (expected scene-only)"
 
 # B3: cover PNG generated
 COVER="$TARGET/static/images/tutorials-01-cover.png"
@@ -111,6 +117,20 @@ grep -q 'Hello World' "$OVERVIEW" && fail "B4.b blog-post wrongly edited the ove
 # entry (the overview is page-derived, so unaffected). Document rather than assert.
 echo "  NOTE: re-running with the same args overwrites the bundle and appends a"
 echo "        duplicate prompts entry. Idempotency on prompts is the SKILL's job."
+
+# B6: a blog with NO reference image anywhere still scaffolds — the old helper
+# hard-failed (exit 3) without static/images/reference.png (#39 item 1).
+rm -f "$REF"
+rm -rf "$TARGET/content/docs/tutorials/02-no-ref" "$TARGET/static/images/tutorials-02-cover.png"
+if BLOG_CRAFT_TEST_MODE=1 "$REPO_ROOT/tools/blog-post-create.sh" \
+  "$TARGET" tutorials 02 no-ref "No Ref" \
+  /tmp/test-blog-post-prompt.txt /tmp/test-blog-post-body.md /tmp/test-blog-post-summary.txt >/dev/null; then
+  [[ -f "$TARGET/static/images/tutorials-02-cover.png" ]] \
+    && pass "B6.a reference-less blog scaffolds + generates" \
+    || fail "B6.a cover missing on reference-less blog"
+else
+  fail "B6.a helper failed on a reference-less blog"
+fi
 
 echo
 echo "=== Summary ==="
