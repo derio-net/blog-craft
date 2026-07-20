@@ -1,7 +1,8 @@
 schema_version: 2
 phase:
   number: 1
-  title: "Absorb PR #40 — entry references reach the model + fix the second _gen_bytes caller"
+  title: 'Absorb PR #40 — entry references reach the model + fix the second _gen_bytes
+    caller'
   tag: agentic
   depends_on: []
   tracking_issue: null
@@ -9,7 +10,7 @@ phase:
   - IMG-COMP-4
 tasks:
 - number: 1
-  title: "Take PR #40's content changes without its version bump"
+  title: 'Take PR #40''s content changes without its version bump'
   steps:
   - id: P1.T1.S1
     text: |
@@ -19,7 +20,8 @@ tasks:
       Run: bash tests/run-unit.sh -k generate_images_references
       EXPECT: 6 passed (entry_reference_paths resolution, missing-anchor skip, order preservation, absent/empty/None, signature guard on root, ordering guard).
 - number: 2
-  title: "Fix gen-character-sheet.py for the new _gen_bytes signature (the failing check on #40)"
+  title: 'Fix gen-character-sheet.py for the new _gen_bytes signature (the failing
+    check on #40)'
   steps:
   - id: P1.T2.S1
     text: |
@@ -40,22 +42,22 @@ tasks:
 state:
   steps:
     P1.T1.S1:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-07-20T11:28:42+00:00'
       note: null
     P1.T2.S1:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-07-20T11:30:07+00:00'
       note: null
     P1.T2.S2:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-07-20T11:30:08+00:00'
       note: null
     P1.T3.S1:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-07-20T11:32:02+00:00'
       note: null
   completion:
-    at: null
+    at: '2026-07-20T11:32:03+00:00'
     note: null
     observed_prs: []

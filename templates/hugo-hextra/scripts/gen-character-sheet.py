@@ -80,7 +80,7 @@ def main(argv: list[str]) -> int:
     print(f"model={model}  key={key}  count={count}  prompt={len(prompt)} chars")
     variants = []
     for i in range(count):
-        b = genimg._gen_bytes(prompt, None, model, image_cfg, entry)
+        b = genimg._gen_bytes(prompt, None, model, image_cfg, entry, ROOT)
         if not b:
             print(f"  [{i+1}/{count}] no image returned", file=sys.stderr)
             continue

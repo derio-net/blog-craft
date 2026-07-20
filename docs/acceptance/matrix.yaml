@@ -300,8 +300,11 @@ rows:
       sheet, verifiable via --dry-run'
     origin:
     - blog-craft:docs/superpowers/specs/2026-07-20-image-composition-system-design.md
-    levels: {}
-    status: not-implemented
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_generate_images_references.py
+      - blog-craft:tests/unit/test_character_sheet_caller.py
+    status: ci
     notes: 'Absorbs PR #40 + fixes gen-character-sheet.py caller (#39 item 5)'
   - id: IMG-COMP-5
     capability: image-composition
