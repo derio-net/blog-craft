@@ -1,0 +1,72 @@
+schema_version: 2
+phase:
+  number: 5
+  title: /update generalization — map_dest, --only, site_dir migration (spec D6)
+  tag: agentic
+  depends_on:
+  - 4
+  tracking_issue: null
+  acceptance:
+  - IMG-COMP-5
+tasks:
+- number: 1
+  title: map_dest pure function, test-first
+  steps:
+  - id: P5.T1.S1
+    text: |
+      [RED] tests/unit/test_update_mapping.py: map_dest(path, cfg) with cfg={} is identity for every manifest path; with site_dir=blog: "scripts/generate-images.py" -> "blog/scripts/generate-images.py", "layouts/x" -> "blog/layouts/x"; ".reference-pool/README.md" -> "<image.reference_pool>/README.md" (config-rooted, NOT site-prefixed); "prompt_for_images.yaml" -> image.prompts_file value; ".blog-craft.yaml" -> itself. Run -k update_mapping. EXPECT RED.
+  - id: P5.T1.S2
+    text: |
+      [GREEN] Add map_dest to tools/update.py; plan_update classifies on the STAGING-relative path but stats/reads/writes the MAPPED destination (thread cfg through plan_update/apply_plan; `--config` is already a required arg — load it once in _main). Identity default keeps every existing blog's plan byte-identical (guard: existing test_update/smoke-update untouched and green). Run -k update_mapping. EXPECT green.
+- number: 2
+  title: --only scoping, test-first
+  steps:
+  - id: P5.T2.S1
+    text: |
+      [RED] Extend test_update_mapping.py: --only 'scripts/**' filters the plan to script paths (fnmatch on staging-relative path, `**` spans segments — reuse path_ownership's glob semantics); repeatable flag ORs. EXPECT RED.
+  - id: P5.T2.S2
+    text: |
+      [GREEN] argparse `--only` (action=append) + filter in _main before printing/applying. EXPECT green.
+- number: 3
+  title: frank-shaped end-to-end update fixture
+  steps:
+  - id: P5.T3.S1
+    text: |
+      Add a smoke section (tests/smoke-update.sh or a new pytest): materialize a blog, MOVE its site into blog/ + set site_dir: blog + prompts_file: blog/prompt_for_images.yaml (frank-shaped), plant a stale scripts/generate-images.py under blog/scripts/, run tools/update.py --config .blog-craft.yaml --blog . --only 'scripts/**' --apply. ASSERT: blog/scripts/generate-images.py replaced with current framework copy; content/ and prompt_for_images.yaml untouched; nothing written outside blog/ except config-rooted pool README when included. Run it. EXPECT green.
+- number: 4
+  title: Verify (phase 5)
+  steps:
+  - id: P5.T4.S1
+    text: |
+      [VERIFY] bash tests/run-unit.sh && bash tests/smoke-update.sh
+      EXPECT: green, including the pre-existing update smoke (identity-mapping regression guard).
+state:
+  steps:
+    P5.T1.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P5.T1.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P5.T2.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P5.T2.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P5.T3.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P5.T4.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+  completion:
+    at: null
+    note: null
+    observed_prs: []

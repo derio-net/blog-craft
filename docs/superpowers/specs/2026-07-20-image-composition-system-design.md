@@ -350,6 +350,12 @@ Pure + idempotent (runs only on `version == 3`; gondor at v2 rides the ladder
    cover generates without a forced reference path.
 6. Commit; record `blog_craft_version: v0.9.0`.
 
+## Implementation Plans
+
+| Plan | Repo | File | Depends on |
+|---|---|---|---|
+| 2026-07-20-image-composition-system | `derio-net/blog-craft` | `2026-07-20-image-composition-system` | — |
+
 ## Acceptance rows
 
 Capability `image-composition` (origin: this spec):

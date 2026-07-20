@@ -1,0 +1,89 @@
+schema_version: 2
+phase:
+  number: 2
+  title: Generic layer engine — the _select walk replaces hardcoded torso/mood (spec
+    D1)
+  tag: agentic
+  depends_on:
+  - 1
+  tracking_issue: null
+  acceptance:
+  - IMG-COMP-1
+tasks:
+- number: 1
+  title: The selector walk, test-first
+  steps:
+  - id: P2.T1.S1
+    text: |
+      [RED] Extend tests/unit/test_compose.py with the v4 walk cases (drive compose()/resolve_layer directly):
+        1. default selector: dict layer `palette: {warm: "..."}` + entry `palette: warm` -> prose (unchanged behavior);
+        2. explicit path: layer `torso: {_select: [[torso, series], torso_variant], building: [t0, t1]}` + entry `{series: building, torso_variant: 1}` -> "t1";
+        3. alternatives, first-present-wins: entry `{torso: operating, series: building, torso_variant: 0}` selects group `operating`;
+        4. passthrough at LAST step only: entry `{series: building, torso_variant: "free-form prose"}` -> "free-form prose"; entry `{palette: "novel prose"}` on layer 1 -> "novel prose";
+        5. intermediate miss -> "": entry `{series: unknown, torso_variant: 0}` -> layer skipped;
+        6. missing selector field -> "" (layer skipped);
+        7. `_`-prefixed keys are never prose: `_select` not selectable/leakable;
+        8. walk dead-ends on non-scalar (steps exhausted, value still dict/list) -> "".
+      Run: bash tests/run-unit.sh -k test_compose
+      EXPECT: new cases RED (engine still hardcodes torso/mood; no _select support).
+  - id: P2.T1.S2
+    text: |
+      [GREEN] Rewrite _resolve_indexed in templates/hugo-hextra/scripts/compose.py (delete the `name == "torso"` and `name == "mood"` branches) with the generic walk:
+        def _resolve_indexed(name, table, entry):
+            steps = table.get("_select") or [name]
+            value = {k: v for k, v in table.items() if not str(k).startswith("_")}
+            for i, step in enumerate(steps):
+                fields = step if isinstance(step, list) else [step]
+                sel = next((entry[f] for f in fields if entry.get(f) is not None), None)
+                if sel is None:
+                    return ""
+                last = i == len(steps) - 1
+                if isinstance(value, dict) and sel in value:
+                    value = value[sel]
+                elif isinstance(value, list) and isinstance(sel, int) and 0 <= sel < len(value):
+                    value = value[sel]
+                elif last and isinstance(sel, str):
+                    return sel          # free-form passthrough, last step only
+                else:
+                    return ""           # intermediate miss / bad index
+            return value if isinstance(value, str) else ""
+      Mirror to tools/compose.py if the repo keeps a tools-side copy (check: they are byte-identical siblings — `cmp tools/compose.py templates/hugo-hextra/scripts/compose.py`; keep them identical).
+      Run: bash tests/run-unit.sh -k test_compose
+      EXPECT: all walk cases green.
+- number: 2
+  title: Byte-parity fixtures prove no visible change
+  steps:
+  - id: P2.T2.S1
+    text: |
+      Update the frank fixture config in tests/fixtures/ (the one test_image_compose.py drives): the `torso` layer gains `_select: [[torso, series], torso_variant]` — exactly what migration 003_to_004 will write. The EXPECTED composed-prompt strings in tests/unit/test_image_compose.py stay UNCHANGED — that unchanged expectation is the byte-parity proof (IMG-COMP-1).
+      Run: bash tests/run-unit.sh -k image_compose
+      EXPECT: green with untouched expected strings. If any expected string needs editing, that is a parity break — STOP and fix the engine, not the fixture.
+- number: 3
+  title: Verify (phase 2)
+  steps:
+  - id: P2.T3.S1
+    text: |
+      [VERIFY] bash tests/run-unit.sh
+      EXPECT: full suite green; grep confirms no `"torso"`/`"mood"` literals remain in compose.py.
+state:
+  steps:
+    P2.T1.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T1.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T2.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T3.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+  completion:
+    at: null
+    note: null
+    observed_prs: []

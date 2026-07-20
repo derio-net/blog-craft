@@ -1,0 +1,72 @@
+schema_version: 2
+phase:
+  number: 3
+  title: Config schema v4 — migration 003_to_004 + validation (spec D7)
+  tag: agentic
+  depends_on:
+  - 2
+  tracking_issue: null
+  acceptance:
+  - IMG-COMP-6
+tasks:
+- number: 1
+  title: migrations/003_to_004.py, test-first
+  steps:
+  - id: P3.T1.S1
+    text: |
+      [RED] Add tests/unit/test_migration_004.py:
+        1. metaphor block -> image.layers: base_style/persona/visual_constants/reference_guidance become same-named layers; metaphor.reference_image -> image.reference_image; composition_order (when absent) set to [base_style, persona, visual_constants, scene, reference_guidance]; metaphor block removed;
+        2. image_gen.* merges into image.* (existing image.* keys win), block removed;
+        3. a dict layer named `torso` without _select gains `_select: [[torso, series], torso_variant]`; one WITH _select is untouched; a scalar layer named torso untouched;
+        4. version 3 -> 4; running on version != 3 raises ValueError; idempotent via the version gate;
+        5. PARITY: take a metaphor-style config, migrate, compose a sample entry via compose() -> equals the old skill's hand-concatenation (base_style, persona, visual_constants bullets, scene, reference_guidance, blank-line separated).
+      Run: bash tests/run-unit.sh -k migration_004
+      EXPECT: RED (module absent).
+  - id: P3.T1.S2
+    text: |
+      [GREEN] Write migrations/003_to_004.py in the exact shape of migrations/002_to_003.py (FROM_VERSION=3, TO_VERSION=4, pure migrate(cfg)->dict). Confirm tools/migrate_config.py discovers it by filename convention (NNN_to_MMM.py — check its loader; no registration file expected).
+      Run: bash tests/run-unit.sh -k migration_004
+      EXPECT: green.
+- number: 2
+  title: validate_config.py learns v4
+  steps:
+  - id: P3.T2.S1
+    text: |
+      [RED] Extend the validate_config tests (tests/unit/test_validate_config.py or create): accepts version 4; site_dir optional string (rejects absolute paths); layer `_select` must be a list whose items are strings or lists of strings; image.character_sheet.layers optional list of strings. Run: bash tests/run-unit.sh -k validate_config
+      EXPECT: new cases RED.
+  - id: P3.T2.S2
+    text: |
+      [GREEN] Implement in tools/validate_config.py. Re-run -k validate_config.
+      EXPECT: green.
+- number: 3
+  title: Verify (phase 3)
+  steps:
+  - id: P3.T3.S1
+    text: |
+      [VERIFY] bash tests/run-unit.sh; python tools/migrate_config.py --check on the gondor-shaped v2 fixture EXPECTS the full 002->003->004 ladder listed.
+state:
+  steps:
+    P3.T1.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P3.T1.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P3.T2.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P3.T2.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P3.T3.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+  completion:
+    at: null
+    note: null
+    observed_prs: []
