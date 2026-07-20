@@ -34,6 +34,15 @@ _spec = importlib.util.spec_from_file_location("genimg", SCRIPTS / "generate-ima
 genimg = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(genimg)
 
+# Layer resolution comes from the same engine the per-post generator uses.
+_cspec = importlib.util.spec_from_file_location("compose_for_sheet", SCRIPTS / "compose.py")
+_compose = importlib.util.module_from_spec(_cspec)
+_cspec.loader.exec_module(_compose)
+
+# The character-defining layers when image.character_sheet.layers is absent —
+# the pre-v4 hardcoding, kept as the default so existing blogs need no edit.
+DEFAULT_CHARACTER_LAYERS = ["persona", "visual_constants"]
+
 # Format directive only — the RENDERING style (chibi/painterly/outlines/palette) is
 # carried by the blog's own persona + visual_constants, so this stays subject-neutral.
 SHEET_STYLE = (
@@ -55,13 +64,34 @@ SHEET_LAYOUT = (
 
 
 def build_prompt(image_cfg: dict) -> str:
+    """Sheet prompt from the config-declared character layers (spec D8).
+
+    `image.character_sheet.layers` names the layers that define the character
+    (frank: [base_character]); absent -> DEFAULT_CHARACTER_LAYERS, where a
+    missing layer is tolerated. An explicitly named layer that doesn't exist
+    is an error — a silent skip would generate a sheet of nothing.
+    """
     layers = image_cfg.get("layers", {}) or {}
-    persona = (layers.get("persona") or "").strip()
-    constants = layers.get("visual_constants") or []
-    const_block = "\n".join(f"- {c}" for c in constants)
-    parts = [SHEET_STYLE, f"CHARACTER — draw THIS character:\n{persona}"]
-    if const_block:
-        parts.append(f"HOLD ALL OF THESE CONSTANT (they define the character):\n{const_block}")
+    declared = (image_cfg.get("character_sheet") or {}).get("layers")
+    names = declared or DEFAULT_CHARACTER_LAYERS
+    parts = [SHEET_STYLE]
+    first = True
+    for name in names:
+        if name not in layers:
+            if declared:
+                raise SystemExit(f"image.character_sheet.layers names '{name}' "
+                                 f"but image.layers has no such layer")
+            continue
+        resolved = _compose.resolve_layer(name, layers.get(name), {}).strip()
+        if not resolved:
+            continue
+        if first:
+            parts.append(f"CHARACTER — draw THIS character:\n{resolved}")
+            first = False
+        elif isinstance(layers.get(name), list):
+            parts.append(f"HOLD ALL OF THESE CONSTANT (they define the character):\n{resolved}")
+        else:
+            parts.append(resolved)
     parts.append(SHEET_LAYOUT)
     return "\n\n".join(parts)
 

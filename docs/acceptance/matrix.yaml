@@ -350,8 +350,10 @@ rows:
       — any persona vocabulary works
     origin:
     - blog-craft:docs/superpowers/specs/2026-07-20-image-composition-system-design.md
-    levels: {}
-    status: not-implemented
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_character_sheet_layers.py
+    status: ci
     notes: image.character_sheet.layers, default [persona, visual_constants]; frank
       sets [base_character]
   - id: IMG-COMP-8

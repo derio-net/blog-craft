@@ -277,9 +277,11 @@ Pure + idempotent (runs only on `version == 3`; gondor at v2 rides the ladder
   required fields (`key`, `output`, `prompt` unless `operator_generated`);
   every `references:` path exists; every dict layer's selector walk for every
   entry lands on prose or a declared skip (flags walks that dead-end on a
-  non-scalar and int indexes out of range); `output` paths land under
-  `site_dir` or `assets/`/`static/` trees. Wired as an opt-in `images` entry in
-  `ci.validators` and run in the shipped blog CI when present. This replaces
+  non-scalar and int indexes out of range); `output` paths stay inside the
+  blog tree. Wired as an unconditional step in the shipped blog CI,
+  mermaid-gate style — `ci.validators` is descriptive today (papers/quality
+  gate on their own config blocks), and the implementation follows that
+  existing pattern rather than inventing list-membership templating. Replaces
   frank's orphaned `tests/image-pipeline/test_pipeline.py` (frank-side
   deletion happens in frank's migration, Test Plan A).
 - **`extract-subject.swift`** ports from frank to
