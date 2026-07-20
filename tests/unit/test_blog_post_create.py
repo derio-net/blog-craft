@@ -126,3 +126,42 @@ def test_entry_field_numbers_stay_numbers(tmp_path):
     assert r.returncode == 0, r.stderr + r.stdout
     entries = yaml.safe_load((blog / "blog" / "prompt_for_images.yaml").read_text())["images"]
     assert entries[0]["torso_variant"] == 0, "int selector must not become a string"
+
+
+def test_title_and_field_values_yaml_safe(tmp_path):
+    blog = _mk_blog(tmp_path, DEFAULT_CFG)
+    inp = _inputs(tmp_path)
+    title = 'Why "torso" died \\ hard'
+    r = _run(blog, ["--entry-field", 'mood=quoted "and" back\\slashed',
+                    "--entry-field", "note=a=b=c"],
+             ["building", "04", "yaml-safe", title,
+              str(inp / "scene.txt"), str(inp / "body.md"), str(inp / "summary.txt")])
+    assert r.returncode == 0, r.stderr + r.stdout
+    idx = blog / "content" / "docs" / "building" / "04-yaml-safe" / "index.md"
+    front = idx.read_text().split("---")[1]
+    assert yaml.safe_load(front)["title"] == title
+    entries = yaml.safe_load((blog / "prompt_for_images.yaml").read_text())["images"]
+    assert entries[0]["mood"] == 'quoted "and" back\\slashed'
+    assert entries[0]["note"] == "a=b=c", "value may contain = (split on first only)"
+
+
+def test_bad_entry_field_key_rejected(tmp_path):
+    blog = _mk_blog(tmp_path, DEFAULT_CFG)
+    inp = _inputs(tmp_path)
+    for bad in ("mo od=x", "output=/etc/evil.png", "prompt=injected"):
+        r = _run(blog, ["--entry-field", bad],
+                 ["building", "05", "badkey", "Bad",
+                  str(inp / "scene.txt"), str(inp / "body.md"), str(inp / "summary.txt")])
+        assert r.returncode != 0, f"key {bad!r} must be rejected"
+
+
+def test_no_generate_skips_image_generation(tmp_path):
+    blog = _mk_blog(tmp_path, DEFAULT_CFG)
+    inp = _inputs(tmp_path)
+    r = _run(blog, ["--no-generate"],
+             ["building", "06", "preview", "Preview",
+              str(inp / "scene.txt"), str(inp / "body.md"), str(inp / "summary.txt")])
+    assert r.returncode == 0, r.stderr + r.stdout
+    entries = yaml.safe_load((blog / "prompt_for_images.yaml").read_text())["images"]
+    assert entries[0]["key"] == "building-06"       # entry appended
+    assert not (blog / "static" / "images" / "building-06-cover.png").exists()

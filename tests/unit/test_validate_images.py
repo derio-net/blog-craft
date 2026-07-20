@@ -71,6 +71,14 @@ def test_missing_prompt_flagged_unless_operator_generated(tmp_path):
     assert r2.returncode == 0, r2.stderr
 
 
+def test_empty_prompt_is_a_placeholder_not_a_failure(tmp_path):
+    # bootstrap ships tile entries with `prompt: ""` awaiting fill-in — a fresh
+    # blog's first CI run must be green
+    placeholder = dict(GOOD, key="tile-landing", prompt="")
+    r = _run(tmp_path, [placeholder])
+    assert r.returncode == 0, r.stderr
+
+
 def test_missing_reference_path_flagged(tmp_path):
     bad = dict(GOOD, references=[".reference-pool/building/subjects/nope.png"])
     r = _run(tmp_path, [bad])
@@ -105,12 +113,14 @@ def test_freeform_passthrough_is_legit(tmp_path):
     assert r.returncode == 0, r.stderr
 
 
-def test_absent_selector_field_is_legit(tmp_path):
-    ok = {k: v for k, v in GOOD.items() if k not in ("torso_variant",)}
-    # first selector field (torso/series) present but variant missing -> walk
-    # yields "" with a present head selector: flagged (the layer silently drops)
-    r = _run(tmp_path, [ok])
-    assert r.returncode == 1
+def test_absent_selector_field_at_any_step_is_legit(tmp_path):
+    # `series` is a standard field every entry carries, so frank's torso head
+    # ([torso, series]) is ALWAYS present — tiles/banners without torso_variant
+    # must not be flagged. The engine's own semantics apply: a missing field at
+    # ANY step is a deliberate skip; only present-but-invalid values flag.
+    tile = {k: v for k, v in GOOD.items() if k not in ("torso_variant",)}
+    r = _run(tmp_path, [tile])
+    assert r.returncode == 0, r.stderr
     no_selector = {k: v for k, v in GOOD.items() if k not in ("series", "torso_variant")}
     r2 = _run(tmp_path, [no_selector])
     assert r2.returncode == 0, r2.stderr

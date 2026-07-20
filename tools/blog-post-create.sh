@@ -34,11 +34,26 @@ set -euo pipefail
 
 ENTRY_FIELDS=()
 OUTPUT_OVERRIDE=""
+NO_GENERATE=0
 while [[ $# -gt 0 && "$1" == --* ]]; do
   case "$1" in
     --entry-field) ENTRY_FIELDS+=("${2:?"--entry-field needs k=v"}"); shift 2 ;;
     --output)      OUTPUT_OVERRIDE=${2:?"--output needs a path"}; shift 2 ;;
+    --no-generate) NO_GENERATE=1; shift ;;
     *) echo "ERROR: unknown flag $1" >&2; exit 2 ;;
+  esac
+done
+
+# Validate selector keys early: plain identifiers only, and never a standard
+# entry field (which would inject/duplicate generator-consumed fields).
+for kv in ${ENTRY_FIELDS[@]+"${ENTRY_FIELDS[@]}"}; do
+  k=${kv%%=*}
+  if ! [[ "$k" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+    echo "ERROR: --entry-field key '$k' is not a plain identifier" >&2; exit 2
+  fi
+  case "$k" in
+    key|series|output|description|prompt|references|operator_generated|post_process|aspect_ratio|image_size|count)
+      echo "ERROR: --entry-field key '$k' is a standard entry field — set it via the dedicated argument" >&2; exit 2 ;;
   esac
 done
 
@@ -72,9 +87,12 @@ SITE_DIR=$(cfg site_dir --default ".")
 PROMPTS_REL=$(cfg image.prompts_file --default "prompt_for_images.yaml")
 OUTPUT_DIR=$(cfg image.output_dir --default "static/images")
 
-# Read summary, trim whitespace, escape double-quotes for safe insertion in
-# YAML double-quoted scalar.
-SUMMARY=$(tr -d '\n' < "$SUMMARY_FILE" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g; s/"/\\"/g')
+# YAML double-quoted-scalar escaping: backslashes first, then double quotes.
+yaml_escape() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'; }
+
+# Read summary, trim whitespace, escape for safe insertion.
+SUMMARY=$(yaml_escape "$(tr -d '\n' < "$SUMMARY_FILE" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')")
+TITLE_ESC=$(yaml_escape "$TITLE")
 
 WEIGHT=$((10#$NUMBER + 1))
 TODAY=$(date +%Y-%m-%d)
@@ -90,14 +108,14 @@ PROMPTS_YAML="$BLOG_ROOT/$PROMPTS_REL"
 mkdir -p "$BUNDLE_DIR"
 {
   echo '---'
-  echo "title: \"$TITLE\""
+  echo "title: \"$TITLE_ESC\""
   echo "date: $TODAY"
   echo "draft: false"
   echo "tags: []"
   echo "summary: \"$SUMMARY\""
   echo "weight: $WEIGHT"
   if [[ -n "$READER_GOAL_FILE" && -f "$READER_GOAL_FILE" ]]; then
-    RG=$(tr -d '\n' < "$READER_GOAL_FILE" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g; s/"/\\"/g')
+    RG=$(yaml_escape "$(tr -d '\n' < "$READER_GOAL_FILE" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')")
     echo "reader_goal: \"$RG\""
   fi
   if [[ -n "$DIATAXIS" ]]; then
@@ -119,13 +137,13 @@ INDENTED_SCENE=$(sed 's/^/      /' "$SCENE_FILE")
   echo "  - key: $KEY"
   echo "    series: $SERIES"
   echo "    output: $OUTPUT_IMAGE"
-  echo "    description: \"Cover for $SERIES post $NUMBER — $TITLE\""
+  echo "    description: \"Cover for $SERIES post $NUMBER — $TITLE_ESC\""
   for kv in ${ENTRY_FIELDS[@]+"${ENTRY_FIELDS[@]}"}; do
-    k=${kv%%=*}; v=${kv#*=}
+    k=${kv%%=*}; v=${kv#*=}    # value may itself contain '=' — split on the first only
     if [[ "$v" =~ ^-?[0-9]+$ ]]; then
       echo "    $k: $v"
     else
-      echo "    $k: \"$(printf '%s' "$v" | sed 's/"/\\"/g')\""
+      echo "    $k: \"$(yaml_escape "$v")\""
     fi
   done
   echo "    prompt: |"
@@ -135,8 +153,14 @@ echo "  prompts entry: key=$KEY appended to $PROMPTS_YAML (scene-only + selector
 
 # 3. Image generation from the config root — the generator resolves every path
 #    (prompts_file, output, reference pool) relative to the config, and its own
-#    reference precedence applies (no reference is required).
-( cd "$BLOG_ROOT" && python3 "${SITE_PREFIX:+$SITE_PREFIX/}scripts/generate-images.py" --config .blog-craft.yaml --only "$KEY" )
+#    reference precedence applies (no reference is required). --no-generate
+#    stops here so the skill can preview --print-prompt before spending a call.
+if [[ "$NO_GENERATE" -eq 1 ]]; then
+  echo "  image generation skipped (--no-generate). Preview with:"
+  echo "    ( cd $BLOG_ROOT && python3 ${SITE_PREFIX:+$SITE_PREFIX/}scripts/generate-images.py --config .blog-craft.yaml --print-prompt $KEY )"
+else
+  ( cd "$BLOG_ROOT" && python3 "${SITE_PREFIX:+$SITE_PREFIX/}scripts/generate-images.py" --config .blog-craft.yaml --only "$KEY" )
+fi
 
 # 4. No overview update — the series overview lists this post automatically via
 #    the {{< series-index >}} shortcode (page-derived) on the next build.

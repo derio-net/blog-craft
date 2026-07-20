@@ -122,6 +122,13 @@ def test_scalar_torso_layer_untouched():
     assert out["image"]["layers"]["torso"] == "always this torso"
 
 
+def test_empty_metaphor_block_injects_nothing():
+    out = _load_004().migrate({"version": 3, "metaphor": {}, "image": {}})
+    assert "metaphor" not in out
+    assert "composition_order" not in out.get("image", {})
+    assert "layers" not in out.get("image", {})
+
+
 def test_version_gate():
     with pytest.raises(ValueError):
         _load_004().migrate({"version": 2})

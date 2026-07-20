@@ -27,7 +27,18 @@ import yaml
 from PIL import Image
 
 SCRIPTS = Path(__file__).resolve().parent
-ROOT = SCRIPTS.parent
+
+
+def _load_config(start: Path):
+    """Find .blog-craft.yaml by walking up (a site_dir blog keeps it ABOVE the
+    site dir — frank: config at the repo root, scripts under blog/scripts).
+    Returns (config_root, cfg)."""
+    d = Path(start).resolve()
+    for cand in [d, *d.parents]:
+        f = cand / ".blog-craft.yaml"
+        if f.is_file():
+            return cand, (yaml.safe_load(f.read_text()) or {})
+    raise SystemExit(f"no .blog-craft.yaml found from {start}")
 
 # Reuse the exact archive + API plumbing from generate-images.py (hyphenated → importlib).
 _spec = importlib.util.spec_from_file_location("genimg", SCRIPTS / "generate-images.py")
@@ -84,6 +95,12 @@ def build_prompt(image_cfg: dict) -> str:
             continue
         resolved = _compose.resolve_layer(name, layers.get(name), {}).strip()
         if not resolved:
+            if declared:
+                # e.g. a selector-table layer against an empty entry — declaring
+                # it would silently produce a sheet of nothing
+                raise SystemExit(f"image.character_sheet.layers names '{name}' "
+                                 f"but it resolves to no prose (selector-table "
+                                 f"layers need an entry; use scalar/list layers)")
             continue
         if first:
             parts.append(f"CHARACTER — draw THIS character:\n{resolved}")
@@ -92,6 +109,10 @@ def build_prompt(image_cfg: dict) -> str:
             parts.append(f"HOLD ALL OF THESE CONSTANT (they define the character):\n{resolved}")
         else:
             parts.append(resolved)
+    if first:
+        raise SystemExit(
+            "no character-defining prose resolved — set image.character_sheet.layers "
+            f"(tried: {', '.join(names)})")
     parts.append(SHEET_LAYOUT)
     return "\n\n".join(parts)
 
@@ -99,7 +120,10 @@ def build_prompt(image_cfg: dict) -> str:
 def main(argv: list[str]) -> int:
     count = int(argv[0]) if len(argv) > 0 else 12
     key = argv[1] if len(argv) > 1 else "reference"
-    cfg = yaml.safe_load((ROOT / ".blog-craft.yaml").read_text())
+    # walk up from the scripts dir: a site_dir blog keeps the config above the
+    # site (frank: repo root); archive + reference paths resolve from there,
+    # matching generate-images.py's config-relative convention
+    ROOT, cfg = _load_config(SCRIPTS.parent)
     image_cfg = cfg.get("image", {}) or {}
     model = image_cfg.get("model", "gemini-3-pro-image-preview")
     dest = Path(image_cfg.get("reference_image", "static/images/reference.png"))

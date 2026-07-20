@@ -7,7 +7,9 @@
 
 framework:
   - "layouts/**"
-  - "scripts/**"
+  - "scripts/**"   # covers every shipped script — incl. the image-system set
+                   # (generate-images, compose, blog_config, validate_images,
+                   # gen-character-sheet, extract-subject); no per-file rows needed
   - "assets/js/**"
   - ".gitignore"
   - "MEDIA-GUIDE.md"

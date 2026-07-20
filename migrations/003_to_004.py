@@ -35,13 +35,15 @@ def migrate(cfg: dict) -> dict:
 
     metaphor = out.pop("metaphor", None)
     if isinstance(metaphor, dict):
-        layers = {k: metaphor[k] for k in METAPHOR_LAYER_KEYS if metaphor.get(k) is not None}
-        layers.update(image.get("layers") or {})          # existing layers win
+        moved = {k: metaphor[k] for k in METAPHOR_LAYER_KEYS if metaphor.get(k) is not None}
+        layers = {**moved, **(image.get("layers") or {})}  # existing layers win
         if layers:
             image["layers"] = layers
         if metaphor.get("reference_image") and "reference_image" not in image:
             image["reference_image"] = metaphor["reference_image"]
-        if "composition_order" not in image:
+        # the old skill's hand-concat order — only when the metaphor block
+        # actually contributed prose (an empty block must not invent an order)
+        if moved and "composition_order" not in image:
             image["composition_order"] = list(OLD_SKILL_ORDER)
 
     image_gen = out.pop("image_gen", None)

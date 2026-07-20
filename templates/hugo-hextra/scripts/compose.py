@@ -47,14 +47,16 @@ def _resolve_selector_walk(name: str, table: dict, entry: dict) -> str:
         if sel is None:
             return ""
         last = i == len(steps) - 1
-        if isinstance(value, dict) and sel in value:
+        # bool is an int subclass (`torso_variant: yes` -> True) — never an index
+        is_index = isinstance(sel, int) and not isinstance(sel, bool)
+        if isinstance(value, dict) and isinstance(sel, (str, int)) and sel in value:
             value = value[sel]
-        elif isinstance(value, list) and isinstance(sel, int) and 0 <= sel < len(value):
+        elif isinstance(value, list) and is_index and 0 <= sel < len(value):
             value = value[sel]
         elif last and isinstance(sel, str):
             return sel                    # free-form passthrough
         else:
-            return ""                     # intermediate miss / bad index
+            return ""                     # intermediate miss / bad index / bad type
     return value if isinstance(value, str) else ""
 
 

@@ -113,5 +113,20 @@ def test_walk_dead_end_on_non_scalar_skips_layer():
                    {"series": "building", "prompt": "S"}) == "S"
 
 
+def test_bool_selector_never_indexes_a_list():
+    # YAML `torso_variant: yes` parses to True; isinstance(True, int) is True —
+    # it must NOT silently select variant 1
+    out = compose(["torso", "scene"], LAYERS,
+                  {"series": "building", "torso_variant": True, "prompt": "S"})
+    assert out == "S"
+
+
+def test_unhashable_selector_skips_instead_of_crashing():
+    # an entry field holding a list/dict must not raise TypeError from `in`
+    out = compose(["mood", "scene"], LAYERS,
+                  {"mood": ["calm", "alert"], "prompt": "S"})
+    assert out == "S"
+
+
 def test_empty_sections_dropped():
     assert compose(["base_style", "scene"], {"base_style": ""}, {"prompt": "X"}) == "X"

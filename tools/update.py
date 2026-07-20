@@ -120,7 +120,9 @@ def apply_plan(blog: str | Path, staging: str | Path, plan: list[dict]) -> list[
         elif e["action"] == "merge":
             dest.write_bytes(e["merged"])
         elif e["action"] == "conflict":
-            conflicts.append(e["path"])                # never auto-resolve
+            # report the on-disk destination (mapped) — that's the file the
+            # operator must resolve; never auto-resolve
+            conflicts.append(e.get("dest", e["path"]))
     return conflicts
 
 

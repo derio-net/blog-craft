@@ -89,9 +89,10 @@ field selects). Keys beginning `_` are directives, never prose. Walking:
 - the entry field is **missing** → the layer resolves to nothing (skipped);
 - the field's value is a **key** of the current map / a valid **int index** of
   the current list → descend;
-- the value selects nothing and this is the **last** step → the value itself
-  is used verbatim (**free-form passthrough** — write bespoke prose straight
-  into the entry field);
+- the value is a **string** that selects nothing and this is the **last** step
+  → the string is used verbatim (**free-form passthrough** — write bespoke
+  prose straight into the entry field; a non-string that selects nothing
+  skips);
 - it selects nothing at an **intermediate** step → skipped (a bad group never
   leaks into the prompt). `scripts/validate_images.py` flags entries whose
   walk silently resolves to nothing.

@@ -63,9 +63,39 @@ def test_unknown_character_layer_is_a_clear_error():
         m.build_prompt(cfg)
 
 
+def test_declared_layer_resolving_empty_is_a_clear_error():
+    # a selector-table layer resolves against an EMPTY entry -> "" — declaring
+    # it would silently produce a sheet of nothing, so it must error
+    m = _load()
+    cfg = {"layers": {"torso": {"building": ["t0"]}, "persona": "P"},
+           "character_sheet": {"layers": ["torso"]}}
+    with pytest.raises(SystemExit, match="torso"):
+        m.build_prompt(cfg)
+
+
+def test_no_character_prose_at_all_is_a_clear_error():
+    m = _load()
+    with pytest.raises(SystemExit, match="character"):
+        m.build_prompt({"layers": {"base_style": "S"}})
+
+
 def test_missing_default_layers_tolerated():
     # a blog with only persona (no visual_constants) still builds a sheet
     m = _load()
     got = m.build_prompt({"layers": {"persona": "Solo persona."}})
     assert "Solo persona." in got
     assert "HOLD ALL OF THESE CONSTANT" not in got
+
+
+def test_config_discovered_by_walk_up(tmp_path):
+    # frank's shape: .blog-craft.yaml at the repo root, scripts under
+    # <site_dir>/scripts — _load_config must walk up, not assume SCRIPTS.parent
+    m = _load()
+    import yaml
+    (tmp_path / "blog").mkdir()
+    (tmp_path / ".blog-craft.yaml").write_text(yaml.safe_dump(
+        {"image": {"layers": {"base_character": "FRANK"},
+                   "character_sheet": {"layers": ["base_character"]}}}))
+    root, cfg = m._load_config(tmp_path / "blog")
+    assert root == tmp_path
+    assert cfg["image"]["layers"]["base_character"] == "FRANK"

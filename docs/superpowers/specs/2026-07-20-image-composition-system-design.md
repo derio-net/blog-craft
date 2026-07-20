@@ -107,9 +107,10 @@ directives and never prose). For each step, read the entry field:
 - field **missing** → the layer resolves to `""` (skipped), as today;
 - value is a **key** of the current dict / a valid **int index** of the current
   list → descend;
-- value doesn't select, and this is the **last** step → return the entry value
-  verbatim (**free-form passthrough** — today's `mood` and string
-  `torso_variant` behaviour, now universal);
+- value is a **string** that doesn't select, and this is the **last** step →
+  return it verbatim (**free-form passthrough** — today's `mood` and string
+  `torso_variant` behaviour, now universal; a non-string that doesn't select
+  skips);
 - value doesn't select at an **intermediate** step → `""` (a bad group never
   passes through as prose).
 
@@ -123,6 +124,12 @@ uses a generic dict layer (only `torso`/`mood` exist in the wild, and both are
 passthrough-compatible), the parity fixtures prove non-divergence, and
 `validate_images.py` flags selector values that silently miss their table —
 which is what makes universal passthrough safe to adopt.
+
+One further old-engine edge inverts: the old `torso` branch returned a string
+`torso_variant` verbatim **before** checking the group, so an unknown group +
+free-form variant still emitted the prose; v4 skips at the intermediate miss
+("a bad group never passes through"). `validate_images.py` flags such entries;
+Test Plan A's parity diff catches any real frank entry in that shape.
 
 frank's `torso` becomes pure data:
 

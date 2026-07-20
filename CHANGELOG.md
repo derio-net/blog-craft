@@ -50,8 +50,10 @@ matching `vX.Y.Z` tag on merge (#18).
   config it already required; the appended entry is **scene-only** with
   selector fields (`--entry-field k=v`, ints stay ints) so the engine composes
   layers around it instead of double-composing; `--output` overrides the cover
-  path; and the hard requirement on `static/images/reference.png` (`exit 3`)
-  is gone — the generator's own reference precedence decides.
+  path; `--no-generate` creates bundle + entry without an API call so
+  `--print-prompt` can preview first; and the hard requirement on
+  `static/images/reference.png` (`exit 3`) is gone — the generator's own
+  reference precedence decides.
 - **An image entry's `references:` anchors never reached the model (#39
   item 5).** Absorbed from PR #40 (`entry_reference_paths()`, payload-order
   `--dry-run` listing, ordering + signature guards) — and fixed the second

@@ -24,8 +24,8 @@ arguments:
 
 ## Plugin internals
 
-- **Helper script:** `<plugin_root>/tools/blog-post-create.sh` — does the mechanical bits (page bundle, prompts entry, image-gen). Takes both a prompt-file and a body-file.
-- **YAML reader:** `<plugin_root>/tools/render-template/main.go` `--get-bool` mode (used by helper).
+- **Helper script:** `<plugin_root>/tools/blog-post-create.sh` — does the mechanical bits (page bundle, prompts entry, image-gen). Takes a scene-file and a body-file, plus `--entry-field k=v` selector pairs, `--output`, and `--no-generate`.
+- **Config reader:** `<plugin_root>/tools/blog_config.py` (dotted-path `get`, used by the helper for `site_dir`, `image.prompts_file`, `image.output_dir`).
 
 ## Procedure
 
@@ -61,7 +61,7 @@ Read `.blog-craft.yaml` and check that the `series` arg is one of the `series[].
 - `slug` — must match `^[a-z][a-z0-9-]*$` (kebab-case).
 - `title` — non-empty.
 
-If `<blog-root>/content/docs/<series>/<number>-<slug>/` already exists, refuse:
+If `<blog-root>/<site_dir>/content/docs/<series>/<number>-<slug>/` already exists (`site_dir` from `.blog-craft.yaml`, default `.`), refuse:
 
 > Post `<series>/<number>-<slug>` already exists at `<path>`. Pick a different number or slug.
 
@@ -148,9 +148,9 @@ Now that the body is approved, read `image.composition_order` and `image.layers`
 
    Collect the approved pairs for Step 8's `--entry-field` flags. A layer the user wants skipped gets no pair (a missing selector skips that layer).
 
-### Step 6: Preview the composed prompt
+### Step 6: Create the entry and preview the composed prompt (no API spend)
 
-The single source of composed prompts is the generator. After the helper appends the entry (Step 8 runs it), preview comes from `--print-prompt`. To preview **before** creating anything, compose nothing by hand — run Step 8 with the entry fields, then:
+The single source of composed prompts is the generator — never hand-concatenate. Run the helper NOW with `--no-generate`: it creates the bundle and appends the scene-only entry but skips generation (Step 8's full invocation, plus `--no-generate`). Then preview:
 
 ```bash
 ( cd <blog_root> && python <site_dir>/scripts/generate-images.py --config .blog-craft.yaml --print-prompt <series>-<number> )
@@ -159,10 +159,10 @@ The single source of composed prompts is the generator. After the helper appends
 Show the output and ask:
 
 > Prompt looks right? (y / adjust)
-> - **y** — proceed
-> - **adjust** — edit the entry's scene or selector fields in `<image.prompts_file>` (or re-run the helper with different `--entry-field` values), then re-run `--print-prompt`
+> - **y** — proceed to Step 7
+> - **adjust** — edit the entry's scene or selector fields in `<image.prompts_file>`, then re-run `--print-prompt`
 
-`--dry-run` additionally lists every reference image in payload order (master sheet first, then the entry's `references:` anchors) without an API call.
+`--dry-run` additionally lists every reference image in payload order (master sheet first, then the entry's `references:` anchors) — still no API call.
 
 ### Step 7: Confirm the API key is in the environment
 
@@ -172,10 +172,18 @@ Read `image.api_key_env` from `.blog-craft.yaml` (default `GEMINI_API_KEY`). Che
 
 Capture and `export <api_key_env>=<value>` for the helper invocation.
 
-### Step 8: Run the helper
+### Step 8: Generate the image
+
+The bundle + entry already exist (Step 6 ran the helper with `--no-generate`). Generate the approved cover:
 
 ```bash
-bash <plugin_root>/tools/blog-post-create.sh \
+( cd <blog_root> && python <site_dir>/scripts/generate-images.py --config .blog-craft.yaml --only <series>-<number> )
+```
+
+For reference, the full helper invocation Step 6 used:
+
+```bash
+bash <plugin_root>/tools/blog-post-create.sh --no-generate \
   --entry-field mood=cautious --entry-field torso_variant=1 \   # Step 5's selector pairs (omit if none)
   <blog_root> <series> <number> <slug> <title> \
   /tmp/blog-post-scene-<timestamp>.txt \
@@ -185,12 +193,12 @@ bash <plugin_root>/tools/blog-post-create.sh \
   "<diataxis>"    # comma-separated modes from Step 4, e.g. how-to,reference
 ```
 
-Optional: `--output <path>` overrides the cover path when the blog's convention differs from `<image.output_dir>/<key>-cover.png` (check existing entries in `<image.prompts_file>` — some blogs keep covers inside page bundles).
+Optional helper flag: `--output <path>` overrides the cover path when the blog's convention differs from `<image.output_dir>/<key>-cover.png` (check existing entries in `<image.prompts_file>` — some blogs keep covers inside page bundles).
 
 The helper (all paths resolved from `.blog-craft.yaml` — `site_dir`, `image.prompts_file`, `image.output_dir`):
 1. Creates the page bundle at `<blog_root>/<site_dir>/content/docs/<series>/<number>-<slug>/index.md` with weight `<number>+1`, the **approved summary**, **`reader_goal`**, and **`diataxis`** in the frontmatter, and the **approved body** (markers and all) below it.
 2. Appends a `key: <series>-<number>` entry to `<image.prompts_file>`: `series:` + each `--entry-field` pair + the **scene only** under `prompt: |`.
-3. Runs `python <site_dir>/scripts/generate-images.py --only <series>-<number>`. No reference image is required — the generator's own precedence (CLI override → `image.reference_image` → pool by series → generic pool → none) decides. Requires PyYAML + Pillow + google-genai installed (see the blog's `README.md` for venv setup). Honors the `<api_key_env>` from Step 7.
+3. Without `--no-generate`, runs `python <site_dir>/scripts/generate-images.py --only <series>-<number>` (with it, prints the preview command instead — this skill's flow). No reference image is required — the generator's own precedence (CLI override → `image.reference_image` → pool by series → generic pool → none) decides. Requires PyYAML + Pillow + google-genai installed (see the blog's `README.md` for venv setup). Generation honors the `<api_key_env>` from Step 7.
 4. Does **not** touch the series overview — its `{{< series-index >}}` shortcode lists the new post automatically on the next Hugo build (page-derived, always in sync).
 
 If the helper exits non-zero, surface the error and stop.
@@ -222,7 +230,7 @@ Run the educational-writing gate on the new post:
 
 ```bash
 python <plugin_root>/tools/validate_educational.py --config <blog_root>/.blog-craft.yaml \
-    <blog_root>/content/docs/<series>/<number>-<slug>/index.md
+    <blog_root>/<site_dir>/content/docs/<series>/<number>-<slug>/index.md
 ```
 
 It checks `reader_goal`, `diataxis`, at least one command/output block, and an
@@ -236,10 +244,10 @@ use rarely.)
 
 Tell the user:
 
-> Draft created at `<blog_root>/content/docs/<series>/<number>-<slug>/index.md`. Preview with:
+> Draft created at `<blog_root>/<site_dir>/content/docs/<series>/<number>-<slug>/index.md`. Preview with:
 >
 > ```bash
-> cd <blog_root> && bash scripts/hugo-serve.sh --buildDrafts
+> cd <blog_root>/<site_dir> && bash scripts/hugo-serve.sh --buildDrafts
 > ```
 
 Do **not** auto-launch the server.

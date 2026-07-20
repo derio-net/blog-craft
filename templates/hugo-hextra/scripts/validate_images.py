@@ -9,8 +9,13 @@ walk that dead-ends on a container). A silently dropped layer corrupts every
 future regen of that cover, which is exactly the class of drift a text-parity
 check can't see.
 
-A selector whose HEAD field is absent from the entry is a deliberate skip —
-legit. A head field that is present but walks to "" is a flag.
+A selector field that is absent from the entry — at ANY step of the walk — is
+a deliberate skip (the engine's own semantics): `series` is a standard field
+every entry carries, so a head like `[[torso, series], torso_variant]` is
+"present" on every tile and banner; only entries whose selector VALUES are all
+given yet fail to resolve are flagged. An entry with `prompt: ""` is the
+shipped placeholder convention (bootstrap tiles await fill-in) and passes;
+only a MISSING `prompt` key on a non-operator_generated entry is flagged.
 
 Usage: validate_images.py --config <path/to/.blog-craft.yaml>
 Exit 0 clean; 1 with per-entry reasons on stderr.
@@ -27,10 +32,14 @@ from compose import _resolve_selector_walk  # noqa: E402  (sibling: tools/ or sc
 REQUIRED = ("key", "output")
 
 
-def _head_fields(name: str, table: dict) -> list[str]:
+def _all_step_fields_present(name: str, table: dict, entry: dict) -> bool:
+    """True when every walk step has a selector value on the entry."""
     steps = table.get("_select") or [name]
-    head = steps[0]
-    return head if isinstance(head, list) else [head]
+    for step in steps:
+        fields = step if isinstance(step, list) else [step]
+        if not any(entry.get(f) is not None for f in fields):
+            return False
+    return True
 
 
 def validate_images(cfg: dict, entries: list, root: Path) -> list[str]:
@@ -47,7 +56,9 @@ def validate_images(cfg: dict, entries: list, root: Path) -> list[str]:
             continue
         key = e.get("key") or f"images[{i}]"
         missing = [f for f in REQUIRED if not e.get(f)]
-        if not e.get("prompt") and not e.get("operator_generated"):
+        # `prompt: ""` is the shipped placeholder convention (bootstrap tiles);
+        # only a missing key on a generatable entry is a defect
+        if "prompt" not in e and not e.get("operator_generated"):
             missing.append("prompt")
         if missing:
             errors.append(f"{key}: missing required field(s): {', '.join(missing)}")
@@ -65,8 +76,8 @@ def validate_images(cfg: dict, entries: list, root: Path) -> list[str]:
                 errors.append(f"{key}: reference not found: {rel}")
 
         for name, table in dict_layers.items():
-            if not any(e.get(f) is not None for f in _head_fields(name, table)):
-                continue                     # deliberate skip — no selector given
+            if not _all_step_fields_present(name, table, e):
+                continue                     # deliberate skip — engine semantics
             if _resolve_selector_walk(name, table, e) == "":
                 errors.append(
                     f"{key}: layer '{name}' selector resolves to nothing "
