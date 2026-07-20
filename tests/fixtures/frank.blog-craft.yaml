@@ -33,6 +33,7 @@ image:
     reference_guidance: |
       Use the reference for face/proportions only; redraw the scene fresh.
     torso:
+      _select: [[torso, series], torso_variant]
       building: ["work clothes", "overalls", "overalls under lab coat", "work apron with tools", "torso-deep in server hardware"]
       operating: ["open access panel on a workbench", "hoodie + sunglasses", "t-shirt, sleeves rolled"]
       papers: ["white shirt + black tie + reading glasses", "lab coat over shirt+tie+glasses", "leather overalls over shirt+tie+glasses"]
