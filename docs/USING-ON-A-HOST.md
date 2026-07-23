@@ -13,6 +13,12 @@ update differently.
 Updating the plugin does **not** touch a blog's materialized files, and vice
 versa. Most "I updated but nothing changed in my blog" confusion is this.
 
+> **On OpenCode**, the same skills are invoked with a `blog-craft-` prefix —
+> `/blog-craft-blog-post`, `/blog-craft-update`, `/blog-craft-media`, … . OpenCode
+> discovers skills into one flat global directory with no per-plugin namespace, so
+> the prefix keeps blog-craft's out of the way of other skills. Claude Code (which
+> namespaces by plugin) keeps the bare `/blog-post` form shown above.
+
 ## A. Land a newer blog-craft
 
 1. Merge the change to the plugin's default branch (or install the plugin from a

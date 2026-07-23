@@ -6,9 +6,21 @@ project-level instructions from the opencode.json instructions array. Its slash
 commands (/name) live in commands/<name>.md — separate from skills. This script
 generates all three mirrors from canonical sources.
 
+**OpenCode skills/commands are prefixed `blog-craft-<name>`.** Unlike Claude
+Code, which namespaces plugin skills by marketplace (so blog-craft's `media`
+shows as `blog-craft:media`), OpenCode discovers skills into a single FLAT
+global directory (~/.config/opencode/skills/) shared with every other plugin
+and third-party skill — a bare `media` or `update` would collide. OpenCode's
+own naming rule (`^[a-z0-9]+(-[a-z0-9]+)*$` — no colons or slashes, no nested
+dirs) leaves a hyphenated prefix as the only namespacing mechanism, so the
+mirror carries `blog-craft-media`, `blog-craft-update`, etc., with the
+SKILL.md `name:` rewritten to match (OpenCode requires name == directory).
+The canonical skills/<name>/ dirs keep their bare names — the prefix lives
+ONLY in the OpenCode delivery layer, so the Claude Code side stays clean.
+
 skills/<name>/SKILL.md stays the canonical source — never hand-edit
-.opencode/skills/<name>/SKILL.md, .opencode/commands/<name>.md, or
-.opencode/instructions/<rule>.md directly; all three are overwritten on sync.
+.opencode/skills/blog-craft-<name>/SKILL.md, .opencode/commands/blog-craft-<name>.md,
+or .opencode/instructions/<rule>.md directly; all three are overwritten on sync.
 
 Usage:
     uv run scripts/sync-opencode.py          # write/update all mirrors
@@ -18,6 +30,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from pathlib import Path
 
@@ -33,55 +46,84 @@ INSTRUCTIONS_MIRROR_DIR = REPO_ROOT / ".opencode" / "instructions"
 
 COMMANDS_MIRROR_DIR = REPO_ROOT / ".opencode" / "commands"
 
+# The namespace prefix for OpenCode delivery. Bare skill names live in a flat
+# global dir shared across plugins; the prefix keeps blog-craft's out of the
+# way of third-party skills. See module docstring.
+MIRROR_PREFIX = "blog-craft-"
+
+_FRONTMATTER_NAME = re.compile(r"^name:.*$", re.MULTILINE)
+
+
+def mirror_name(canonical_name: str) -> str:
+    """The OpenCode-facing skill/command name for a canonical skill."""
+    return f"{MIRROR_PREFIX}{canonical_name}"
+
+
+def _render_mirror_skill(canonical_text: str, mirrored_name: str) -> str:
+    """Canonical SKILL.md with its frontmatter ``name:`` rewritten to the mirror
+    directory name (OpenCode requires ``name`` == directory). Only the first
+    ``name:`` line — the frontmatter one — is touched; the body is verbatim."""
+    return _FRONTMATTER_NAME.sub(f"name: {mirrored_name}", canonical_text, count=1)
+
 
 def canonical_skills() -> dict[str, Path]:
     return {p.parent.name: p for p in sorted(SKILLS_CANONICAL_DIR.glob("*/SKILL.md"))}
 
 
-def mirror_skills() -> dict[str, Path]:
+def expected_mirror_skills() -> dict[str, str]:
+    """Mirror dir name (``blog-craft-<name>``) -> expected SKILL.md content."""
+    return {
+        mirror_name(name): _render_mirror_skill(src.read_text(), mirror_name(name))
+        for name, src in canonical_skills().items()
+    }
+
+
+def actual_mirror_skills() -> dict[str, str]:
+    """Mirror dir name -> committed SKILL.md content (keyed by actual dir name,
+    so legacy unprefixed dirs surface as unexpected extras to be cleaned)."""
     if not SKILLS_MIRROR_DIR.is_dir():
         return {}
-    return {p.parent.name: p for p in sorted(SKILLS_MIRROR_DIR.glob("*/SKILL.md"))}
+    return {p.parent.name: p.read_text() for p in sorted(SKILLS_MIRROR_DIR.glob("*/SKILL.md"))}
 
 
 def find_skills_drift() -> list[str]:
-    canonical = canonical_skills()
-    mirror = mirror_skills()
+    expected = expected_mirror_skills()
+    actual = actual_mirror_skills()
     problems = []
 
-    missing = sorted(set(canonical) - set(mirror))
-    extra = sorted(set(mirror) - set(canonical))
-    for name in missing:
+    for name in sorted(set(expected) - set(actual)):
         problems.append(f"{name}: missing from .opencode/skills/")
-    for name in extra:
+    for name in sorted(set(actual) - set(expected)):
         problems.append(f"{name}: present in .opencode/skills/ with no canonical source")
-
-    for name in sorted(set(canonical) & set(mirror)):
-        if canonical[name].read_text() != mirror[name].read_text():
+    for name in sorted(set(expected) & set(actual)):
+        if expected[name] != actual[name]:
             problems.append(f"{name}: .opencode/skills/ content differs from canonical")
 
     return problems
 
 
 def sync_skills() -> None:
+    expected = expected_mirror_skills()
     canonical = canonical_skills()
 
-    for name, path in mirror_skills().items():
-        if name not in canonical:
-            skill_dir = path.parent
-            for child in skill_dir.iterdir():
-                child.unlink()
-            skill_dir.rmdir()
+    # Drop any mirror skill dir not in the expected set — including legacy
+    # unprefixed dirs from before the blog-craft- prefix.
+    if SKILLS_MIRROR_DIR.is_dir():
+        for skill_md in sorted(SKILLS_MIRROR_DIR.glob("*/SKILL.md")):
+            if skill_md.parent.name not in expected:
+                skill_dir = skill_md.parent
+                for child in skill_dir.iterdir():
+                    child.unlink()
+                skill_dir.rmdir()
 
     for name, src in canonical.items():
-        dest_dir = SKILLS_MIRROR_DIR / name
+        dest_dir = SKILLS_MIRROR_DIR / mirror_name(name)
         dest_dir.mkdir(parents=True, exist_ok=True)
-        dest = dest_dir / "SKILL.md"
-        dest.write_text(src.read_text())
-        source_note = dest_dir / ".source"
-        source_note.write_text(
+        (dest_dir / "SKILL.md").write_text(expected[mirror_name(name)])
+        (dest_dir / ".source").write_text(
             f"Generated from {src.relative_to(REPO_ROOT)} by "
-            f"scripts/sync-opencode.py. Do not edit SKILL.md here directly.\n"
+            f"scripts/sync-opencode.py (name prefixed for OpenCode's flat skill "
+            f"namespace). Do not edit SKILL.md here directly.\n"
         )
 
 
@@ -118,11 +160,13 @@ def _render_command(name: str, description: str) -> str:
 
 
 def canonical_commands() -> dict[str, str]:
+    """Mirror command name (``blog-craft-<name>``) -> rendered command file. The
+    command body invokes the prefixed skill, matching the mirror skill dir."""
     result = {}
     for name, skill_md in canonical_skills().items():
         frontmatter = _skill_frontmatter(skill_md)
         description = str(frontmatter.get("description", "")).strip()
-        result[name] = _render_command(name, description)
+        result[mirror_name(name)] = _render_command(mirror_name(name), description)
     return result
 
 

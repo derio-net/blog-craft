@@ -59,13 +59,31 @@ rows:
     levels:
       unit:
       - blog-craft:tests/unit/test_install_marketplace_namespace.py
-    status: skipped
-    notes: 'Marketplace registration + plugin enable/disable are now CI-pinned end-to-end
-      (install.sh run against a fake HOME): own-name registration, unconditional
-      convergence of our own keys, migration off the derio-net squat, and an
-      --uninstall that removes only keys we own. The OpenCode skills/commands
-      delivery half of this row is still manual (run scripts/install.sh and verify
-      ~/.config/opencode/) — backfill owed for that half only.'
+      - blog-craft:tests/unit/test_opencode_namespace.py
+    status: ci
+    notes: 'Both halves now CI-pinned end-to-end (install.sh run against a fake HOME).
+      Marketplace registration + plugin enable/disable: own-name registration,
+      unconditional convergence of our own keys, migration off the derio-net squat,
+      --uninstall removing only keys we own. OpenCode skills/commands delivery:
+      prefixed (blog-craft-<name>) skills+commands land in ~/.config/opencode/, a
+      stale bare-named copy is migrated away, and a same-named third-party skill is
+      preserved. Live OpenCode-runtime discovery of the delivered files is the only
+      remaining manual step.'
+  - id: opencode-skill-namespace
+    capability: opencode-compatibility
+    acceptance: OpenCode skills/commands are namespaced blog-craft-<name> (OpenCode's
+      flat global skill dir has no marketplace layer); canonical skills/ stay bare so
+      Claude Code is unaffected; the sync mirror and installer both enforce the prefix
+    origin:
+    - blog-craft:docs/superpowers/journals/debug/2026-07-23-opencode-skill-namespace.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_opencode_namespace.py
+      - blog-craft:tests/unit/test_opencode_sync.py
+    status: ci
+    notes: 'Mirror contract (all .opencode/ skill dirs + commands prefixed, frontmatter
+      name == dir, body verbatim apart from the name line) and canonical-stays-bare are
+      static-pinned; install delivery/migration/third-party-safety are install.sh-pinned.'
   - id: OC-5
     capability: opencode-compatibility
     acceptance: Claude Code plugin path is not regressed

@@ -48,24 +48,46 @@ OPENCODE_SKILLS_DIR="$HOME/.config/opencode/skills"
 OPENCODE_COMMANDS_DIR="$HOME/.config/opencode/commands"
 OPENCODE_INSTRUCTIONS_DIR="$HOME/.config/opencode/instructions"
 OPENCODE_PLUGIN_DIR="$HOME/.config/opencode/plugins/blog-craft"
+# OpenCode's skills/commands live in ONE flat global namespace shared with every
+# other plugin and third-party skill, and OpenCode has no marketplace layer to
+# namespace them (Claude Code does — it shows these as blog-craft:<name>). So the
+# OpenCode-facing names are prefixed to avoid collisions. Delivered from the
+# .opencode/ mirror, which scripts/sync-opencode.py generates already prefixed
+# (with matching SKILL.md `name:`). Canonical skills/<name>/ keep bare names.
+OPENCODE_SKILL_PREFIX="blog-craft-"
 
 if [[ "${1:-}" == "--uninstall" ]]; then
   echo "Uninstalling blog-craft..."
+  # Remove the prefixed skills/commands we deliver, plus any stale bare-named
+  # copies from a pre-prefix install — but a bare name only if it is byte-for-
+  # byte our own skill (never nuke a same-named third-party skill).
   if [ -d "$OPENCODE_SKILLS_DIR" ]; then
     for skill_dir in "$PLUGIN_ROOT"/skills/*/; do
-      skill="$(basename "$skill_dir")"
-      if [ -d "$OPENCODE_SKILLS_DIR/$skill" ]; then
-        rm -rf "$OPENCODE_SKILLS_DIR/$skill"
-        echo "  Removed $OPENCODE_SKILLS_DIR/$skill"
+      bare="$(basename "$skill_dir")"
+      pref="$OPENCODE_SKILL_PREFIX$bare"
+      if [ -d "$OPENCODE_SKILLS_DIR/$pref" ]; then
+        rm -rf "$OPENCODE_SKILLS_DIR/$pref"
+        echo "  Removed $OPENCODE_SKILLS_DIR/$pref"
+      fi
+      if [ -f "$OPENCODE_SKILLS_DIR/$bare/SKILL.md" ] && \
+         cmp -s "$skill_dir/SKILL.md" "$OPENCODE_SKILLS_DIR/$bare/SKILL.md"; then
+        rm -rf "$OPENCODE_SKILLS_DIR/$bare"
+        echo "  Removed stale unprefixed $OPENCODE_SKILLS_DIR/$bare"
       fi
     done
   fi
   if [ -d "$OPENCODE_COMMANDS_DIR" ]; then
     for skill_dir in "$PLUGIN_ROOT"/skills/*/; do
-      skill="$(basename "$skill_dir")"
-      if [ -f "$OPENCODE_COMMANDS_DIR/$skill.md" ]; then
-        rm -f "$OPENCODE_COMMANDS_DIR/$skill.md"
-        echo "  Removed $OPENCODE_COMMANDS_DIR/$skill.md"
+      bare="$(basename "$skill_dir")"
+      pref="$OPENCODE_SKILL_PREFIX$bare"
+      if [ -f "$OPENCODE_COMMANDS_DIR/$pref.md" ]; then
+        rm -f "$OPENCODE_COMMANDS_DIR/$pref.md"
+        echo "  Removed $OPENCODE_COMMANDS_DIR/$pref.md"
+      fi
+      if [ -f "$OPENCODE_COMMANDS_DIR/$bare.md" ] && \
+         grep -qF "Use the \`$bare\` skill to handle this request." "$OPENCODE_COMMANDS_DIR/$bare.md"; then
+        rm -f "$OPENCODE_COMMANDS_DIR/$bare.md"
+        echo "  Removed stale unprefixed $OPENCODE_COMMANDS_DIR/$bare.md"
       fi
     done
   fi
@@ -256,10 +278,23 @@ else
   echo "  WARNING: uv not found — cannot refresh .opencode/ mirrors" >&2
 fi
 
+# Skills come from the .opencode/skills/ mirror (blog-craft-<name>, frontmatter
+# name matching), NOT canonical skills/ — see OPENCODE_SKILL_PREFIX above. First
+# migrate: drop any stale bare-named copy a pre-prefix install left behind, but
+# only when it is byte-for-byte our own skill (never a same-named third party).
 if [ -d "$OPENCODE_SKILLS_DIR" ] || mkdir -p "$OPENCODE_SKILLS_DIR" 2>/dev/null; then
   mkdir -p "$OPENCODE_SKILLS_DIR"
   for skill_dir in "$PLUGIN_ROOT"/skills/*/; do
-    skill="$(basename "$skill_dir")"
+    bare="$(basename "$skill_dir")"
+    if [ -f "$OPENCODE_SKILLS_DIR/$bare/SKILL.md" ] && \
+       cmp -s "$skill_dir/SKILL.md" "$OPENCODE_SKILLS_DIR/$bare/SKILL.md"; then
+      rm -rf "$OPENCODE_SKILLS_DIR/$bare"
+      echo "  Migrated: removed stale unprefixed skill $bare"
+    fi
+  done
+  for skill_dir in "$PLUGIN_ROOT"/.opencode/skills/*/; do
+    [ -d "$skill_dir" ] || continue
+    skill="$(basename "$skill_dir")"   # already blog-craft-<name>
     mkdir -p "$OPENCODE_SKILLS_DIR/$skill"
     cp "$skill_dir/SKILL.md" "$OPENCODE_SKILLS_DIR/$skill/SKILL.md"
     echo "  Installed $OPENCODE_SKILLS_DIR/$skill/SKILL.md"
@@ -271,11 +306,18 @@ fi
 if [ -d "$OPENCODE_COMMANDS_DIR" ] || mkdir -p "$OPENCODE_COMMANDS_DIR" 2>/dev/null; then
   mkdir -p "$OPENCODE_COMMANDS_DIR"
   for skill_dir in "$PLUGIN_ROOT"/skills/*/; do
-    skill="$(basename "$skill_dir")"
-    if [ -f "$PLUGIN_ROOT/.opencode/commands/$skill.md" ]; then
-      cp "$PLUGIN_ROOT/.opencode/commands/$skill.md" "$OPENCODE_COMMANDS_DIR/$skill.md"
-      echo "  Installed $OPENCODE_COMMANDS_DIR/$skill.md"
+    bare="$(basename "$skill_dir")"
+    if [ -f "$OPENCODE_COMMANDS_DIR/$bare.md" ] && \
+       grep -qF "Use the \`$bare\` skill to handle this request." "$OPENCODE_COMMANDS_DIR/$bare.md"; then
+      rm -f "$OPENCODE_COMMANDS_DIR/$bare.md"
+      echo "  Migrated: removed stale unprefixed command $bare.md"
     fi
+  done
+  for cmd_file in "$PLUGIN_ROOT"/.opencode/commands/*.md; do
+    [ -f "$cmd_file" ] || continue
+    cmd="$(basename "$cmd_file")"   # already blog-craft-<name>.md
+    cp "$cmd_file" "$OPENCODE_COMMANDS_DIR/$cmd"
+    echo "  Installed $OPENCODE_COMMANDS_DIR/$cmd"
   done
 else
   echo "  WARNING: cannot install OpenCode commands — $OPENCODE_COMMANDS_DIR not writable" >&2
