@@ -124,10 +124,20 @@ Bash installer that sets up blog-craft for both Claude Code and OpenCode.
 - Must run from a clean git checkout (same guard as super-fr)
 
 **Claude Code delivery:**
-1. Register `derio-net` marketplace in settings.json (`extraKnownMarketplaces`)
-2. Register `derio-net` in `known_marketplaces.json`
-3. Enable `blog-craft@derio-net` plugin in settings.json
-4. Sync repo to marketplace cache dir (`~/.claude/plugins/marketplaces/derio-net/`)
+
+> **Corrected 2026-07-23.** This section originally said `derio-net` — copied
+> from super-fr without noticing that a marketplace name is a **1:1 namespace
+> over one source repo**, not an org label. Its manifest
+> (`marketplaces/<name>/.claude-plugin/marketplace.json`) is a single file
+> listing every plugin of that marketplace, and the installer writes it with
+> `rsync --delete`. Two repos claiming one name mutually evict each other; see
+> super-fr PR #392. blog-craft registers under `blog-craft` — the name its own
+> `.claude-plugin/marketplace.json` declares.
+
+1. Register `blog-craft` marketplace in settings.json (`extraKnownMarketplaces`)
+2. Register `blog-craft` in `known_marketplaces.json`
+3. Enable `blog-craft@blog-craft` plugin in settings.json
+4. Sync repo to marketplace cache dir (`~/.claude/plugins/marketplaces/blog-craft/`)
 5. Register plugin version in `installed_plugins.json`
 
 **OpenCode delivery (always, since install.sh IS the OpenCode installation path):**
@@ -136,9 +146,17 @@ Bash installer that sets up blog-craft for both Claude Code and OpenCode.
 3. Copy commands to `~/.config/opencode/commands/<name>.md`
 
 **Uninstall (`--uninstall`):**
-- Remove marketplace entries
+- Remove marketplace entries **we own** — never a shared/foreign marketplace
+  key, which would deregister that marketplace's other plugins too
 - Remove plugin registration
 - Remove OpenCode skills/commands
+
+Two invariants for any repo copying this installer:
+
+- **Write the keys you own unconditionally.** `if ! jq -e '."<key>"'` reads as
+  idempotence but means first-writer-wins, so someone else's wrong
+  `source.repo` survives every reinstall.
+- **Delete only the keys you own.**
 
 ### 5. `.gitignore` updates
 
