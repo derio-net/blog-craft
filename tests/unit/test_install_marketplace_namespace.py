@@ -1,26 +1,28 @@
-"""blog-craft installs under its OWN marketplace name, never `derio-net`.
+"""A marketplace name is `<org>--<repo>`, and bare names are retired.
 
-Root cause (super-fr PR #392 / its debug journal
-2026-07-23-marketplace-config-clobber): a Claude Code marketplace name is a 1:1
-namespace over ONE source repo.  Its manifest at
-`~/.claude/plugins/marketplaces/<name>/.claude-plugin/marketplace.json` is a
-single file listing every plugin of that marketplace, and every installer
+Root cause (super-fr PR #392, and
+docs/superpowers/journals/debug/2026-07-23-marketplace-namespace-collision.md):
+a Claude Code marketplace name is a 1:1 namespace over ONE source repo.  Its
+manifest at `~/.claude/plugins/marketplaces/<name>/.claude-plugin/marketplace.json`
+is a single file listing every plugin of that marketplace, and every installer
 populates it with `rsync -a --delete <own repo root>/` — replace, never merge.
 
-blog-craft's installer used to claim `derio-net`, the name the sibling
-super-fr repo owns (super-fr's manifest declares `"name": "derio-net"`; ours
-declares `"name": "blog-craft"`).  Both rsync'd into the same directory, so
-whichever installer ran last evicted the other's plugins from the manifest
-while their `enabledPlugins` / `installed_plugins.json` entries survived as
-dangling references.  blog-craft is the party in the wrong and moves to
-`blog-craft` — the name it already declares.
+blog-craft's installer claimed the bare org name `derio-net`, which the sibling
+super-fr repo also claimed.  Both rsync'd into the same directory, so whichever
+ran last evicted the other's plugins from the manifest while their
+`enabledPlugins` / `installed_plugins.json` entries survived as dangling
+references.
 
-Two invariants pinned here, and the migration off the squat:
+The bare name is retired rather than awarded to a winner: blog-craft installs
+as `derio-net--blog-craft`, super-fr as `derio-net--super-fr`, and both
+installers purge `derio-net` on sight.  With no owner left, every `*@derio-net`
+id is dangling by definition — so purging the whole key is safe by
+construction, not one repo reaching into another's install state.
 
-- write the keys you OWN unconditionally (skip-if-present means
-  first-writer-wins, so a stale wrong source survives every reinstall);
-- delete only the keys you own — `--uninstall` must never remove the shared
-  `derio-net` marketplace, which would deregister super-fr too.
+Pinned here: installing under our own `<org>--<repo>` name, unconditional
+convergence of the keys we own, the bare-name purge (including our own older
+`blog-craft` marketplace), and an `--uninstall` that removes only our plugin
+ids and our marketplace — never a sibling's.
 """
 
 from __future__ import annotations
@@ -36,10 +38,9 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 INSTALL_SH = REPO_ROOT / "scripts" / "install.sh"
 
-MARKETPLACE_NAME = "blog-craft"
-PLUGIN_ID = "blog-craft@blog-craft"
-SQUATTED_NAME = "derio-net"
-SQUATTED_PLUGIN_ID = "blog-craft@derio-net"
+MARKETPLACE_NAME = "derio-net--blog-craft"
+PLUGIN_ID = f"blog-craft@{MARKETPLACE_NAME}"
+RETIRED_NAMES = ("derio-net", "blog-craft")
 
 pytestmark = pytest.mark.skipif(
     shutil.which("jq") is None or shutil.which("rsync") is None,
@@ -92,16 +93,26 @@ def _installed(home: Path) -> dict:
     return json.loads((home / ".claude" / "plugins" / "installed_plugins.json").read_text())
 
 
-def _seed_super_fr(home: Path) -> None:
-    """Pre-seed the machine as if super-fr's installer had already run."""
+def _seed_legacy(home: Path) -> None:
+    """Pre-seed a machine as the old installers left it: our squat inside the
+    shared `derio-net` namespace, our older bare `blog-craft` marketplace, a
+    sibling's registrations, and an unrelated third-party marketplace."""
     plugins = home / ".claude" / "plugins"
     (plugins / "known_marketplaces.json").write_text(
         json.dumps(
             {
-                SQUATTED_NAME: {
+                "derio-net": {
                     "source": {"source": "github", "repo": "derio-net/super-fr"},
-                    "installLocation": str(plugins / "marketplaces" / SQUATTED_NAME),
-                }
+                    "installLocation": str(plugins / "marketplaces" / "derio-net"),
+                },
+                "blog-craft": {
+                    "source": {"source": "directory", "path": "/checkouts/blog-craft"},
+                    "installLocation": "/checkouts/blog-craft",
+                },
+                "thedotmack": {
+                    "source": {"source": "github", "repo": "thedotmack/claude-mem"},
+                    "installLocation": "/elsewhere/thedotmack",
+                },
             }
         )
     )
@@ -109,13 +120,19 @@ def _seed_super_fr(home: Path) -> None:
         json.dumps(
             {
                 "extraKnownMarketplaces": {
-                    SQUATTED_NAME: {
-                        "source": {"source": "github", "repo": "derio-net/super-fr"}
-                    }
+                    "derio-net": {"source": {"source": "github", "repo": "derio-net/super-fr"}},
+                    "blog-craft": {
+                        "source": {"source": "directory", "path": "/checkouts/blog-craft"}
+                    },
+                    "thedotmack": {
+                        "source": {"source": "github", "repo": "thedotmack/claude-mem"}
+                    },
                 },
                 "enabledPlugins": {
+                    "blog-craft@derio-net": True,
+                    "blog-craft@blog-craft": True,
                     "super-fr@derio-net": True,
-                    "super-fr-dispatch@derio-net": True,
+                    "claude-mem@thedotmack": True,
                 },
             }
         )
@@ -125,67 +142,48 @@ def _seed_super_fr(home: Path) -> None:
             {
                 "version": 2,
                 "plugins": {
-                    "super-fr@derio-net": [
-                        {
-                            "scope": "user",
-                            "installPath": str(
-                                plugins / "cache" / SQUATTED_NAME / "super-fr" / "current"
-                            ),
-                            "version": "3.12.1",
-                        }
-                    ]
+                    "blog-craft@derio-net": [{"scope": "user", "version": "0.10.0"}],
+                    "blog-craft@blog-craft": [{"scope": "user", "version": "0.1.0"}],
+                    "super-fr@derio-net": [{"scope": "user", "version": "3.12.0"}],
+                    "claude-mem@thedotmack": [{"scope": "user", "version": "10.6.3"}],
                 },
             }
         )
     )
-    manifest = (
-        plugins / "marketplaces" / SQUATTED_NAME / ".claude-plugin" / "marketplace.json"
-    )
+    for name in RETIRED_NAMES:
+        (plugins / "cache" / name / "blog-craft" / "0.1.0").mkdir(parents=True)
+    manifest = plugins / "marketplaces" / "derio-net" / ".claude-plugin" / "marketplace.json"
     manifest.parent.mkdir(parents=True)
-    manifest.write_text(
-        json.dumps(
-            {
-                "name": SQUATTED_NAME,
-                "plugins": [{"name": "super-fr", "version": "3.12.1", "source": "./"}],
-            }
-        )
-    )
+    manifest.write_text(json.dumps({"name": "blog-craft", "plugins": []}))
 
 
-# ── We install under our own name ─────────────────────────────────────
+# ── The name encodes org AND repo ─────────────────────────────────────
 
 
-class TestOwnMarketplaceName:
-    def test_manifest_name_is_what_we_register(self) -> None:
-        """The registry key must match the name our own manifest declares —
-        the self-consistency whose absence caused the collision."""
-        assert _manifest()["name"] == MARKETPLACE_NAME
+def test_manifest_name_encodes_org_and_repo() -> None:
+    """A bare name — org OR repo — is a namespace another repo can also claim,
+    which is exactly how the eviction happened."""
+    assert _manifest()["name"] == MARKETPLACE_NAME
+    script = INSTALL_SH.read_text()
+    assert f'MARKETPLACE_NAME="{MARKETPLACE_NAME}"' in script
 
+
+class TestInstallsUnderOwnName:
     def test_registers_its_own_marketplace_key(self, fake_home: Path) -> None:
         _run_install(fake_home)
 
         entry = _known(fake_home)[MARKETPLACE_NAME]
-        assert entry["source"]["repo"] == "derio-net/blog-craft"
+        assert entry["source"] == {"source": "github", "repo": "derio-net/blog-craft"}
         assert entry["installLocation"].endswith(f"/marketplaces/{MARKETPLACE_NAME}")
 
         source = _settings(fake_home)["extraKnownMarketplaces"][MARKETPLACE_NAME]["source"]
-        assert source["repo"] == "derio-net/blog-craft"
-
-    def test_never_creates_a_derio_net_marketplace(self, fake_home: Path) -> None:
-        _run_install(fake_home)
-
-        assert SQUATTED_NAME not in _known(fake_home), (
-            "blog-craft must not register the marketplace name super-fr owns"
-        )
-        assert SQUATTED_NAME not in _settings(fake_home).get("extraKnownMarketplaces", {})
+        assert source == {"source": "github", "repo": "derio-net/blog-craft"}
 
     def test_plugin_id_is_namespaced_to_our_marketplace(self, fake_home: Path) -> None:
         _run_install(fake_home)
 
         assert PLUGIN_ID in _installed(fake_home)["plugins"]
-        assert SQUATTED_PLUGIN_ID not in _installed(fake_home)["plugins"]
         assert _settings(fake_home)["enabledPlugins"][PLUGIN_ID] is True
-        assert SQUATTED_PLUGIN_ID not in _settings(fake_home)["enabledPlugins"]
 
     def test_writes_its_tree_into_its_own_marketplace_dir(self, fake_home: Path) -> None:
         _run_install(fake_home)
@@ -194,162 +192,25 @@ class TestOwnMarketplaceName:
         manifest = (
             plugins / "marketplaces" / MARKETPLACE_NAME / ".claude-plugin" / "marketplace.json"
         )
-        assert manifest.exists()
         assert json.loads(manifest.read_text())["name"] == MARKETPLACE_NAME
-        assert not (plugins / "marketplaces" / SQUATTED_NAME).exists()
         assert (plugins / "cache" / MARKETPLACE_NAME / "blog-craft" / "current").is_symlink()
-        assert not (plugins / "cache" / SQUATTED_NAME).exists()
 
-
-# ── We do not disturb super-fr's namespace ────────────────────────────
-
-
-class TestLeavesSuperFrAlone:
-    def test_install_preserves_the_derio_net_marketplace(self, fake_home: Path) -> None:
-        _seed_super_fr(fake_home)
-
+    def test_never_writes_a_bare_marketplace_name(self, fake_home: Path) -> None:
         _run_install(fake_home)
 
+        plugins = fake_home / ".claude" / "plugins"
         known = _known(fake_home)
-        assert known[SQUATTED_NAME]["source"]["repo"] == "derio-net/super-fr"
-        settings = _settings(fake_home)
-        assert (
-            settings["extraKnownMarketplaces"][SQUATTED_NAME]["source"]["repo"]
-            == "derio-net/super-fr"
-        )
-        assert settings["enabledPlugins"]["super-fr@derio-net"] is True
-        assert "super-fr@derio-net" in _installed(fake_home)["plugins"]
-
-    def test_install_does_not_touch_super_frs_marketplace_tree(self, fake_home: Path) -> None:
-        _seed_super_fr(fake_home)
-        manifest = (
-            fake_home
-            / ".claude"
-            / "plugins"
-            / "marketplaces"
-            / SQUATTED_NAME
-            / ".claude-plugin"
-            / "marketplace.json"
-        )
-
-        _run_install(fake_home)
-
-        data = json.loads(manifest.read_text())
-        assert data["name"] == SQUATTED_NAME
-        assert [p["name"] for p in data["plugins"]] == ["super-fr"]
-
-    def test_uninstall_removes_only_our_keys(self, fake_home: Path) -> None:
-        """The old `--uninstall` ran `del(."derio-net")` on both registries,
-        deregistering super-fr along with blog-craft."""
-        _seed_super_fr(fake_home)
-        _run_install(fake_home)
-
-        _run_install(fake_home, "--uninstall")
-
-        known = _known(fake_home)
-        assert SQUATTED_NAME in known, (
-            "uninstalling blog-craft must not deregister the derio-net marketplace"
-        )
-        assert known[SQUATTED_NAME]["source"]["repo"] == "derio-net/super-fr"
-        assert MARKETPLACE_NAME not in known
-
-        settings = _settings(fake_home)
-        assert SQUATTED_NAME in settings["extraKnownMarketplaces"]
-        assert MARKETPLACE_NAME not in settings["extraKnownMarketplaces"]
-        assert settings["enabledPlugins"]["super-fr@derio-net"] is True
-        assert PLUGIN_ID not in settings["enabledPlugins"]
-
-    def test_uninstall_leaves_super_fr_plugin_registration(self, fake_home: Path) -> None:
-        _seed_super_fr(fake_home)
-        _run_install(fake_home)
-
-        _run_install(fake_home, "--uninstall")
-
-        installed = _installed(fake_home)["plugins"]
-        assert "super-fr@derio-net" in installed
-        assert PLUGIN_ID not in installed
-
-
-# ── Migration off the squat ───────────────────────────────────────────
-
-
-class TestMigratesOffTheSquat:
-    """Machines that ran the old installer carry `blog-craft@derio-net`
-    registrations pointing into super-fr's namespace.  Those are OUR litter in
-    someone else's yard: we clean them up, and only them."""
-
-    def _seed_squat(self, home: Path) -> None:
-        _seed_super_fr(home)
-        plugins = home / ".claude" / "plugins"
-
-        installed = _installed(home)
-        installed["plugins"][SQUATTED_PLUGIN_ID] = [
-            {
-                "scope": "user",
-                "installPath": str(
-                    plugins / "cache" / SQUATTED_NAME / "blog-craft" / "current"
-                ),
-                "version": "0.10.0",
-            }
-        ]
-        (plugins / "installed_plugins.json").write_text(json.dumps(installed))
-
-        settings = _settings(home)
-        settings["enabledPlugins"][SQUATTED_PLUGIN_ID] = True
-        (home / ".claude" / "settings.json").write_text(json.dumps(settings))
-
-        stale_cache = plugins / "cache" / SQUATTED_NAME / "blog-craft" / "0.10.0"
-        stale_cache.mkdir(parents=True)
-        (stale_cache / "marker").write_text("stale")
-
-    def test_drops_the_stale_plugin_registration(self, fake_home: Path) -> None:
-        self._seed_squat(fake_home)
-
-        _run_install(fake_home)
-
-        assert SQUATTED_PLUGIN_ID not in _installed(fake_home)["plugins"]
-        assert SQUATTED_PLUGIN_ID not in _settings(fake_home)["enabledPlugins"]
-        assert PLUGIN_ID in _installed(fake_home)["plugins"]
-
-    def test_drops_the_stale_cache_under_derio_net(self, fake_home: Path) -> None:
-        self._seed_squat(fake_home)
-
-        _run_install(fake_home)
-
-        stale = fake_home / ".claude" / "plugins" / "cache" / SQUATTED_NAME / "blog-craft"
-        assert not stale.exists(), "our old cache under derio-net must be removed"
-
-    def test_migration_spares_super_frs_own_entries(self, fake_home: Path) -> None:
-        self._seed_squat(fake_home)
-        super_fr_cache = (
-            fake_home / ".claude" / "plugins" / "cache" / SQUATTED_NAME / "super-fr" / "3.12.1"
-        )
-        super_fr_cache.mkdir(parents=True)
-
-        _run_install(fake_home)
-
-        assert super_fr_cache.exists()
-        assert "super-fr@derio-net" in _installed(fake_home)["plugins"]
-        assert SQUATTED_NAME in _known(fake_home)
-
-    def test_migration_is_idempotent(self, fake_home: Path) -> None:
-        self._seed_squat(fake_home)
-
-        _run_install(fake_home)
-        _run_install(fake_home)
-
-        assert SQUATTED_PLUGIN_ID not in _installed(fake_home)["plugins"]
-        assert PLUGIN_ID in _installed(fake_home)["plugins"]
-
-
-# ── Own your key: converge, don't skip ────────────────────────────────
+        extra = _settings(fake_home)["extraKnownMarketplaces"]
+        for name in RETIRED_NAMES:
+            assert name not in known
+            assert name not in extra
+            assert not (plugins / "marketplaces" / name).exists()
+            assert not (plugins / "cache" / name).exists()
 
 
 class TestRegistryWriteIsUnconditional:
-    """`if ! jq -e '."<key>"'` reads as idempotence but means
-    first-writer-wins: a wrong `source.repo` left by anyone else survives every
-    reinstall, and `/plugin marketplace update <key>` then re-fetches the wrong
-    repo.  Converge on our value instead."""
+    """`if ! jq -e '."<key>"'` reads as idempotence but means first-writer-wins:
+    a wrong `source.repo` on our own key survives every reinstall."""
 
     def test_corrects_a_wrong_source_on_our_own_key(self, fake_home: Path) -> None:
         plugins = fake_home / ".claude" / "plugins"
@@ -363,24 +224,182 @@ class TestRegistryWriteIsUnconditional:
                 }
             )
         )
-        (fake_home / ".claude" / "settings.json").write_text(
-            json.dumps(
-                {
-                    "extraKnownMarketplaces": {
-                        MARKETPLACE_NAME: {
-                            "source": {"source": "directory", "path": "/stale/checkout"}
-                        }
-                    }
-                }
-            )
-        )
 
         _run_install(fake_home)
 
         entry = _known(fake_home)[MARKETPLACE_NAME]
         assert entry["source"] == {"source": "github", "repo": "derio-net/blog-craft"}
         assert entry["installLocation"].endswith(f"/marketplaces/{MARKETPLACE_NAME}")
-        assert _settings(fake_home)["extraKnownMarketplaces"][MARKETPLACE_NAME]["source"] == {
-            "source": "github",
-            "repo": "derio-net/blog-craft",
-        }
+
+
+# ── The retired bare names are purged on sight ────────────────────────
+
+
+class TestRetiresBareMarketplaceNames:
+    def test_removes_both_retired_marketplaces(self, fake_home: Path) -> None:
+        _seed_legacy(fake_home)
+
+        _run_install(fake_home)
+
+        known = _known(fake_home)
+        extra = _settings(fake_home)["extraKnownMarketplaces"]
+        for name in RETIRED_NAMES:
+            assert name not in known, f"{name} marketplace must be retired"
+            assert name not in extra
+
+    def test_removes_the_retired_directories_and_caches(self, fake_home: Path) -> None:
+        _seed_legacy(fake_home)
+        plugins = fake_home / ".claude" / "plugins"
+
+        _run_install(fake_home)
+
+        for name in RETIRED_NAMES:
+            assert not (plugins / "marketplaces" / name).exists()
+            assert not (plugins / "cache" / name).exists()
+
+    def test_drops_every_retired_plugin_id_including_a_siblings(
+        self, fake_home: Path
+    ) -> None:
+        _seed_legacy(fake_home)
+
+        _run_install(fake_home)
+
+        installed = _installed(fake_home)["plugins"]
+        enabled = _settings(fake_home)["enabledPlugins"]
+        for stale in ("blog-craft@derio-net", "blog-craft@blog-craft", "super-fr@derio-net"):
+            assert stale not in installed, f"{stale} must be purged from installed_plugins"
+            assert stale not in enabled, f"{stale} must be purged from enabledPlugins"
+        assert PLUGIN_ID in installed
+
+    def test_reports_what_it_purged_and_flags_the_sibling(self, fake_home: Path) -> None:
+        _seed_legacy(fake_home)
+
+        result = _run_install(fake_home)
+
+        combined = result.stdout + result.stderr
+        assert "super-fr@derio-net" in combined, (
+            f"a sibling's dropped registration must be named, not silent:\n{combined}"
+        )
+        assert "Re-run their installers" in combined
+
+    def test_no_sibling_note_when_only_our_ids_were_purged(self, fake_home: Path) -> None:
+        plugins = fake_home / ".claude" / "plugins"
+        (plugins / "installed_plugins.json").write_text(
+            json.dumps(
+                {
+                    "version": 2,
+                    "plugins": {"blog-craft@derio-net": [{"scope": "user", "version": "0.10.0"}]},
+                }
+            )
+        )
+
+        result = _run_install(fake_home)
+
+        assert "Re-run their installers" not in (result.stdout + result.stderr)
+
+    def test_leaves_unrelated_marketplaces_alone(self, fake_home: Path) -> None:
+        _seed_legacy(fake_home)
+
+        _run_install(fake_home)
+
+        known = _known(fake_home)
+        assert known["thedotmack"]["installLocation"] == "/elsewhere/thedotmack"
+        settings = _settings(fake_home)
+        assert settings["extraKnownMarketplaces"]["thedotmack"]["source"]["repo"] == (
+            "thedotmack/claude-mem"
+        )
+        assert settings["enabledPlugins"]["claude-mem@thedotmack"] is True
+        assert "claude-mem@thedotmack" in _installed(fake_home)["plugins"]
+
+    def test_quiet_on_a_clean_machine(self, fake_home: Path) -> None:
+        result = _run_install(fake_home)
+
+        assert "Retired the bare-name" not in result.stdout + result.stderr
+
+    def test_idempotent_across_reinstalls(self, fake_home: Path) -> None:
+        _seed_legacy(fake_home)
+
+        _run_install(fake_home)
+        _run_install(fake_home)
+
+        for name in RETIRED_NAMES:
+            assert name not in _known(fake_home)
+        assert PLUGIN_ID in _installed(fake_home)["plugins"]
+
+
+# ── Uninstall removes only what is ours ───────────────────────────────
+
+
+class TestUninstallScope:
+    """The old `--uninstall` ran `del(."derio-net")` on both registries, which
+    deregistered super-fr along with blog-craft."""
+
+    def test_removes_our_marketplace_and_ids(self, fake_home: Path) -> None:
+        _run_install(fake_home)
+
+        _run_install(fake_home, "--uninstall")
+
+        assert MARKETPLACE_NAME not in _known(fake_home)
+        assert MARKETPLACE_NAME not in _settings(fake_home)["extraKnownMarketplaces"]
+        assert PLUGIN_ID not in _installed(fake_home)["plugins"]
+        assert PLUGIN_ID not in _settings(fake_home)["enabledPlugins"]
+
+    def test_leaves_a_siblings_marketplace_registered(self, fake_home: Path) -> None:
+        plugins = fake_home / ".claude" / "plugins"
+        (plugins / "known_marketplaces.json").write_text(
+            json.dumps(
+                {
+                    "derio-net--super-fr": {
+                        "source": {"source": "github", "repo": "derio-net/super-fr"},
+                        "installLocation": str(plugins / "marketplaces" / "derio-net--super-fr"),
+                    }
+                }
+            )
+        )
+        (fake_home / ".claude" / "settings.json").write_text(
+            json.dumps(
+                {
+                    "extraKnownMarketplaces": {
+                        "derio-net--super-fr": {
+                            "source": {"source": "github", "repo": "derio-net/super-fr"}
+                        }
+                    },
+                    "enabledPlugins": {"super-fr@derio-net--super-fr": True},
+                }
+            )
+        )
+        (plugins / "installed_plugins.json").write_text(
+            json.dumps(
+                {
+                    "version": 2,
+                    "plugins": {
+                        "super-fr@derio-net--super-fr": [{"scope": "user", "version": "3.13.0"}]
+                    },
+                }
+            )
+        )
+
+        _run_install(fake_home)
+        _run_install(fake_home, "--uninstall")
+
+        assert "derio-net--super-fr" in _known(fake_home)
+        settings = _settings(fake_home)
+        assert "derio-net--super-fr" in settings["extraKnownMarketplaces"]
+        assert settings["enabledPlugins"]["super-fr@derio-net--super-fr"] is True
+        assert "super-fr@derio-net--super-fr" in _installed(fake_home)["plugins"]
+
+    def test_uninstall_is_idempotent(self, fake_home: Path) -> None:
+        _run_install(fake_home)
+        _run_install(fake_home, "--uninstall")
+        _run_install(fake_home, "--uninstall")
+
+
+# ── The validator wrapper delegates to super-fr's renamed marketplace ──
+
+
+def test_validate_plans_wrapper_points_at_super_frs_new_marketplace() -> None:
+    """`scripts/validate-plans.sh` execs the canonical validator out of
+    super-fr's marketplace directory, which moved in the same rename."""
+    text = (REPO_ROOT / "scripts" / "validate-plans.sh").read_text()
+    assert "marketplaces/derio-net--super-fr/scripts/validate-plans.sh" in text
+    assert "marketplaces/derio-net/scripts" not in text

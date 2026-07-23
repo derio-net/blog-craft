@@ -22,16 +22,15 @@ SETTINGS="$CLAUDE_DIR/settings.json"
 # A Claude Code marketplace name is a 1:1 namespace over ONE source repo: its
 # manifest (marketplaces/<name>/.claude-plugin/marketplace.json) is a single
 # file listing every plugin of that marketplace, and the rsync below is
-# `--delete` — replace, never merge. We register under the name our OWN
-# .claude-plugin/marketplace.json declares.
+# `--delete` — replace, never merge. So the name encodes org AND repo, and it
+# matches the name our own .claude-plugin/marketplace.json declares.
 #
-# This used to be `derio-net`, the name the sibling super-fr repo owns and
-# declares in its own manifest. Both installers rsync'd their repo root into
-# the same directory, so whichever ran last evicted the other's plugins from
-# the manifest while their enabledPlugins / installed_plugins.json entries
-# survived as dangling references. See super-fr PR #392 and its journal
-# docs/superpowers/journals/debug/2026-07-23-marketplace-config-clobber.md.
-MARKETPLACE_NAME="blog-craft"
+# It used to be the bare org name `derio-net`, which the sibling super-fr repo
+# also claimed; both installers rsync'd their own repo root into the same
+# directory and evicted each other. The bare name is now RETIRED — no repo owns
+# an org-level namespace — and both installers purge it on sight. See super-fr
+# PR #392 and docs/superpowers/journals/debug/2026-07-23-marketplace-namespace-collision.md.
+MARKETPLACE_NAME="derio-net--blog-craft"
 MARKETPLACE_DIR="$CLAUDE_DIR/plugins/marketplaces/$MARKETPLACE_NAME"
 CACHE_BASE="$CLAUDE_DIR/plugins/cache/$MARKETPLACE_NAME"
 PLUGINS_DIR="$CLAUDE_DIR/plugins"
@@ -39,13 +38,12 @@ KNOWN_MARKETPLACES="$PLUGINS_DIR/known_marketplaces.json"
 INSTALLED_PLUGINS="$PLUGINS_DIR/installed_plugins.json"
 PLUGIN_NAME="blog-craft"
 PLUGIN_ID="$PLUGIN_NAME@$MARKETPLACE_NAME"
-# The namespace we used to squat, and the artefacts we left in it. We clean up
-# our own litter there and touch nothing else — the `derio-net` marketplace key
-# itself belongs to super-fr, and deleting it would deregister its plugins too.
-LEGACY_MARKETPLACE_NAME="derio-net"
-LEGACY_PLUGIN_ID="$PLUGIN_NAME@$LEGACY_MARKETPLACE_NAME"
-LEGACY_CACHE_DIR="$PLUGINS_DIR/cache/$LEGACY_MARKETPLACE_NAME/$PLUGIN_NAME"
-LEGACY_MARKETPLACE_DIR="$PLUGINS_DIR/marketplaces/$LEGACY_MARKETPLACE_NAME"
+# Retired namespaces we purge on sight. `derio-net` is the shared one both
+# repos fought over; with no owner left, every `*@derio-net` id is dangling by
+# definition, so removing the whole key is safe by construction rather than one
+# repo reaching into another's install state. `blog-craft` is our own earlier
+# bare-repo name from the pre-plugin directory-source install.
+LEGACY_MARKETPLACE_NAMES=(derio-net blog-craft)
 OPENCODE_SKILLS_DIR="$HOME/.config/opencode/skills"
 OPENCODE_COMMANDS_DIR="$HOME/.config/opencode/commands"
 OPENCODE_INSTRUCTIONS_DIR="$HOME/.config/opencode/instructions"
@@ -77,35 +75,34 @@ if [[ "${1:-}" == "--uninstall" ]]; then
     rm -rf "$OPENCODE_PLUGIN_DIR"
     echo "  Removed $OPENCODE_PLUGIN_DIR"
   fi
-  # Delete only the keys we OWN. This block used to run
-  # `del(."derio-net")` on both registries, which deregistered the whole
-  # shared marketplace — taking super-fr@derio-net and
-  # super-fr-dispatch@derio-net down with it.
+  # Delete only OUR plugin ids and OUR marketplace. This block used to run
+  # `del(."derio-net")` on both registries, which deregistered the whole shared
+  # marketplace — taking super-fr@derio-net and super-fr-dispatch@derio-net
+  # down with it. Uninstalling us must never uninstall a sibling.
   if command -v jq &>/dev/null; then
     if [ -f "$SETTINGS" ]; then
-      jq --arg id "$PLUGIN_ID" --arg legacy "$LEGACY_PLUGIN_ID" \
-        'del(.enabledPlugins[$id]) | del(.enabledPlugins[$legacy])' \
+      jq --arg name "$PLUGIN_NAME" \
+        '.enabledPlugins |= with_entries(select(.key | startswith($name + "@") | not))
+         | .extraKnownMarketplaces |= with_entries(
+             select(.key | (. == "blog-craft" or . == "derio-net--blog-craft") | not))' \
         "$SETTINGS" > "${SETTINGS}.tmp" && mv "${SETTINGS}.tmp" "$SETTINGS"
-      echo "  Disabled $PLUGIN_ID in settings.json"
+      echo "  Disabled $PLUGIN_NAME in settings.json"
     fi
     if [ -f "$INSTALLED_PLUGINS" ]; then
-      jq --arg id "$PLUGIN_ID" --arg legacy "$LEGACY_PLUGIN_ID" \
-        'del(.plugins[$id]) | del(.plugins[$legacy])' \
+      jq --arg name "$PLUGIN_NAME" \
+        '.plugins |= with_entries(select(.key | startswith($name + "@") | not))' \
         "$INSTALLED_PLUGINS" > "${INSTALLED_PLUGINS}.tmp" && mv "${INSTALLED_PLUGINS}.tmp" "$INSTALLED_PLUGINS"
-      echo "  Deregistered $PLUGIN_ID from installed_plugins.json"
+      echo "  Deregistered $PLUGIN_NAME from installed_plugins.json"
     fi
     if [ -f "$KNOWN_MARKETPLACES" ]; then
-      jq --arg name "$MARKETPLACE_NAME" 'del(.[$name])' \
+      jq 'with_entries(select(.key | (. == "blog-craft" or . == "derio-net--blog-craft") | not))' \
         "$KNOWN_MARKETPLACES" > "${KNOWN_MARKETPLACES}.tmp" && mv "${KNOWN_MARKETPLACES}.tmp" "$KNOWN_MARKETPLACES"
-      echo "  Removed $MARKETPLACE_NAME from known_marketplaces.json"
-    fi
-    if [ -f "$SETTINGS" ]; then
-      jq --arg name "$MARKETPLACE_NAME" 'del(.extraKnownMarketplaces[$name])' \
-        "$SETTINGS" > "${SETTINGS}.tmp" && mv "${SETTINGS}.tmp" "$SETTINGS"
-      echo "  Removed $MARKETPLACE_NAME from extraKnownMarketplaces"
+      echo "  Removed our marketplace from known_marketplaces.json"
     fi
   fi
-  rm -rf "$CACHE_BASE/$PLUGIN_NAME" "$LEGACY_CACHE_DIR" "$MARKETPLACE_DIR"
+  rm -rf "$MARKETPLACE_DIR" "$CACHE_BASE" \
+    "$PLUGINS_DIR/marketplaces/blog-craft" "$PLUGINS_DIR/cache/blog-craft" \
+    "$PLUGINS_DIR/cache/derio-net/$PLUGIN_NAME"
   echo "  Removed plugin cache and marketplace directory"
   echo "Done."
   exit 0
@@ -168,37 +165,49 @@ if command -v jq &>/dev/null; then
     echo "  Enabled $PLUGIN_ID in settings.json"
   fi
 
-  # Migrate off the old squat: drop the registrations and cache we left inside
-  # super-fr's `derio-net` namespace. Our litter, our cleanup — but ONLY ours.
-  # The `derio-net` marketplace key and every other `*@derio-net` plugin stay
-  # exactly as they are.
-  if [ -f "$SETTINGS" ] && jq -e --arg id "$LEGACY_PLUGIN_ID" \
-      '.enabledPlugins[$id]' "$SETTINGS" &>/dev/null; then
-    jq --arg id "$LEGACY_PLUGIN_ID" 'del(.enabledPlugins[$id])' \
-      "$SETTINGS" > "${SETTINGS}.tmp" && mv "${SETTINGS}.tmp" "$SETTINGS"
-    echo "  Migrated: removed stale $LEGACY_PLUGIN_ID from settings.json"
-  fi
-  if [ -f "$INSTALLED_PLUGINS" ] && jq -e --arg id "$LEGACY_PLUGIN_ID" \
-      '.plugins[$id]' "$INSTALLED_PLUGINS" &>/dev/null; then
-    jq --arg id "$LEGACY_PLUGIN_ID" 'del(.plugins[$id])' \
-      "$INSTALLED_PLUGINS" > "${INSTALLED_PLUGINS}.tmp" && mv "${INSTALLED_PLUGINS}.tmp" "$INSTALLED_PLUGINS"
-    echo "  Migrated: removed stale $LEGACY_PLUGIN_ID from installed_plugins.json"
-  fi
-  if [ -d "$LEGACY_CACHE_DIR" ]; then
-    rm -rf "$LEGACY_CACHE_DIR"
-    echo "  Migrated: removed stale cache $LEGACY_CACHE_DIR"
-  fi
-  # If the shared marketplace directory still holds OUR manifest, we are the
-  # squatter currently in possession. Vacate it (leaving a manifest that lies
-  # about the marketplace's identity is worse than an empty slot) and tell the
-  # operator to re-run super-fr's installer, which owns that name.
-  LEGACY_MANIFEST="$LEGACY_MARKETPLACE_DIR/.claude-plugin/marketplace.json"
-  if [ -f "$LEGACY_MANIFEST" ] && \
-     [ "$(jq -r '.name // empty' "$LEGACY_MANIFEST" 2>/dev/null)" = "$MARKETPLACE_NAME" ]; then
-    rm -rf "$LEGACY_MARKETPLACE_DIR"
-    echo "  Migrated: vacated $LEGACY_MARKETPLACE_DIR (blog-craft was squatting it)" >&2
-    echo "  NOTE: re-run super-fr's scripts/install.sh to restore the" >&2
-    echo "  '$LEGACY_MARKETPLACE_NAME' marketplace it owns." >&2
+  # Purge the retired marketplaces. `derio-net` is the shared bare-org name both
+  # repos fought over and neither now owns, so every `*@derio-net` id is
+  # dangling by definition — removing the whole key is safe by construction, not
+  # us reaching into super-fr's install state. (super-fr's own installer does
+  # the same, and re-registers itself as `derio-net--super-fr`.) `blog-craft` is
+  # our own earlier bare-repo name from the pre-plugin directory-source install.
+  purged_ids=""
+  for legacy_name in "${LEGACY_MARKETPLACE_NAMES[@]}"; do
+    for state_file in "$INSTALLED_PLUGINS" "$SETTINGS"; do
+      [ -f "$state_file" ] || continue
+      if [ "$state_file" = "$INSTALLED_PLUGINS" ]; then
+        key_path='.plugins'
+      else
+        key_path='.enabledPlugins'
+      fi
+      while IFS= read -r plugin_id; do
+        [ -n "$plugin_id" ] || continue
+        case " $purged_ids " in *" $plugin_id "*) ;; *) purged_ids="$purged_ids $plugin_id" ;; esac
+      done < <(jq -r "($key_path // {}) | keys[] | select(endswith(\"@$legacy_name\"))" \
+                 "$state_file" 2>/dev/null || true)
+      jq --arg suffix "@$legacy_name" \
+        "$key_path |= with_entries(select(.key | endswith(\$suffix) | not))" \
+        "$state_file" > "${state_file}.tmp" && mv "${state_file}.tmp" "$state_file"
+    done
+    if [ -f "$KNOWN_MARKETPLACES" ]; then
+      jq --arg name "$legacy_name" 'del(.[$name])' \
+        "$KNOWN_MARKETPLACES" > "${KNOWN_MARKETPLACES}.tmp" && mv "${KNOWN_MARKETPLACES}.tmp" "$KNOWN_MARKETPLACES"
+    fi
+    if [ -f "$SETTINGS" ]; then
+      jq --arg name "$legacy_name" 'del(.extraKnownMarketplaces[$name])' \
+        "$SETTINGS" > "${SETTINGS}.tmp" && mv "${SETTINGS}.tmp" "$SETTINGS"
+    fi
+    rm -rf "$PLUGINS_DIR/marketplaces/$legacy_name" "$PLUGINS_DIR/cache/$legacy_name"
+  done
+  if [ -n "$purged_ids" ]; then
+    echo "  Retired the bare-name marketplaces (registry, cache, directory)"
+    for plugin_id in $purged_ids; do
+      echo "    - dropped $plugin_id"
+    done
+    if [ -n "$(echo "$purged_ids" | tr ' ' '\n' | grep -v "^$PLUGIN_NAME@\|^$" || true)" ]; then
+      echo "  NOTE: some of those belong to sibling repos. Re-run their installers" >&2
+      echo "  to re-register them under their own 'derio-net--<repo>' marketplace." >&2
+    fi
   fi
 else
   echo "  WARNING: jq not found — cannot register marketplace" >&2

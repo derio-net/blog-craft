@@ -42,3 +42,40 @@ docs/superpowers/journals/debug/2026-07-23-marketplace-config-clobber.md — PR 
 Failing test first: tests/unit/test_install_marketplace_namespace.py — 14 tests,
 13 red before the fix. Full suite 391 passed. Acceptance row OC-4
 not-implemented -> skipped. Version 0.10.0 -> 0.10.1.
+
+<!-- fr:journal kind=finding scope=debug id=fix-rename created=2026-07-23T19:02:14 state=fixed -->
+### fix-rename · finding [fixed] · Operator decision: retire bare marketplace names; both repos become <org>--<repo>
+
+Supersedes fix-1 (which moved blog-craft to the bare name `blog-craft` while
+super-fr kept `derio-net`). The operator chose the stronger invariant: no repo
+owns an org-level namespace.
+
+  blog-craft -> derio-net--blog-craft
+  super-fr   -> derio-net--super-fr
+  derio-net  -> RETIRED; both installers purge it on sight
+  blog-craft (bare) -> also retired: our own pre-plugin directory-source name
+
+Why this beats the asymmetric fix:
+- Closes the trap for optionality-fr and every future derio-net plugin, not
+  just for this pair.
+- `<org>--<repo>` makes the 1:1 name<->repo rule self-documenting, so the next
+  installer author cannot repeat the mistake by copying.
+- The purge becomes safe BY CONSTRUCTION. The earlier design had to leave the
+  `derio-net` key alone because super-fr owned it; once no repo owns it, every
+  `*@derio-net` id is dangling by definition and removing the whole key is not
+  cross-repo interference. That objection dissolves.
+
+`--uninstall` now scopes by OUR plugin name and OUR marketplace names, so a
+sibling registered under `derio-net--super-fr` survives untouched — pinned by
+test_leaves_a_siblings_marketplace_registered.
+
+Note the id/key disjointness this relies on: `blog-craft@derio-net--blog-craft`
+does NOT end with `@blog-craft` (it ends `--blog-craft`), so the bare-name purge
+cannot eat the id we just wrote. Same for super-fr. Pinned by
+test_idempotent_across_reinstalls on both sides.
+
+Also: scripts/validate-plans.sh delegates into super-fr's marketplace dir, which
+moved in the same rename — updated to derio-net--super-fr.
+
+Suite 395 passed. Acceptance 32 rows OK. Version 0.10.1 -> 0.11.0 (breaking
+plugin-id change).
