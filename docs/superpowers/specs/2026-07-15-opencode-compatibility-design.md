@@ -124,11 +124,25 @@ Bash installer that sets up blog-craft for both Claude Code and OpenCode.
 - Must run from a clean git checkout (same guard as super-fr)
 
 **Claude Code delivery:**
-1. Register `derio-net` marketplace in settings.json (`extraKnownMarketplaces`)
-2. Register `derio-net` in `known_marketplaces.json`
-3. Enable `blog-craft@derio-net` plugin in settings.json
-4. Sync repo to marketplace cache dir (`~/.claude/plugins/marketplaces/derio-net/`)
+
+> **Corrected 2026-07-23.** This section originally said `derio-net` — copied
+> from super-fr without noticing that a marketplace name is a **1:1 namespace
+> over one source repo**, not an org label. Its manifest
+> (`marketplaces/<name>/.claude-plugin/marketplace.json`) is a single file
+> listing every plugin of that marketplace, and the installer writes it with
+> `rsync --delete`. Two repos claiming one name mutually evict each other; see
+> super-fr PR #392. Marketplace names are now `<org>--<repo>`, and **bare names
+> are retired** — no repo owns an org-level namespace, so the trap is closed
+> for every future derio-net plugin rather than just this one.
+
+1. Register `derio-net--blog-craft` in settings.json (`extraKnownMarketplaces`)
+2. Register `derio-net--blog-craft` in `known_marketplaces.json`
+3. Enable `blog-craft@derio-net--blog-craft` plugin in settings.json
+4. Sync repo to `~/.claude/plugins/marketplaces/derio-net--blog-craft/`
 5. Register plugin version in `installed_plugins.json`
+6. Purge the retired bare names (`derio-net`, and our own older `blog-craft`):
+   registry keys, directories, caches, and every `*@<bare-name>` id. Safe by
+   construction — with no owner left, all of them are dangling.
 
 **OpenCode delivery (always, since install.sh IS the OpenCode installation path):**
 1. Run `scripts/sync-opencode.py` to refresh `.opencode/` mirrors
@@ -136,9 +150,19 @@ Bash installer that sets up blog-craft for both Claude Code and OpenCode.
 3. Copy commands to `~/.config/opencode/commands/<name>.md`
 
 **Uninstall (`--uninstall`):**
-- Remove marketplace entries
+- Remove marketplace entries **we own** — never a shared/foreign marketplace
+  key, which would deregister that marketplace's other plugins too
 - Remove plugin registration
 - Remove OpenCode skills/commands
+
+Three invariants for any repo copying this installer:
+
+- **Name yourself `<org>--<repo>`**, matching your own manifest's `name`.
+- **Write the keys you own unconditionally.** `if ! jq -e '."<key>"'` reads as
+  idempotence but means first-writer-wins, so someone else's wrong
+  `source.repo` survives every reinstall.
+- **Delete only the keys you own** — or keys nobody owns, like a retired bare
+  name.
 
 ### 5. `.gitignore` updates
 

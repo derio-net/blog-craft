@@ -21,7 +21,13 @@ tasks:
   steps:
   - id: "P3.T2.S1"
     text: |-
-      Register derio-net marketplace in settings.json and known_marketplaces.json.
+      Register the derio-net--blog-craft marketplace in settings.json and
+      known_marketplaces.json, and purge the retired bare names (derio-net,
+      blog-craft). A marketplace name is a 1:1 namespace over one source repo,
+      so it encodes <org>--<repo> and matches what
+      .claude-plugin/marketplace.json declares. Corrected 2026-07-23; the
+      original said derio-net, which super-fr also claimed — mutual eviction
+      (super-fr PR #392).
   - id: "P3.T2.S2"
     text: |-
       rsync plugin to cache. Install plugin. Enable plugin.

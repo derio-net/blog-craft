@@ -56,9 +56,16 @@ rows:
       skills/commands
     origin:
     - blog-craft:docs/superpowers/specs/2026-07-15-opencode-compatibility-design.md
-    levels: {}
-    status: not-implemented
-    notes: 'Manual: run scripts/install.sh and verify'
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_install_marketplace_namespace.py
+    status: skipped
+    notes: 'Marketplace registration + plugin enable/disable are now CI-pinned end-to-end
+      (install.sh run against a fake HOME): own-name registration, unconditional
+      convergence of our own keys, migration off the derio-net squat, and an
+      --uninstall that removes only keys we own. The OpenCode skills/commands
+      delivery half of this row is still manual (run scripts/install.sh and verify
+      ~/.config/opencode/) — backfill owed for that half only.'
   - id: OC-5
     capability: opencode-compatibility
     acceptance: Claude Code plugin path is not regressed
