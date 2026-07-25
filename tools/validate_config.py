@@ -188,6 +188,19 @@ def validate_config(cfg: dict) -> list[str]:
                         if not isinstance(ly, dict) or "code" not in ly or "name" not in ly:
                             errors.append(f"series_index.layers[{i}] must have code + name")
 
+    # optional features.glossary block: the abbreviation glossary (§9). Only this
+    # sub-block is checked — the rest of `features` stays unvalidated. Without it a
+    # typo (`enable: true`) silently disables the whole feature with no signal.
+    feats = cfg.get("features")
+    if isinstance(feats, dict) and "glossary" in feats:
+        gl = feats["glossary"]
+        if not isinstance(gl, dict):
+            errors.append("features.glossary must be a mapping")
+        else:
+            for key in ("enabled", "first_occurrence_only"):
+                if key in gl and not isinstance(gl[key], bool):
+                    errors.append(f"features.glossary.{key} must be a boolean")
+
     return errors
 
 

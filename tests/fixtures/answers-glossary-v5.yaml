@@ -1,0 +1,29 @@
+version: 5
+project:
+  name: "Glossary Test"
+  tagline: "t"
+  base_url: "https://example.com/gt/"
+  base_path: "/gt/"
+  module_path: "example.com/gt"
+image:
+  provider: gemini
+  model: gemini-3-pro-image-preview
+  api_key_env: GEMINI_API_KEY
+  output_dir: static/images
+  prompts_file: prompt_for_images.yaml
+  composition_orders:
+    hero: [base_character, scene]
+  layers:
+    base_character: "a test character"
+series:
+  - { key: building, title: "Building", description: "d", content_type: posts }
+features:
+  series_overview_posts: true
+  read_tracker: false
+  glossary:
+    enabled: true
+voice: |
+  Terse.
+ci:
+  validators: [frontmatter]
+  deploy: { kind: none }

@@ -1,8 +1,10 @@
 """P1.T4 -- Hugo smoke: explainers content-type builds cleanly with Mermaid."""
 import glob
 import os
+import re
 import subprocess
 import sys
+from datetime import date, timedelta
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 RENDER = os.path.join(ROOT, "tools", "bootstrap-render.sh")
@@ -35,10 +37,19 @@ def test_explainers_hugo_build(tmp_path):
     )
     # Set draft: false so Hugo includes it
     content = content.replace("draft: true", "draft: false")
+    # Stamp the post a day ahead so the future-date path is exercised on every
+    # run, not only between local midnight and UTC midnight.
+    content = re.sub(r"^date: .*$",
+                     f"date: {date.today() + timedelta(days=1)}",
+                     content, count=1, flags=re.M)
     open(idx, "w").write(content)
 
-    # Hugo build
-    r = subprocess.run(["hugo", "--buildDrafts"], cwd=blog, capture_output=True, text=True)
+    # Hugo build. --buildFuture is required: the scaffolder stamps `date:` from
+    # the LOCAL date, and Hugo reads a bare date as midnight in the SITE
+    # timezone — so a freshly scaffolded post is future-dated for part of every
+    # day and Hugo silently omits it while still exiting 0.
+    r = subprocess.run(["hugo", "--buildDrafts", "--buildFuture"],
+                       cwd=blog, capture_output=True, text=True)
     assert r.returncode == 0, r.stdout + r.stderr
 
     # Check rendered page exists — content lives under content/docs/explainers/
