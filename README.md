@@ -10,6 +10,7 @@ blog-craft is a Claude Code plugin of skills for the lifecycle of a teaching-sty
 - **`/blog-post`** — creates a new post in the relevant series, composes a Gemini image prompt from the per-blog metaphor, generates the cover, and updates the series overview. Applies the educational-writing methodology and runs the quality gate. Run per post.
 - **`/media`** — finds `<!-- MEDIA: ... -->` placeholders in drafts and fills them by capturing/optimizing assets and rendering the right Hugo shortcode. Run per draft.
 - **`/explainers`** — opt-in content-type for technical deep-dive posts (like feature walkthroughs, skill presentations, or cross-cutting concern explainers). Scaffolds a six-section skeleton, validates frontmatter + weight, and ships a research subagent for codebase exploration. Requires `content_types.explainers.enabled` in `.blog-craft.yaml`.
+- **`/glossary`** — opt-in feature for blogs whose readers meet unfamiliar acronyms. Scans a post, a series, or the whole blog for technical abbreviations, curates a blog-wide `data/glossary.yaml`, and marks each first occurrence so a reader can click the term and get its proper name and a short description without leaving the page. Zero JavaScript — the panel is a native HTML popover. Requires `features.glossary.enabled` in `.blog-craft.yaml`.
 - **`/educational-writing`** — the methodology blog-craft holds every post to: reader-first structure ([Diátaxis](https://diataxis.fr/)), evidence-grounding, and a thin-persona rule that keeps the character from crowding out the substance. Loaded by `/blog-post` and `/post-rewrite`; invoke directly to diagnose whether a post is actually useful.
 - **`/post-rewrite`** — rewrites an existing post that reads like *prose about the session that made it* into something a reader can build/operate/fix from. Diagnoses it against the methodology, gathers the evidence the original omitted, and re-shapes it — leading with the how-to, adding a reference block and a recovery path, keeping the persona thin and the cover untouched.
 
@@ -29,7 +30,7 @@ A regular post (`content_type: posts`) is held to a structural gate — the mech
 
 ## The skills
 
-After install, all become available as slash commands. Run `/bootstrap-blog` in a fresh directory to spin up a new blog. Inside any directory containing `.blog-craft.yaml`, `/blog-post`, `/media`, `/explainers`, and `/post-rewrite` work end-to-end; `/educational-writing` is the shared methodology the authoring skills load (and you can invoke it directly to diagnose a post).
+After install, all become available as slash commands. Run `/bootstrap-blog` in a fresh directory to spin up a new blog. Inside any directory containing `.blog-craft.yaml`, `/blog-post`, `/media`, `/explainers`, `/glossary`, and `/post-rewrite` work end-to-end; `/educational-writing` is the shared methodology the authoring skills load (and you can invoke it directly to diagnose a post).
 
 ## Updating a blog & rewriting posts
 

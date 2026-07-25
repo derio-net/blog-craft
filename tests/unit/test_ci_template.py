@@ -35,3 +35,29 @@ def test_non_papers_none_deploy_prunes_steps(tmp_path):
     assert "Validate papers" not in y   # no papers -> no dossier step
     assert "deploy:" not in y            # kind none -> no deploy job
     assert "Hugo build" in y             # validation core always present
+
+
+# --- glossary gate (docs/CONFIG.md §9) ---------------------------------------
+
+def test_glossary_enabled_wires_the_validator_step(tmp_path):
+    cfg = {"features": {"glossary": {"enabled": True}},
+           "ci": {"deploy": {"kind": "none"}}}
+    y = _render(cfg, tmp_path)
+    assert "Validate glossary" in y
+    assert "scripts/validate_glossary.py" in y
+    yaml.safe_load(y)   # still parses
+
+
+def test_glossary_disabled_prunes_the_step(tmp_path):
+    cfg = {"features": {"glossary": {"enabled": False}},
+           "ci": {"deploy": {"kind": "none"}}}
+    y = _render(cfg, tmp_path)
+    assert "Validate glossary" not in y
+    yaml.safe_load(y)
+
+
+def test_no_glossary_key_prunes_the_step(tmp_path):
+    cfg = {"features": {"read_tracker": True}, "ci": {"deploy": {"kind": "none"}}}
+    y = _render(cfg, tmp_path)
+    assert "Validate glossary" not in y
+    yaml.safe_load(y)
