@@ -166,3 +166,12 @@ def test_cli_ignores_markers_inside_code_fences(tmp_path):
     blog, post = _blog(tmp_path, GOOD, body)
     r = _run(blog, post)
     assert r.returncode == 0, r.stderr + r.stdout
+
+
+def test_a_key_containing_a_quote_is_an_error():
+    # The marker is {{< abbr "KEY" >}} — a quote in the key would terminate the
+    # argument early and emit a shortcode Hugo cannot parse. Unreachable for
+    # scanner-proposed terms; reachable for a hand-added entry.
+    reg = {'A"B': {"name": "N", "description": "d"}}
+    errors, _ = validate_glossary(reg, [])
+    assert any("quote" in e.lower() for e in errors)

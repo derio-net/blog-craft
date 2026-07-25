@@ -503,7 +503,13 @@ rows:
       and operator-authored definitions are never overwritten
     origin:
     - blog-craft:docs/superpowers/specs/2026-07-26-abbreviation-glossary-design.md
-    levels: {}
-    status: not-implemented
-    notes: data/** is content-class so the registry is never touched; Test Plan step
-      8 confirms against a real blog config in a scratch clone.
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_update_flow.py
+      - blog-craft:tests/unit/test_glossary_gating.py
+    status: ci
+    notes: 'Planner-level and manifest-level evidence is CI-pinned: the three
+      shipped files arrive as clean adds on a blog that never had the feature, the
+      registry is content-class so /update never plans an action on it, and an
+      operator-tweaked glossary.css 3-way merges instead of being clobbered. A real
+      end-to-end /update against a live blog config remains Test Plan step 8.'

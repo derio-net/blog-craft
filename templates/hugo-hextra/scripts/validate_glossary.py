@@ -11,6 +11,7 @@ a build.
 | an entry missing / blank `name` or `description`   | error    |
 | `url` present but not an absolute http(s) URL      | error    |
 | two keys differing only in case                    | error    |
+| a key containing a double quote                     | error    |
 | an entry no post references                        | warning  |
 | the registry is not alphabetically sorted          | warning  |
 
@@ -60,6 +61,13 @@ def validate_glossary(registry: dict,
             errors.append(
                 f"data/glossary.yaml: {key} url must be an absolute http(s) URL "
                 f"(got {url!r})")
+
+    for key in registry:
+        if '"' in key:
+            errors.append(
+                f"data/glossary.yaml: {key!r} contains a double quote — the marker "
+                f"is {{{{< abbr \"KEY\" >}}}}, so the key would terminate the argument "
+                f"early and emit an unparseable shortcode")
 
     lowered: dict[str, str] = {}
     for key in registry:
