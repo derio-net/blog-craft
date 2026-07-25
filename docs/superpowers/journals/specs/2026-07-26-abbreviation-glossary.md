@@ -37,3 +37,12 @@ All three claude-code tiers (mechanical/standard/hard) were bound to claude-opus
 7. Test Plan step 8 told the operator to enable the feature in frank/gondor, contradicting the stated non-goal. Reworded as a scratch-clone verification of the update path.
 
 Verified as existing: features toYaml passthrough in .blog-craft.yaml.tmpl:34, the `with resources.Get` idiom in head-end.html, `:is(html.dark)` in custom.css:83, the CI-template `{{- with .quality }}{{- if .enabled }}` gating idiom, test_features_gating/test_mirrors/test_papers_hugo patterns, tools/media-fill.py as the scan-apply precedent, and pyproject version 0.12.0.
+
+<!-- fr:journal kind=discovery scope=spec id=disc1-hugo-future-flake created=2026-07-26T00:19:49 -->
+### disc1-hugo-future-flake · discovery · Pre-existing time-of-day flake in test_explainers_hugo.py (blocks Hugo-render tests)
+
+Baseline on the branch point (docs-only commit off origin/main): 395 passed, 1 FAILED — test_explainers_hugo.py::test_explainers_hugo_build.
+
+Root cause, reproduced by hand: local clock was 00:19 CEST 2026-07-26 = 22:19 UTC 2026-07-25. scaffold-explainer.sh stamps `date:` from the LOCAL date (2026-07-26); Hugo parses a bare `date: YYYY-MM-DD` as midnight in the SITE timezone, so the page is future-dated and Hugo silently omits it — build still exits 0, which is why the test's returncode assertion passes and only the glob fails. Confirmed: `hugo --buildDrafts` renders 22 pages and no 01-smoke-test; `hugo --buildDrafts --buildFuture` renders 23 and the page appears.
+
+Not an environment break and not caused by this branch: it passes in CI (UTC) and locally outside the midnight..UTC-midnight window. It matters here because the glossary render tests (GL-2, GL-7) scaffold content and build Hugo the same way and would inherit the identical flake. Plan phase 5 fixes the existing test and writes the new ones with --buildFuture from the start.

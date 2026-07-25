@@ -1,0 +1,49 @@
+schema_version: 2
+phase:
+  number: 8
+  title: '[manual] Post-merge Test Plan — browser, device and update-path verification'
+  tag: manual
+  depends_on:
+  - 7
+  tracking_issue: null
+  acceptance:
+  - GL-3
+  - GL-8
+tasks:
+- number: 1
+  title: Operator-driven verification (the spec's Test Plan, verbatim)
+  steps:
+  - id: P8.T1.S1
+    text: |
+      [MANUAL] Steps 1-2 of the spec Test Plan: bootstrap a throwaway blog answering YES to the abbreviations question and confirm the three files exist (and that a NO answer produces none of them); then write a post using NUT, SLO and CDP with one occurrence inside a fenced code block and one in a heading, run /glossary on it, and confirm the code-block and heading occurrences were left alone and only the first prose occurrence of each term was marked.
+  - id: P8.T1.S2
+    text: |
+      [MANUAL] Steps 3-5: `bash scripts/hugo-serve.sh`, click a marked abbreviation and confirm the panel opens with name + description, Esc closes it, click-away closes it, Tab reaches the trigger and Enter opens it. Repeat on a phone or narrow viewport (tap, read, dismiss). Toggle dark mode and confirm legibility in both. Then create a page with {{< glossary-index >}} and confirm every term appears alphabetically. THIS IS THE ONLY VERIFICATION OF GL-3 — no unit test can prove it.
+  - id: P8.T1.S3
+    text: |
+      [MANUAL] Steps 6-8: add {{< abbr "XYZ" >}} for an unregistered term, confirm both `python3 scripts/validate_glossary.py …` and `hugo` fail, then remove it and confirm both pass. Re-run /glossary on an already-marked post and confirm zero file changes. Finally, in a SCRATCH CLONE of frank's or gondor-blog (adopting the feature for real is out of scope), set features.glossary.enabled true, run /update, and confirm the shortcodes and CSS arrive as `add` actions with no conflicts and no unrelated diff; discard the clone.
+  - id: P8.T1.S4
+    text: |
+      [MANUAL] Record the outcome: move GL-3 and GL-8 to status `skipped` in docs/acceptance/matrix.yaml with notes citing this run (verification exists and was performed, but is not automatable in CI), regenerate the report set with `fr acceptance report --deterministic`, and push to the same PR with `fr pickup`/`--complete-phase 8 --note`.
+state:
+  steps:
+    P8.T1.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P8.T1.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P8.T1.S3:
+      state: ' '
+      ticked_at: null
+      note: null
+    P8.T1.S4:
+      state: ' '
+      ticked_at: null
+      note: null
+  completion:
+    at: null
+    note: null
+    observed_prs: []

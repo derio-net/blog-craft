@@ -1,0 +1,163 @@
+schema_version: 2
+phase:
+  number: 5
+  title: Hugo surface — shortcodes, CSS, feature gating (and the future-date flake
+    fix)
+  tag: agentic
+  tier: standard
+  depends_on:
+  - 1
+  tracking_issue: null
+  acceptance:
+  - GL-2
+  - GL-6
+  - GL-7
+tasks:
+- number: 1
+  title: Fix the pre-existing future-date flake that would infect every render test
+  steps:
+  - id: P5.T1.S1
+    text: |
+      [RED] Reproduce deterministically rather than waiting for midnight. In tests/unit/test_explainers_hugo.py, make the failure unconditional by stamping the scaffolded post one day ahead before building (edit the index.md `date:` to tomorrow), then assert the page renders.
+      Run: bash tests/run-unit.sh -k explainers_hugo
+      EXPECT: RED — build exits 0 but public/docs/explainers/01-smoke-test/index.html is absent. This is the SAME failure the suite shows between local midnight and UTC midnight; see spec journal `disc1-hugo-future-flake`.
+  - id: P5.T1.S2
+    text: |
+      [GREEN] Add --buildFuture to the hugo invocation in that test: subprocess.run(["hugo", "--buildDrafts", "--buildFuture"], …). Add a one-line comment stating why (a bare `date:` is midnight site-time, so a locally-stamped post is future-dated for part of every day).
+      Run: bash tests/run-unit.sh -k explainers_hugo
+      EXPECT: GREEN — and now green regardless of time of day.
+- number: 2
+  title: The {{< abbr >}} shortcode
+  steps:
+  - id: P5.T2.S1
+    text: |
+      [RED] Create tests/unit/test_glossary_hugo.py modelled on test_explainers_hugo.py (bootstrap a fixture blog, write a post, build, assert on HTML) — and use --buildFuture from the start.
+      Add tests/fixtures/answers-glossary-v5.yaml: a minimal valid v5 config with features.glossary.enabled true.
+      Cases:
+        - a post with {{< abbr "NUT" >}} and a data/glossary.yaml defining NUT builds, and the HTML contains a <button … popovertarget="abbr-nut-N"> and a matching <span popover id="abbr-nut-N">
+        - the panel contains the registry `name` and `description`
+        - an entry with `url` renders an <a> to it; without `url` renders no link
+        - the same term marked twice yields two DIFFERENT ids (assert the two popovertarget values differ)
+        - text= override: {{< abbr "SLO" text="SLOs" >}} displays SLOs but looks up SLO
+        - an unknown key FAILS the hugo build (assert returncode != 0 and the term appears in stderr)
+      Run: bash tests/run-unit.sh -k glossary_hugo
+      EXPECT: RED — no shortcode exists, hugo errors on an unknown shortcode.
+  - id: P5.T2.S2
+    text: |
+      [GREEN] Create templates/features/glossary/layouts/shortcodes/abbr.html. Look the term up in site.Data.glossary (use the non-deprecated accessor — the build log shows `.Site.Data` is deprecated as of Hugo 0.156; check what the repo's other templates use and prefer `site.Data`). Emit:
+        <button type="button" class="abbr-trigger" popovertarget="abbr-{{ anchorize $key }}-{{ .Ordinal }}" aria-label="Expand abbreviation: {{ $key }}"><abbr title="{{ $entry.name }}">{{ $display }}</abbr></button><span popover id="abbr-{{ anchorize $key }}-{{ .Ordinal }}" class="abbr-panel"><strong class="abbr-name">{{ $entry.name }}</strong><span class="abbr-desc">{{ $entry.description }}</span>{{ with $entry.url }}<a class="abbr-link" href="{{ . }}">Read more</a>{{ end }}</span>
+      Guard whitespace so the trigger sits flush in the sentence (no stray space before punctuation). On a missing key call errorf with the term and the page path.
+      Run: bash tests/run-unit.sh -k glossary_hugo
+      EXPECT: GREEN.
+- number: 3
+  title: The {{< glossary-index >}} shortcode
+  steps:
+  - id: P5.T3.S1
+    text: |
+      [RED] Extend test_glossary_hugo.py: a page containing {{< glossary-index >}} renders a <dl> with every registry term, alphabetically ordered (assert the rendered order for keys deliberately stored unsorted in the fixture), each with its name and description; and a blog whose registry is absent renders the shortcode as empty output WITHOUT failing the build.
+      Run: bash tests/run-unit.sh -k glossary_hugo
+      EXPECT: RED.
+  - id: P5.T3.S2
+    text: |
+      [GREEN] Create templates/features/glossary/layouts/shortcodes/glossary-index.html — sort site.Data.glossary by key, emit <dl class="glossary-index"> with <dt> term + name and <dd> description (+ optional link). Wrap the whole body in `{{ with site.Data.glossary }}` so an absent registry emits nothing.
+      Run: bash tests/run-unit.sh -k glossary_hugo
+      EXPECT: GREEN.
+- number: 4
+  title: Stylesheet + head-end wiring
+  steps:
+  - id: P5.T4.S1
+    text: |
+      [RED] Extend test_glossary_hugo.py: the built page <head> contains a stylesheet link whose href includes "glossary" (fingerprinted), and that link appears BEFORE the custom.css link in the HTML source (assert index positions) so a blog can override feature styling.
+      Run: bash tests/run-unit.sh -k glossary_hugo
+      EXPECT: RED.
+  - id: P5.T4.S2
+    text: |
+      [GREEN] Create templates/features/glossary/assets/css/glossary.css (verbatim, NOT .tmpl — it needs no wizard answers): .abbr-trigger as an inline, font-inherited, dotted-underlined button with no button chrome, padding 0, background none, cursor help; .abbr-panel as a small card (max-width ~22rem, padding, border, border-radius, small shadow) with .abbr-name block/bold and .abbr-desc normal; dark mode via `:is(html.dark)` to match the .read-marker convention in custom.css.
+      In templates/hugo-hextra/layouts/partials/custom/head-end.html, insert ABOVE the existing custom.css block:
+        {{- with resources.Get "css/glossary.css" }}
+        <link rel="stylesheet" href="{{ (. | minify | fingerprint).RelPermalink }}">
+        {{- end }}
+      with a comment matching the existing read-tracker comment style ("present only when features.glossary materialized it").
+      Run: bash tests/run-unit.sh -k glossary_hugo
+      EXPECT: GREEN.
+- number: 5
+  title: Bootstrap gating — materialize iff features.glossary.enabled
+  steps:
+  - id: P5.T5.S1
+    text: |
+      [RED] Create tests/unit/test_glossary_gating.py modelled EXACTLY on tests/unit/test_features_gating.py (same _base()/_bootstrap() helpers). Assert:
+        - features.glossary.enabled true -> layouts/shortcodes/abbr.html, layouts/shortcodes/glossary-index.html and assets/css/glossary.css all exist
+        - features.glossary.enabled false -> none of the three exist
+        - no `features.glossary` key at all -> none of the three exist
+      Run: bash tests/run-unit.sh -k glossary_gating
+      EXPECT: RED.
+  - id: P5.T5.S2
+    text: |
+      [GREEN] In tools/bootstrap-render.sh, after the analytics block ([3d]) and before the layer-palette block ([3e]), add a [3f] glossary block copying the read-tracker idiom exactly:
+        gl_value=$(cd "$RENDERER_DIR" && go run . --answers "$ANSWERS" --get-bool features.glossary.enabled 2>/dev/null || echo "false")
+        if [[ "$gl_value" == "true" ]]; then
+          echo "[3f] glossary"
+          ( cd "$RENDERER_DIR" && go run . --src "$PLUGIN_ROOT/templates/features/glossary" --dst "$TARGET" --answers "$ANSWERS" )
+        else
+          echo "[3f] glossary: SKIPPED (features.glossary.enabled != true)"
+        fi
+      Verify --get-bool handles the NESTED path features.glossary.enabled (read-tracker uses a flat features.read_tracker; papers already proves the nested form with content_types.papers.enabled).
+      Run: bash tests/run-unit.sh -k glossary_gating
+      EXPECT: GREEN.
+- number: 6
+  title: Verify (phase 5)
+  steps:
+  - id: P5.T6.S1
+    text: |
+      [VERIFY] bash tests/run-unit.sh && bash tests/smoke-bootstrap.sh
+      EXPECT: FULL unit suite green — including test_explainers_hugo (the flake fix means there is no longer a known-red test); smoke-bootstrap green.
+state:
+  steps:
+    P5.T1.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P5.T1.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P5.T2.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P5.T2.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P5.T3.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P5.T3.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P5.T4.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P5.T4.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P5.T5.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P5.T5.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P5.T6.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+  completion:
+    at: null
+    note: null
+    observed_prs: []

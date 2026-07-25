@@ -1,0 +1,121 @@
+schema_version: 2
+phase:
+  number: 2
+  title: tools/glossary_scan.py — deterministic candidate extraction
+  tag: agentic
+  tier: standard
+  depends_on:
+  - 1
+  tracking_issue: null
+  acceptance:
+  - GL-1
+tasks:
+- number: 1
+  title: Token candidates + stoplist
+  steps:
+  - id: P2.T1.S1
+    text: |
+      [RED] Create tests/unit/test_glossary_scan.py. Import the module by path (follow the importlib idiom already used in tests/unit/test_validate_images.py or plain `import glossary_scan` — tools/ is on sys.path via tests/conftest.py; check conftest.py first and match it).
+      Cases for `candidates(text) -> list[Candidate]`:
+        - "We ran NUT and hit an SLO breach." -> terms {NUT, SLO}
+        - single letters and 1-char tokens never match: "A B I" -> {}
+        - 11+ char runs never match: "ABCDEFGHIJKL" -> {}
+        - digits allowed after the first letter: "OKLCH and H264" -> {OKLCH, H264}
+        - a leading digit never matches: "3DES" -> {} (documented limitation; operator hand-adds it)
+        - stoplist tokens are dropped: "OK TODO FIXME NOTE WARNING AM PM USD EUR" -> {}
+      Run: bash tests/run-unit.sh -k glossary_scan
+      EXPECT: RED — ModuleNotFoundError / no such file.
+  - id: P2.T1.S2
+    text: |
+      [GREEN] Create tools/glossary_scan.py with a module docstring in the house style (see tools/validate_config.py for the Library/CLI docstring shape). Implement:
+        STOPLIST = frozenset({"OK", "TODO", "FIXME", "NOTE", "WARNING", "AM", "PM", "USD", "EUR", "BEGIN", "END"})
+        TOKEN_RE = re.compile(r"\b[A-Z][A-Z0-9]{1,9}\b")
+        def candidates(text): -> list of dicts {term, display, start, end}
+      Ship exactly that stoplist. Terms like HTTP, URL, API and CI stay OUT of it — they are legitimate glossary entries for a reader who does not know them, and the author drops any candidate they judge not worth defining.
+      Return one entry per occurrence at this stage (dedup happens in scan_file).
+      Run: bash tests/run-unit.sh -k glossary_scan
+      EXPECT: GREEN.
+- number: 2
+  title: Exclusion regions — never propose from code, frontmatter, headings, links
+    or markup
+  steps:
+  - id: P2.T2.S1
+    text: |
+      [RED] Extend tests/unit/test_glossary_scan.py with `excluded_spans(text) -> list[(start, end)]` and re-run `candidates` filtered by it. One case per region:
+        - fenced block: "```\nNUT\n```" -> no candidate; also ~~~ fences and ```yaml info strings
+        - indented code block (4 spaces) -> no candidate
+        - inline code: "`NUT`" and "``NUT``" -> no candidate
+        - YAML frontmatter between leading --- markers -> no candidate (a `title: NUT setup` line proposes nothing)
+        - ATX heading line "## NUT setup" -> no candidate
+        - URL / link target: "[docs](https://x.example/NUT)" -> no candidate; link TEXT "[NUT](…)" -> no candidate
+        - existing shortcode: "{{< abbr \"NUT\" >}}" -> no candidate
+        - raw HTML tag: "<abbr title=\"NUT\">" -> no candidate
+        - a term in prose AFTER a fence still IS a candidate (proves spans are bounded, not sticky)
+      Run: bash tests/run-unit.sh -k glossary_scan
+      EXPECT: RED.
+  - id: P2.T2.S2
+    text: |
+      [GREEN] Implement `excluded_spans(text)` in tools/glossary_scan.py as a single left-to-right scan producing character spans, in this precedence: frontmatter (only when the file starts with ---), fenced blocks (``` or ~~~, closing fence must match opener length/char), indented code blocks, inline code (backtick runs), shortcodes ({{< … >}} and {{% … %}}), HTML tags (<…>), markdown links/images (whole [text](target) construct), ATX headings (whole line). Then `candidates()` drops any token whose span intersects an excluded span.
+      Keep the span scanner PUBLIC — phase 3 (glossary_apply.py) imports it, which is why it lives here rather than being inlined.
+      Run: bash tests/run-unit.sh -k glossary_scan
+      EXPECT: GREEN.
+- number: 3
+  title: Registry awareness, inflected display forms, JSON CLI
+  steps:
+  - id: P2.T3.S1
+    text: |
+      [RED] Add cases for `scan_file(path, registry, already_marked)` and the CLI:
+        - inflection: "our SLOs slipped" -> term "SLO", display "SLOs"; "the SLO's budget" -> term "SLO", display "SLO's"
+        - a term already in `registry` AND already marked in this file -> not proposed
+        - a term already in `registry` but NOT yet marked in this file -> proposed (so a series-wide run marks post 7 using post 3's definition)
+        - dedup: three occurrences of NUT in one file -> ONE entry with occurrences == 3, carrying the file/line/sentence of the FIRST prose occurrence
+        - CLI: `python tools/glossary_scan.py --config <cfg> <file>` prints a JSON list to stdout, exit 0; `--config` pointing at a blog whose data/glossary.yaml is absent is fine (empty registry)
+      Run: bash tests/run-unit.sh -k glossary_scan
+      EXPECT: RED.
+  - id: P2.T3.S2
+    text: |
+      [GREEN] Implement scan_file() + `_main(argv)` with argparse (--config required, positional paths). Emit JSON: [{"term","display","file","line","sentence","occurrences"}]. `sentence` is the trimmed sentence containing the first occurrence, capped at ~200 chars — it is the grounding the skill writes the definition from, so it must be real prose, not the whole paragraph.
+      Load the registry with tools/blog_config.py if it already exposes a config loader; otherwise read `<blog_root>/data/glossary.yaml` with yaml.safe_load, tolerating absence.
+      Run: bash tests/run-unit.sh -k glossary_scan
+      EXPECT: GREEN.
+- number: 4
+  title: Verify (phase 2)
+  steps:
+  - id: P2.T4.S1
+    text: |
+      [VERIFY] bash tests/run-unit.sh -k glossary && bash tests/run-unit.sh
+      EXPECT: all glossary_scan tests green; no regression elsewhere (only the known phase-5 explainers flake may be red).
+state:
+  steps:
+    P2.T1.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T1.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T2.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T2.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T3.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T3.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T4.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+  completion:
+    at: null
+    note: null
+    observed_prs: []

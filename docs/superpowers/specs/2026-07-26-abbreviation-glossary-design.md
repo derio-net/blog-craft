@@ -377,3 +377,9 @@ tests cannot: that the thing is actually clickable and readable.
    out of scope — set `features.glossary.enabled: true`, run `/update`, and
    confirm the shortcodes and CSS arrive as `add` actions with no conflicts and
    no unrelated diff. Discard the clone.
+
+## Implementation Plans
+
+| Plan | Repo | File | Depends on |
+|---|---|---|---|
+| 2026-07-26-abbreviation-glossary | `derio-net/blog-craft` | `2026-07-26-abbreviation-glossary` | — |
