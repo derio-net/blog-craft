@@ -88,3 +88,37 @@ gate before it finishes.
   the missteps table — is methodology the skill applies from
   `skills/educational-writing/`, not a config knob. Prose quality can't be
   mechanized; the gate is the deterministic backstop.
+
+## Turning on the abbreviation glossary
+
+Existing blog, already on a recent blog-craft. No schema bump, no migration —
+`features` passes through the config renderer untouched.
+
+1. Add the flag to `.blog-craft.yaml`:
+
+   ```yaml
+   features:
+     glossary:
+       enabled: true
+   ```
+
+2. Run `/update`. The two shortcodes (`layouts/shortcodes/abbr.html`,
+   `layouts/shortcodes/glossary-index.html`) and `assets/css/glossary.css` are
+   framework/merged-class, so they arrive as `add` actions on a blog that has
+   never had them.
+
+3. Run `/glossary` to build the registry. It scans a post, a series, or the whole
+   blog, proposes definitions, shows you the `data/glossary.yaml` diff before
+   writing, and marks the first occurrence of each term.
+
+`data/glossary.yaml` is `content`-class: once it exists, no future `/update`
+will ever touch your definitions. Re-running `/glossary` is safe — it is
+idempotent, so a second sweep over an already-marked series changes nothing.
+
+Backing it out is a two-step job and the order matters. Setting
+`enabled: false` only stops *future* materialization and drops the CI step on the
+next `/update` — the shortcodes already on disk stay there and keep resolving, so
+nothing breaks immediately. To remove it properly: strip the `{{< abbr >}}`
+markers from your posts **first**, then delete `layouts/shortcodes/abbr.html`,
+`layouts/shortcodes/glossary-index.html` and `assets/css/glossary.css`. Deleting
+the shortcodes while markers remain is what fails the build.

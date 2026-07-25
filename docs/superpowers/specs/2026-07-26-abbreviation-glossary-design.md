@@ -125,12 +125,16 @@ SLO:
 
 ```
 I wired {{< abbr "NUT" >}} into the rack.
-The {{< abbr "SLO" text="SLOs" >}} we agreed on were generous.
+The {{< abbr "SLO" "SLOs" >}} we agreed on were generous.
 ```
 
-- Positional arg 0 is the **registry key**. Optional named `text` overrides the
-  displayed string — this is how plurals and possessives work (`SLOs` displays,
-  `SLO` looks up) without polluting the registry with inflected forms.
+- Positional arg 0 is the **registry key**. An optional second **positional**
+  arg overrides the displayed string — this is how plurals and possessives work
+  (`SLOs` displays, `SLO` looks up) without polluting the registry with
+  inflected forms. *(Implementation correction: this was specified as a named
+  `text=` parameter. Hugo refuses to mix positional and named parameters in one
+  shortcode call, and making the common case `{{< abbr term="NUT" >}}` was the
+  worse trade — see the plan journal, `p5-hugo-named-params`.)*
 - Missing registry key → `errorf`, which **fails the Hugo build**. A dangling
   term is a broken promise to the reader; the validator catches it earlier, and
   the build is the backstop.
@@ -277,7 +281,10 @@ CI gate. Mirrored byte-identically to
 `templates/hugo-hextra/scripts/validate_glossary.py` and enrolled in
 `tests/unit/test_mirrors.py`, per the convention `validate_educational.py`
 and the papers validators already follow, so a blog's plain-python CI runs it
-without the plugin installed.
+without the plugin installed. **`glossary_scan.py` is mirrored alongside it** —
+the validator imports its marker and code-span helpers rather than re-deriving
+them, and a materialized blog has no plugin on `sys.path`
+(see the plan journal, `p4-two-mirrors`).
 
 | Check | Severity |
 |---|---|
@@ -321,7 +328,7 @@ Unit tests, following existing patterns:
 - `test_glossary_validator.py` — each error and warning row above.
 - `test_glossary_hugo.py` — a real `hugo` build of a bootstrapped fixture blog
   emits the button/popover pair, unique ids for a twice-marked term, the
-  `text=` display override, the index shortcode, and fails on an unknown key
+  positional display override, the index shortcode, and fails on an unknown key
   (mirrors `test_papers_hugo.py` / `test_explainers_hugo.py`).
 - `test_mirrors.py` — extended with the `validate_glossary.py` pair.
 - `test_config_schema.py` — `features.glossary` shape validation.

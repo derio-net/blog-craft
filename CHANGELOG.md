@@ -10,6 +10,41 @@ matching `vX.Y.Z` tag on merge (#18).
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-07-26
+
+### Added
+- **Abbreviation glossary (`features.glossary`, opt-in).** A teaching blog leans
+  on acronyms; the reader who does not know one has to leave the page. This
+  feature lets them click instead. A blog-wide `data/glossary.yaml` registry
+  holds `{name, description, url?}` per term; `{{< abbr "NUT" >}}` renders a
+  click-to-open definition panel and `{{< glossary-index >}}` renders the whole
+  registry alphabetically. **Zero JavaScript** — the trigger is a
+  `<button popovertarget>` and the panel a `<span popover>`, so click/tap, Esc,
+  click-away, keyboard focus and top-layer stacking are native browser
+  behaviour. An optional second positional argument overrides the displayed text
+  (`{{< abbr "SLO" "SLOs" >}}`) so plurals never fork a registry entry. No config
+  schema bump — `features` passes through untouched, so an existing v5 blog opts
+  in with two lines and an `/update`. See `docs/CONFIG.md` §9.
+- **`/glossary` skill.** Scans one post, one series, or a whole blog, proposes a
+  definition per abbreviation grounded in the sentence it was found in, shows the
+  registry diff before writing, and marks the first occurrence of each term.
+  Idempotent — a second sweep over an already-marked series changes nothing.
+  Mirrored to OpenCode as `blog-craft-glossary`.
+- **`tools/validate_glossary.py`** — the CI gate. Errors on a marker with no
+  registry entry, an entry missing `name`/`description`, a relative `url`, or two
+  keys differing only in case; warns on unused entries and an unsorted registry.
+  Markers inside code fences are ignored, so a post documenting the shortcode is
+  not gated on its own example. Ships at `scripts/` with its `glossary_scan.py`
+  companion for plugin-free CI.
+
+### Fixed
+- **`test_explainers_hugo.py` was a time-of-day flake.** `scaffold-explainer.sh`
+  stamps `date:` from the *local* date, but Hugo reads a bare date as midnight in
+  the *site* timezone — so between local midnight and UTC midnight a freshly
+  scaffolded post is future-dated and Hugo silently omits it while still exiting
+  0. The test now stamps a post a day ahead (making the failure deterministic
+  rather than clock-dependent) and passes `--buildFuture`.
+
 ## [0.10.0] - 2026-07-20
 
 ### Added
