@@ -28,7 +28,7 @@ repo: blog-craft
 rows:
   - id: OC-1
     capability: opencode-compatibility
-    acceptance: OpenCode discovers all 9 blog-craft skills in .opencode/skills/
+    acceptance: OpenCode discovers every blog-craft skill in .opencode/skills/
     origin:
     - blog-craft:docs/superpowers/specs/2026-07-15-opencode-compatibility-design.md
     levels: {}
@@ -36,7 +36,7 @@ rows:
     notes: 'Manual: run opencode in repo root, check skill list'
   - id: OC-2
     capability: opencode-compatibility
-    acceptance: Slash commands for all 9 skills work (e.g. /blog-post)
+    acceptance: Slash commands for every blog-craft skill work (e.g. /blog-post)
     origin:
     - blog-craft:docs/superpowers/specs/2026-07-15-opencode-compatibility-design.md
     levels: {}
@@ -399,3 +399,79 @@ rows:
     levels: {}
     status: not-implemented
     notes: 'Manual: Test Plan B in spec (post-merge, operator-driven)'
+  - id: GL-1
+    capability: abbreviation-glossary
+    acceptance: An author can scan one post, one series, or a whole blog and get abbreviation
+      definitions proposed into data/glossary.yaml
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-26-abbreviation-glossary-design.md
+    levels: {}
+    status: not-implemented
+    notes: Verified by test_glossary_scan.py once the /glossary skill and tools/glossary_scan.py
+      ship.
+  - id: GL-2
+    capability: abbreviation-glossary
+    acceptance: A marked abbreviation renders as a clickable element that opens the
+      proper name and description, with no JavaScript
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-26-abbreviation-glossary-design.md
+    levels: {}
+    status: not-implemented
+    notes: Verified by test_glossary_hugo.py (button/popover pair in built HTML) + Test
+      Plan step 3.
+  - id: GL-3
+    capability: abbreviation-glossary
+    acceptance: The definition panel is keyboard-reachable and dismissible by Esc and
+      click-away, on desktop and touch
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-26-abbreviation-glossary-design.md
+    levels: {}
+    status: not-implemented
+    notes: Native Popover API behaviour; only a real browser can confirm it — Test Plan
+      steps 3-4.
+  - id: GL-4
+    capability: abbreviation-glossary
+    acceptance: Marker insertion never rewrites code blocks, headings, frontmatter or
+      link text, and is idempotent across runs
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-26-abbreviation-glossary-design.md
+    levels: {}
+    status: not-implemented
+    notes: Verified by test_glossary_apply.py + Test Plan steps 2 and 7.
+  - id: GL-5
+    capability: abbreviation-glossary
+    acceptance: CI fails when a post references an abbreviation that has no registry
+      entry
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-26-abbreviation-glossary-design.md
+    levels: {}
+    status: not-implemented
+    notes: Verified by test_glossary_validator.py; end-to-end in Test Plan step 6.
+  - id: GL-6
+    capability: abbreviation-glossary
+    acceptance: The glossary surface materializes only when features.glossary.enabled
+      is true; a blog that did not opt in carries none of it
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-26-abbreviation-glossary-design.md
+    levels: {}
+    status: not-implemented
+    notes: Verified by test_glossary_gating.py, mirroring test_features_gating.py.
+  - id: GL-7
+    capability: abbreviation-glossary
+    acceptance: The glossary-index shortcode renders every registered term alphabetically
+      with its description
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-26-abbreviation-glossary-design.md
+    levels: {}
+    status: not-implemented
+    notes: Verified by test_glossary_hugo.py + Test Plan step 5.
+  - id: GL-8
+    capability: abbreviation-glossary
+    acceptance: An existing blog adopts the feature through /update with no conflicts,
+      and operator-authored definitions are never overwritten
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-26-abbreviation-glossary-design.md
+    levels: {}
+    status: not-implemented
+    notes: data/** is content-class so the registry is never touched; Test Plan step
+      8 confirms against a real blog config in a scratch clone.
