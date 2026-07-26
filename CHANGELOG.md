@@ -10,6 +10,8 @@ matching `vX.Y.Z` tag on merge (#18).
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-07-26
+
 ### Fixed
 - **The glossary definition panel opens next to the term it defines (#49).** It
   was opening in the top-left corner of the viewport — 375px left and 299px above
