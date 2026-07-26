@@ -121,6 +121,49 @@ def test_post_cover_is_optimized(tmp_path):
     assert 'height="' in img, "cover missing explicit height (layout shift): %s" % img
 
 
+def test_srcset_reaches_the_primary_when_the_source_is_narrower_than_the_cap(tmp_path):
+    """The top srcset candidate must be the PRIMARY's width, not the cap.
+
+    Every other case here feeds a source LARGER than the cap (3000px banner under
+    2560, 2400px cover under 1600), where the cap and the primary width coincide
+    and the bug is invisible. Raise the caps above the fixtures and they diverge:
+    the cap-derived candidate fails the source-width clamp, is dropped, and
+    nothing left in the srcset matches the primary.
+
+    That is not a cosmetic gap. Per the HTML spec, once a srcset carries `w`
+    descriptors the `src` attribute stops being a selection candidate — so the
+    full-resolution derivative becomes unreachable and the browser renders an
+    upscaled one instead, while every file still returns 200. Measured downstream
+    on derio-net/frank#710: 179 images affected, banners rendering at a 2.0x
+    upscale on a 1512px viewport at DPR 2.
+    """
+    html = _build(tmp_path, {"enabled": True, "quality": 80,
+                             "max_width": 4000, "banner_max_width": 4000},
+                  cover=True)
+
+    checked = 0
+    for img in re.findall(r"<img [^>]*>", html):
+        ss = re.search(r'srcset="([^"]*)"', img)
+        w = re.search(r'width="(\d+)"', img)
+        if not ss or not w:
+            continue
+        cands = []
+        for part in ss.group(1).split(", "):
+            bits = part.strip().rsplit(" ", 1)
+            if len(bits) == 2 and bits[1].endswith("w") and bits[1][:-1].isdigit():
+                cands.append(int(bits[1][:-1]))
+        if not cands:
+            continue          # density descriptors keep src as a candidate
+        checked += 1
+        primary = int(w.group(1))
+        assert max(cands) >= primary, (
+            "srcset tops out at %dw but src is %dw — the full-resolution image "
+            "is unreachable and renders upscaled: %s" % (max(cands), primary, img)
+        )
+
+    assert checked >= 2, "expected at least the cover and the banner to be checked"
+
+
 def test_optimize_off_leaves_raw_png(tmp_path):
     html = _build(tmp_path, {"enabled": False})
     assert ".webp" not in html, "optimize disabled but webp emitted"
