@@ -11,3 +11,8 @@ __pycache__/
 tests/golden-output*/
 .devcontainer/*/devcontainer-lock.json
 docs/acceptance/report.html
+
+# Stray npm lockfile. There is no package.json in this repo and nothing
+# consumes one; a bare `npm` run in a worktree leaves an empty lockfile behind
+# that every later agent then has to decide what to do with.
+package-lock.json

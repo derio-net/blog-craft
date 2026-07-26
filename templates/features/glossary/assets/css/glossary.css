@@ -23,10 +23,31 @@
   cursor: inherit;
 }
 
-/* The panel lives in the top layer, so it is positioned by the browser and
-   needs no z-index of its own. */
+/* The panel lives in the top layer, so it needs no z-index of its own — but the
+   top layer decides *stacking*, not *coordinates*. An unpositioned [popover]
+   takes the UA default (inset: 0 plus margin: auto) and lands in the viewport's
+   block-start / inline-start corner, hundreds of pixels from the term and on
+   top of the page heading. That was #49.
+
+   Two paths, in this order:
+
+   1. This rule — the fallback for browsers without CSS anchor positioning,
+      which is still not universal. A bottom-centred dock, viewport-clamped: not
+      adjacent to the term, but the conventional definition-sheet shape, thumb-
+      reachable on a phone, and clear of the heading. It must never be allowed
+      to rot back into the corner, or the fallback becomes the bug.
+   2. The @supports block below, which anchors the panel to the trigger that
+      opened it. That is the placement the reader should actually get.
+
+   Spec §5a carries the contract; tests/unit/test_glossary_css.py pins it. */
 .abbr-panel {
-  max-width: 22rem;
+  position: fixed;
+  top: auto;
+  bottom: 1rem;
+  inset-inline: 0;
+  margin-inline: auto;
+  width: max-content;
+  max-width: min(22rem, calc(100vw - 2rem));
   padding: 0.75rem 0.9rem;
   border: 1px solid rgba(0, 0, 0, 0.12);
   border-radius: 0.5rem;
@@ -63,6 +84,32 @@
   background: #1b1f24;
   color: #e6edf3;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+/* Where anchor positioning exists, the panel opens next to the term instead of
+   docking at the foot of the viewport. `anchor-name` and `position-anchor` are
+   emitted inline by the abbr shortcode — one unique name per trigger/panel pair
+   — so this rule only supplies the geometry.
+
+   `inset: auto` and the explicit `margin` are not tidiness: the UA [popover]
+   sheet sets `inset: 0` and `margin: auto`, which inside a position area
+   stretch the panel across the whole area rather than sizing it to its content.
+
+   position-try-fallbacks is what keeps a term in the last line, or hard against
+   the inline edge, from opening a panel that runs off-screen.
+
+   Sizing (width, max-width, and everything cosmetic) is inherited from the rule
+   above — only the properties that place the box are restated here. */
+@supports (anchor-name: --x) {
+  .abbr-panel {
+    position-area: block-end span-inline-end;
+    position-try-fallbacks:
+      block-start span-inline-end,
+      block-end span-inline-start,
+      block-start span-inline-start;
+    inset: auto;
+    margin: 0.35rem 0;
+  }
 }
 
 /* The {{< glossary-index >}} definition list. */

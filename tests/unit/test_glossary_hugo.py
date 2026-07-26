@@ -115,6 +115,40 @@ def test_same_term_twice_gets_distinct_ids(tmp_path):
     assert 'id="abbr-nut-1"' in html
 
 
+def test_trigger_and_panel_share_an_anchor_name(tmp_path):
+    # #49: the panel must be anchored to its trigger, or the browser falls back
+    # to the UA default and drops it in the viewport corner.
+    blog = _blog(tmp_path, 'We wired {{< abbr "NUT" >}} into the rack.')
+    _build(blog)
+    html = _post_html(blog)
+    assert 'style="anchor-name: --abbr-nut-0"' in html
+    assert 'style="position-anchor: --abbr-nut-0"' in html
+
+
+def test_each_occurrence_gets_its_own_anchor_name(tmp_path):
+    # A single shared --abbr would anchor every panel on the page to whichever
+    # trigger resolved first, so the second term's panel opens under the first.
+    blog = _blog(tmp_path,
+                 'First {{< abbr "NUT" >}} then {{< abbr "SLO" >}} after.')
+    _build(blog)
+    html = _post_html(blog)
+    assert 'style="anchor-name: --abbr-nut-0"' in html
+    assert 'style="position-anchor: --abbr-nut-0"' in html
+    assert 'style="anchor-name: --abbr-slo-1"' in html
+    assert 'style="position-anchor: --abbr-slo-1"' in html
+
+
+def test_anchor_name_tracks_the_id_for_a_repeated_term(tmp_path):
+    blog = _blog(tmp_path,
+                 'First {{< abbr "NUT" >}} then {{< abbr "NUT" >}} again.')
+    _build(blog)
+    html = _post_html(blog)
+    for ordinal in (0, 1):
+        assert f'id="abbr-nut-{ordinal}"' in html
+        assert f'style="anchor-name: --abbr-nut-{ordinal}"' in html
+        assert f'style="position-anchor: --abbr-nut-{ordinal}"' in html
+
+
 def test_display_override_changes_display_not_lookup(tmp_path):
     blog = _blog(tmp_path, 'Our {{< abbr "SLO" "SLOs" >}} slipped.')
     _build(blog)

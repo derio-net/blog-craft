@@ -49,6 +49,8 @@ Recorded in the spec journal (`fr journal render --scope spec --slug
 | d2 | **Native HTML Popover API**, zero JavaScript | Click/tap, Esc, click-away, keyboard focus and top-layer positioning are all native. No JS asset, no hand-written focus management, no mobile hover special-case. |
 | d3 | **Acronyms/initialisms only** are auto-proposed; manual adds render identically | Lowercase tool names (systemd, kubectl) would flood the proposal list. The registry stays open for hand-added terms. |
 | d4 | **`{{< glossary-index >}}` shortcode only**, no auto-created page | Bootstrap writing a `content/glossary/_index.md` would put operator-class content on disk that `/update` can never manage. |
+| d5 | **CSS anchor positioning**, one anchor name per trigger, derived from the panel id and set inline (#49) | The Popover API places nothing; without an anchor the panel lands in the viewport corner. A shared anchor name would collapse every panel onto one trigger, and a stylesheet cannot address a single shortcode instance — so the name is per-pair and inline. See §5a. |
+| d6 | **Bottom-centred dock** where anchor positioning is unsupported (#49) | Anchor positioning is not yet universal. The fallback must still be usable and must not cover the heading; a bottom sheet is the conventional shape and is thumb-reachable on a phone. The corner is never an acceptable outcome. |
 
 ## Architecture
 
@@ -193,6 +195,49 @@ marked with a dotted underline (never a full button chrome — it sits mid-sente
 The panel is a small card with the blog's existing surface/border tokens, themed
 for dark mode through the `:is(html.dark)` selector already used by
 `.read-marker` in `custom.css`.
+
+#### 5a. Placement contract (#49)
+
+**A `[popover]` is not positioned for you.** The top layer decides *stacking*,
+not *coordinates*: with no author positioning the UA default (`inset: 0` plus
+`margin: auto` semantics) lands the panel in the viewport's block-start /
+inline-start corner, hundreds of pixels from the term and on top of the page
+`<h1>`. §3's "top-layer positioning" was read as a placement guarantee and never
+specified *where* the panel goes; that omission is the whole of #49.
+
+The contract, now explicit:
+
+> **The panel opens adjacent to the abbreviation it defines** — below it by
+> preference, above it when there is no room below — and never covers the page
+> heading.
+
+Delivered by **CSS anchor positioning**, one anchor per trigger:
+
+- The shortcode already computes a unique panel id, `abbr-<anchorized key>-<ordinal>`.
+  The **anchor name is derived from that same id**: `--abbr-<anchorized key>-<ordinal>`,
+  emitted as an inline `style` on the trigger (`anchor-name`) and on the panel
+  (`position-anchor`). A single shared name would anchor every panel on the page
+  to whichever trigger the browser resolved first, so the name must be per-pair.
+  Inline `style` is the only surface available — a stylesheet cannot address one
+  shortcode instance, and both properties are dropped harmlessly by browsers
+  that do not support them.
+- The anchored rules live under `@supports (anchor-name: --x)` and set
+  `position-area: block-end span-inline-end` with
+  `position-try-fallbacks: block-start span-inline-end, block-end span-inline-start`,
+  so the panel flips above the term near the viewport foot and flips its inline
+  side near the viewport edge.
+- **Non-supporting browsers get a bottom-centred dock**, not the UA corner:
+  `position: fixed` pinned to the viewport's block end, inline-centred, width
+  clamped to the viewport. It is not adjacent to the term, but it is the
+  conventional "definition sheet" placement, it is reachable on a phone, and —
+  the point — it does not cover the heading. The corner is the one placement
+  that must never be the outcome of any path.
+
+Two constraints the CSS must respect explicitly: `.abbr-trigger` sets
+`all: unset`, so the inline `anchor-name` is what survives; and the UA
+`[popover]` sheet supplies `inset: 0` / `margin: auto`, which the anchored rule
+must reset (`inset: auto`, an explicit `margin`) or the panel stretches to fill
+its position area.
 
 **No manifest change.** `templates/manifest.yaml` already classifies
 `assets/css/**` as `merged`, which is the correct treatment: on first `/update`
@@ -370,6 +415,15 @@ tests cannot: that the thing is actually clickable and readable.
    a marked abbreviation. Confirm the panel opens with the proper name and
    description, Esc closes it, clicking outside closes it, and Tab reaches the
    trigger and Enter opens it.
+3a. **Placement (#49).** With the panel open, confirm it sits **adjacent to the
+   term** — directly below it, left edge near the term's — and that it covers no
+   part of the page `<h1>` or the sidebar. Click a term in the *last* line of the
+   post and confirm the panel flips **above** it rather than running off the
+   viewport foot; click one near the right edge and confirm it flips its inline
+   side. Then click two different terms in turn and confirm each panel anchors to
+   **its own** trigger, not to the first one on the page. In a browser without
+   CSS anchor positioning (or with it disabled), confirm the panel docks
+   bottom-centred and readable — never in the top-left corner.
 4. **Phone and dark mode.** Load the same page on a phone (or a narrow
    viewport), tap the abbreviation, confirm the panel is readable and
    dismissible. Toggle dark mode and confirm the panel is legible in both.
@@ -390,3 +444,4 @@ tests cannot: that the thing is actually clickable and readable.
 | Plan | Repo | File | Depends on |
 |---|---|---|---|
 | 2026-07-26-abbreviation-glossary | `derio-net/blog-craft` | `2026-07-26-abbreviation-glossary` | — |
+| 2026-07-26-glossary-panel-placement | `derio-net/blog-craft` | `2026-07-26-glossary-panel-placement` | — |

@@ -526,10 +526,21 @@ rows:
       not over unrelated page content
     origin:
     - blog-craft:docs/superpowers/implemented/specs/2026-07-26-abbreviation-glossary-design.md
-    levels: {}
-    status: not-implemented
-    notes: 'Discovered post-merge by the Test Plan browser walk and filed as blog-craft#49:
-      with no CSS anchor positioning the top-layer popover falls back to the viewport
-      corner, 375px left and 299px above the term, overlapping the h1 and sidebar. Structure-only
-      unit tests cannot see position. Fix is anchor positioning with a unique per-trigger
-      anchor name plus an @supports fallback.'
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_glossary_hugo.py
+      - blog-craft:tests/unit/test_glossary_css.py
+    status: skipped
+    notes: 'CI pins the two halves of the mechanism but not the outcome. test_glossary_hugo.py
+      asserts the emitted anchor names — that trigger and panel carry the same
+      --abbr-<key>-<ordinal>, and that each occurrence gets its own rather than one
+      shared name. test_glossary_css.py asserts the placement contract in the shipped
+      stylesheet: anchored rules gated behind @supports, block-end preferred, both
+      try-fallbacks declared, the UA popover inset/margin reset, and a fallback that
+      cannot regress to the corner. Whether the box lands next to the term needs a
+      real layout engine, and there is no browser in CI — hence skipped, not ci. That
+      half was verified by hand in Chrome 147 on this branch (6px below the term,
+      dx=0 at 1280x850; inline flip at 500px; block-start flip with the term 30px
+      from the viewport foot; fallback docked 1rem above the foot and inline-centred
+      — measurements in the plan journal for 2026-07-26-glossary-panel-placement) and
+      is Test Plan step 3a for the operator.'

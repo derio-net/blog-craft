@@ -28,5 +28,21 @@
   {{- errorf "abbr: %q has no entry in data/glossary.yaml (%s)" $key .Page.File.Path -}}
 {{- else -}}
 {{- $id := printf "abbr-%s-%d" (anchorize $key) .Ordinal -}}
-<button type="button" class="abbr-trigger" popovertarget="{{ $id }}" aria-label="Expand abbreviation: {{ $key }}"><abbr title="{{ $entry.name }}">{{ $display }}</abbr></button><span popover id="{{ $id }}" class="abbr-panel"><strong class="abbr-name">{{ $entry.name }}</strong><span class="abbr-desc">{{ $entry.description }}</span>{{ with $entry.url }}<a class="abbr-link" href="{{ . }}">Read more</a>{{ end }}</span>
+{{- /* The anchor name is derived from $id in the same breath, so the pair can
+       never drift: --abbr-nut-0 belongs to #abbr-nut-0 and nothing else. It has
+       to be per-occurrence — one shared name would anchor every panel on the
+       page to whichever trigger the browser resolved first — and it has to be
+       an inline style, because no stylesheet can address a single shortcode
+       instance. Browsers without CSS anchor positioning drop both declarations
+       and fall through to the docked panel in glossary.css (#49, spec §5a).
+
+       safeCSS is required, not decorative: Go's context-aware escaper treats a
+       style attribute as a CSS context and replaces any interpolated value it
+       cannot prove safe with the literal string ZgotmplZ. Both values are built
+       here from $id, which is anchorize output plus an integer ordinal — a
+       dashed-ident by construction, with no author input reaching it. */ -}}
+{{- $anchor := printf "--%s" $id -}}
+{{- $anchorName := printf "anchor-name: %s" $anchor | safeCSS -}}
+{{- $anchorRef := printf "position-anchor: %s" $anchor | safeCSS -}}
+<button type="button" class="abbr-trigger" popovertarget="{{ $id }}" style="{{ $anchorName }}" aria-label="Expand abbreviation: {{ $key }}"><abbr title="{{ $entry.name }}">{{ $display }}</abbr></button><span popover id="{{ $id }}" class="abbr-panel" style="{{ $anchorRef }}"><strong class="abbr-name">{{ $entry.name }}</strong><span class="abbr-desc">{{ $entry.description }}</span>{{ with $entry.url }}<a class="abbr-link" href="{{ . }}">Read more</a>{{ end }}</span>
 {{- end -}}
