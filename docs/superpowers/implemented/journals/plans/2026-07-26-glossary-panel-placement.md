@@ -38,3 +38,18 @@ FALLBACK (same build with the @supports block stripped from the served CSS, stan
 All fully on-screen, none overlapping the h1. The corner placement does not occur on either path.
 
 Harness notes for anyone repeating this: the site's baseURL is /gt/, so a flat static server 404s every asset and the panel silently falls back to UA geometry (352->1044 wide, inset:0) — serve under the prefix or the walk measures nothing. --disable-blink-features=CSSAnchorPositioning does NOT disable it in 147 (stable feature); stripping the @supports block from the built CSS is the way to exercise the fallback.
+
+<!-- fr:journal kind=discovery scope=plan id=postmerge-testplan-3a created=2026-07-26T15:32:41 -->
+### postmerge-testplan-3a · discovery · Test Plan step 3a executed post-merge against main (b8a9201) — PASS
+
+Re-ran the placement walk against a blog bootstrapped from MERGED main, not the branch. Chrome 147, same harness.
+
+ANCHORED 1280x850 — NUT (375,213), SLO (560,213), CDP (590,635): each 6px below its own trigger, dx=0, fully on-screen, no h1 overlap.
+ANCHORED 500x850  — inline flip fires for SLO (dx=-129) and CDP (dx=-162); NUT has room and stays at dx=0.
+BLOCK-START FLIP  — term parked 30px from the viewport foot: trigger y=701..730, panel y=602..695. 6px ABOVE, fully on-screen.
+FALLBACK (@supports stripped from the served CSS) — 1280: x=464..466; 500: x=74..76; width 352, all inline-centred, bottoms 834 (1rem above the foot). No h1 overlap on either width.
+DARK MODE (Test Plan step 4) — panel bg rgb(27,31,36) / fg rgb(230,237,243), matching #1b1f24 / #e6edf3; placement unchanged in both themes (6px below, dx=0).
+
+GL-3 regression check, because this PR changed the panel's : click opens, Esc closes, click-away closes, the trigger is focusable and Enter opens. All pass — no regression from the placement work.
+
+Verdict: #49 closed. The corner placement (x=0,y=0) does not occur on any path tested.
