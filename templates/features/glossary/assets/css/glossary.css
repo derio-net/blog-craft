@@ -1,0 +1,85 @@
+/* Abbreviation glossary — trigger + definition panel (docs/CONFIG.md §9).
+   Materialized only when features.glossary.enabled is true, and linked from
+   partials/custom/head-end.html BEFORE custom.css so a blog can override any of
+   this at equal specificity. */
+
+/* The trigger sits mid-sentence, so it must read as text with a hint, never as
+   a button. Everything here is undoing default button chrome. */
+.abbr-trigger {
+  all: unset;
+  cursor: help;
+  border-bottom: 1px dotted currentColor;
+  text-underline-offset: 2px;
+}
+
+.abbr-trigger:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.abbr-trigger abbr {
+  text-decoration: none;
+  cursor: inherit;
+}
+
+/* The panel lives in the top layer, so it is positioned by the browser and
+   needs no z-index of its own. */
+.abbr-panel {
+  max-width: 22rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 0.5rem;
+  background: #fff;
+  color: #1f2328;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.14);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.abbr-panel::backdrop {
+  background: transparent;
+}
+
+.abbr-name {
+  display: block;
+  margin-bottom: 0.3rem;
+  font-weight: 600;
+}
+
+.abbr-desc {
+  display: block;
+}
+
+.abbr-link {
+  display: inline-block;
+  margin-top: 0.45rem;
+  font-size: 0.85em;
+}
+
+/* Dark mode follows the .read-marker convention already in custom.css. */
+:is(html.dark) .abbr-panel {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: #1b1f24;
+  color: #e6edf3;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+/* The {{< glossary-index >}} definition list. */
+.glossary-index {
+  margin: 1rem 0;
+}
+
+.glossary-term {
+  font-weight: 600;
+  margin-top: 0.9rem;
+}
+
+.glossary-term abbr {
+  text-decoration: none;
+}
+
+.glossary-definition {
+  margin: 0.15rem 0 0 0;
+  opacity: 0.9;
+}

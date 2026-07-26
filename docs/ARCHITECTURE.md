@@ -98,3 +98,35 @@ than reinvent or take a heavyweight dependency.
 - Deploy pipelines (each blog picks its own host)
 - Theme customisation beyond Hextra defaults (each blog edits its own `hugo.toml` and CSS)
 - Image-generation backend (Gemini hardcoded in v1; the `image.provider` field is reserved for future backends but enforces `gemini` today)
+
+## The glossary's scan → author → apply split
+
+`/glossary` is three helpers and one model step, in that order, and the
+boundaries matter:
+
+1. `tools/glossary_scan.py` — finds candidate tokens. Pure text, fully tested.
+2. **the skill writes the definitions** — the only step that needs a model.
+3. `tools/glossary_apply.py` — inserts the markers. Pure text, fully tested.
+4. `tools/validate_glossary.py` — the CI gate. Pure text, fully tested.
+
+The split exists because "what does NUT stand for, and why does a reader of
+*this post* care?" is genuinely a judgement call, while "is this token inside a
+code fence?" is not. Putting the second kind of question in prose instructions
+means an agent re-improvises it every run, and the failure mode — a marker
+written into a code sample — is a corrupted post.
+
+**One exclusion scanner, three consumers.** `glossary_scan.excluded_spans()` is
+public and imported by both the applier and the validator rather than
+reimplemented. If propose and apply ever disagreed about what counts as prose,
+the applier would write markers the scanner would never have proposed. There is
+also a deliberately narrower `code_spans()` — fences, indented code, inline
+code, frontmatter, but *not* headings — used by the validator, because a post
+that documents `{{< abbr >}}` inside a fence must not be gated on its own
+example, while a marker in a heading really does execute and really must be
+validated.
+
+That import is why `glossary_scan.py` is mirrored into
+`templates/hugo-hextra/scripts/` alongside `validate_glossary.py`: a
+materialized blog runs its CI with plain python and no plugin on `sys.path`, so
+the companion has to travel with it. Both pairs are guarded by
+`tests/unit/test_mirrors.py`.

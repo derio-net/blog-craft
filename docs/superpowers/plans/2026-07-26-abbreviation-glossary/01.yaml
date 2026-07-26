@@ -1,0 +1,66 @@
+schema_version: 2
+phase:
+  number: 1
+  title: Config surface — features.glossary shape validation
+  tag: agentic
+  tier: mechanical
+  depends_on: []
+  tracking_issue: null
+  acceptance:
+  - GL-6
+tasks:
+- number: 1
+  title: validate_config.py accepts and shape-checks features.glossary
+  steps:
+  - id: P1.T1.S1
+    text: |
+      [RED] Add to tests/unit/test_config_schema.py a class of cases for the new optional block. `features` is unvalidated today, so these are the first assertions over it:
+        - a valid config with `features: {glossary: {enabled: true, first_occurrence_only: true}}` -> validate_config() returns []
+        - `features: {glossary: true}` (not a mapping) -> error mentioning "features.glossary must be a mapping"
+        - `features: {glossary: {enabled: "yes"}}` -> error "features.glossary.enabled must be a boolean"
+        - `features: {glossary: {first_occurrence_only: 1}}` -> error "features.glossary.first_occurrence_only must be a boolean"
+        - a config with NO `features` key at all -> [] (absence is never an error)
+        - a config with `features: {read_tracker: true}` and no glossary -> [] (other feature keys stay unvalidated)
+      Build each case from an existing valid fixture in the file so only the features block varies.
+      Run: bash tests/run-unit.sh -k config_schema
+      EXPECT: RED — the new cases fail because validate_config() ignores `features` entirely.
+  - id: P1.T1.S2
+    text: |
+      [GREEN] In tools/validate_config.py, after the existing `series_index` block and before `return errors`, add:
+        feats = cfg.get("features")
+        if isinstance(feats, dict) and "glossary" in feats:
+            gl = feats["glossary"]
+            if not isinstance(gl, dict):
+                errors.append("features.glossary must be a mapping")
+            else:
+                for k in ("enabled", "first_occurrence_only"):
+                    if k in gl and not isinstance(gl[k], bool):
+                        errors.append(f"features.glossary.{k} must be a boolean")
+      Note the deliberate asymmetry: a non-mapping `features` is NOT an error here — this phase only adds the glossary sub-block, it does not retroactively validate the rest of `features`.
+      Run: bash tests/run-unit.sh -k config_schema
+      EXPECT: GREEN — all config-schema tests pass, including the pre-existing ones.
+- number: 2
+  title: Verify (phase 1)
+  steps:
+  - id: P1.T2.S1
+    text: |
+      [VERIFY] bash tests/run-unit.sh
+      EXPECT: 395 passed + the new config-schema cases; the single pre-existing failure test_explainers_hugo.py::test_explainers_hugo_build may still be red (it is fixed in phase 5, see the spec journal `disc1-hugo-future-flake`). No OTHER failures.
+state:
+  steps:
+    P1.T1.S1:
+      state: x
+      ticked_at: '2026-07-25T22:26:37+00:00'
+      note: null
+    P1.T1.S2:
+      state: x
+      ticked_at: '2026-07-25T22:26:38+00:00'
+      note: null
+    P1.T2.S1:
+      state: x
+      ticked_at: '2026-07-25T22:26:39+00:00'
+      note: null
+  completion:
+    at: '2026-07-25T22:26:41+00:00'
+    note: null
+    observed_prs: []

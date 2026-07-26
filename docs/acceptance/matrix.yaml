@@ -28,7 +28,7 @@ repo: blog-craft
 rows:
   - id: OC-1
     capability: opencode-compatibility
-    acceptance: OpenCode discovers all 9 blog-craft skills in .opencode/skills/
+    acceptance: OpenCode discovers every blog-craft skill in .opencode/skills/
     origin:
     - blog-craft:docs/superpowers/specs/2026-07-15-opencode-compatibility-design.md
     levels: {}
@@ -36,7 +36,7 @@ rows:
     notes: 'Manual: run opencode in repo root, check skill list'
   - id: OC-2
     capability: opencode-compatibility
-    acceptance: Slash commands for all 9 skills work (e.g. /blog-post)
+    acceptance: Slash commands for every blog-craft skill work (e.g. /blog-post)
     origin:
     - blog-craft:docs/superpowers/specs/2026-07-15-opencode-compatibility-design.md
     levels: {}
@@ -399,3 +399,117 @@ rows:
     levels: {}
     status: not-implemented
     notes: 'Manual: Test Plan B in spec (post-merge, operator-driven)'
+  - id: GL-1
+    capability: abbreviation-glossary
+    acceptance: An author can scan one post, one series, or a whole blog and get abbreviation
+      definitions proposed into data/glossary.yaml
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-26-abbreviation-glossary-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_glossary_scan.py
+    status: ci
+    notes: '34 unit tests over glossary_scan.py: token shape, stoplist, every exclusion
+      region, inflected display forms, registry awareness, dedup with occurrence
+      counts, JSON CLI.'
+
+  - id: GL-2
+    capability: abbreviation-glossary
+    acceptance: A marked abbreviation renders as a clickable element that opens the
+      proper name and description, with no JavaScript
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-26-abbreviation-glossary-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_glossary_hugo.py
+    status: ci
+    notes: 'Builds a real bootstrapped site and asserts on emitted HTML: button/popover
+      pair, name and description in the panel, optional url link, distinct ids for a
+      twice-marked term, inner abbr title, build failure on an unknown key. Zero JS
+      by construction. Dismissal behaviour is GL-3.'
+
+  - id: GL-3
+    capability: abbreviation-glossary
+    acceptance: The definition panel is keyboard-reachable and dismissible by Esc and
+      click-away, on desktop and touch
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-26-abbreviation-glossary-design.md
+    levels: {}
+    status: not-implemented
+    notes: Native Popover API behaviour; only a real browser can confirm it — Test Plan
+      steps 3-4.
+  - id: GL-4
+    capability: abbreviation-glossary
+    acceptance: Marker insertion never rewrites code blocks, headings, frontmatter or
+      link text, and is idempotent across runs
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-26-abbreviation-glossary-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_glossary_apply.py
+    status: ci
+    notes: 'First-occurrence-only vs --all, idempotence across repeated runs, no rewrite
+      inside frontmatter or heading or link or fence, unchanged files left untouched
+      by mtime, CLI config plumbing.'
+
+  - id: GL-5
+    capability: abbreviation-glossary
+    acceptance: CI fails when a post references an abbreviation that has no registry
+      entry
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-26-abbreviation-glossary-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_glossary_validator.py
+      - blog-craft:tests/unit/test_ci_template.py
+      - blog-craft:tests/unit/test_mirrors.py
+    status: ci
+    notes: 'Validator errors, warnings and exit codes; CI template wires the step only
+      when features.glossary.enabled; scripts/ mirrors stay byte-identical so a
+      plugin-free blog CI can run it.'
+
+  - id: GL-6
+    capability: abbreviation-glossary
+    acceptance: The glossary surface materializes only when features.glossary.enabled
+      is true; a blog that did not opt in carries none of it
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-26-abbreviation-glossary-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_glossary_gating.py
+      - blog-craft:tests/unit/test_config_schema.py
+    status: ci
+    notes: 'Bootstrap materializes both shortcodes and glossary.css only when
+      features.glossary.enabled, and nothing when the key is false or absent; config
+      validator rejects a malformed glossary block.'
+
+  - id: GL-7
+    capability: abbreviation-glossary
+    acceptance: The glossary-index shortcode renders every registered term alphabetically
+      with its description
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-26-abbreviation-glossary-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_glossary_hugo.py
+    status: ci
+    notes: 'glossary-index renders every registry term alphabetically from a deliberately
+      unsorted fixture, and emits nothing without failing the build when no registry
+      exists.'
+
+  - id: GL-8
+    capability: abbreviation-glossary
+    acceptance: An existing blog adopts the feature through /update with no conflicts,
+      and operator-authored definitions are never overwritten
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-26-abbreviation-glossary-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_update_flow.py
+      - blog-craft:tests/unit/test_glossary_gating.py
+    status: ci
+    notes: 'Planner-level and manifest-level evidence is CI-pinned: the three
+      shipped files arrive as clean adds on a blog that never had the feature, the
+      registry is content-class so /update never plans an action on it, and an
+      operator-tweaked glossary.css 3-way merges instead of being clobbered. A real
+      end-to-end /update against a live blog config remains Test Plan step 8.'

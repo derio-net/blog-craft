@@ -36,6 +36,16 @@ jobs:
       - name: Validate post quality (educational-writing)
         run: python3 scripts/validate_educational.py --config .blog-craft.yaml content/docs/*/*/index.md
 {{- end }}{{- end }}
+{{- with .features }}{{- with .glossary }}{{- if .enabled }}
+      # Abbreviation glossary gate: every abbr marker must have an entry in
+      # data/glossary.yaml. A marker with nothing behind it is a broken promise
+      # to the reader. Markers inside code fences are ignored, so a post that
+      # documents the shortcode is not gated on its own example. Ships at
+      # scripts/ (mirrored from blog-craft tools/, alongside its glossary_scan.py
+      # companion) for plugin-free CI.
+      - name: Validate glossary
+        run: python3 scripts/validate_glossary.py --config .blog-craft.yaml content/docs/*/*/index.md
+{{- end }}{{- end }}{{- end }}
       # Mermaid syntax gate: lint every ```mermaid fence (posts, explainers,
       # papers) before render so a broken diagram fails CI instead of shipping
       # dead. On by default; opt out with `quality.mermaid_syntax: false`. Ships

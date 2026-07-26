@@ -96,6 +96,17 @@ else
   echo "[3d] analytics: SKIPPED (no features.analytics)"
 fi
 
+# Abbreviation glossary: the {{< abbr >}} / {{< glossary-index >}} shortcodes and
+# their stylesheet. The registry itself (data/glossary.yaml) is operator-owned
+# and written by /glossary, never by bootstrap.
+gl_value=$(cd "$RENDERER_DIR" && go run . --answers "$ANSWERS" --get-bool features.glossary.enabled 2>/dev/null || echo "false")
+if [[ "$gl_value" == "true" ]]; then
+  echo "[3f] glossary"
+  ( cd "$RENDERER_DIR" && go run . --src "$PLUGIN_ROOT/templates/features/glossary" --dst "$TARGET" --answers "$ANSWERS" )
+else
+  echo "[3f] glossary: SKIPPED (features.glossary.enabled != true)"
+fi
+
 # Opt-in layer palette: when the config declares series_index.layers, generate
 # data/layer_palette.yaml (colours the series-index cards + roadmap). Non-fatal —
 # a machine without PyYAML gets a warning; the author runs the generator manually.

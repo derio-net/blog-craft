@@ -1,0 +1,32 @@
+{{- /* Abbreviation with a click-to-open definition panel (docs/CONFIG.md §9).
+
+         {{< abbr "NUT" >}}            looks up and displays NUT
+         {{< abbr "SLO" "SLOs" >}}     looks up SLO, displays SLOs
+
+       The optional second argument is how plurals and possessives work without
+       forking a registry entry. It is positional rather than named (`text=…`)
+       because Hugo refuses to mix positional and named parameters in one
+       shortcode call, and making the common case `{{< abbr term="NUT" >}}` was
+       the worse trade.
+
+       Definitions come from data/glossary.yaml (site.Data.glossary), whose
+       entries carry `name`, `description` and an optional `url`.
+
+       Zero JavaScript: the trigger is a <button popovertarget> and the panel a
+       <span popover>, so click/tap, Esc, click-away, keyboard focus and
+       top-layer stacking are all native browser behaviour. The inner <abbr
+       title> carries the expansion for screen readers and gives a hover tooltip
+       where the Popover API is unavailable.
+
+       A key with no registry entry calls errorf and FAILS the build — a marker
+       with nothing behind it is a broken promise to the reader. scripts/
+       validate_glossary.py catches it earlier; this is the backstop. */ -}}
+{{- $key := .Get 0 -}}
+{{- $display := default $key (.Get 1) -}}
+{{- $entry := index (default (dict) site.Data.glossary) $key -}}
+{{- if not $entry -}}
+  {{- errorf "abbr: %q has no entry in data/glossary.yaml (%s)" $key .Page.File.Path -}}
+{{- else -}}
+{{- $id := printf "abbr-%s-%d" (anchorize $key) .Ordinal -}}
+<button type="button" class="abbr-trigger" popovertarget="{{ $id }}" aria-label="Expand abbreviation: {{ $key }}"><abbr title="{{ $entry.name }}">{{ $display }}</abbr></button><span popover id="{{ $id }}" class="abbr-panel"><strong class="abbr-name">{{ $entry.name }}</strong><span class="abbr-desc">{{ $entry.description }}</span>{{ with $entry.url }}<a class="abbr-link" href="{{ . }}">Read more</a>{{ end }}</span>
+{{- end -}}

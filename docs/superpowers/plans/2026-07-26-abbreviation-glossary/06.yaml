@@ -1,0 +1,118 @@
+schema_version: 2
+phase:
+  number: 6
+  title: /glossary skill, OpenCode mirror, CI step, wizard question
+  tag: agentic
+  tier: standard
+  depends_on:
+  - 2
+  - 3
+  - 4
+  - 5
+  tracking_issue: null
+  acceptance:
+  - GL-1
+  - GL-5
+tasks:
+- number: 1
+  title: The /glossary skill
+  steps:
+  - id: P6.T1.S1
+    text: |
+      Create skills/glossary/SKILL.md. Match skills/media/SKILL.md's structure exactly: frontmatter (name: glossary, description, user-invocable: true, disable-model-invocation: false, one optional `target` argument), an "Announce at start" line, a "Plugin internals" section naming tools/glossary_scan.py, tools/glossary_apply.py and tools/validate_glossary.py, the standard walk-up discovery contract with the same refusal wording, then the procedure.
+      Procedure sections to write:
+        1. Refuse politely if features.glossary.enabled is not true, offering to set it.
+        2. Resolve the target: no arg -> every post; <series-key> -> that series; <series>/<NN>-<slug> -> one post.
+        3. Run glossary_scan.py, consume the JSON.
+        4. Write name + description per candidate FROM THE RETURNED SENTENCE. State the rule explicitly and in bold: a candidate whose expansion cannot be established with confidence is DROPPED, never guessed — a wrong expansion is worse than none.
+        5. Show the operator the proposed data/glossary.yaml diff before writing; never silently rewrite an existing entry.
+        6. Run glossary_apply.py, report each file:line edit.
+        7. Tell the operator to run validate_glossary.py and a local hugo build.
+      EXPECT: file created; no test to run yet.
+  - id: P6.T1.S2
+    text: |
+      Add /glossary to the skill list in README.md (the "What is blog-craft" bullets and the "The skills" paragraph), one sentence in the same register as the neighbouring bullets.
+      Run: bash tests/run-unit.sh -k opencode
+      EXPECT: whatever the current state is — the mirror is generated in the next task.
+- number: 2
+  title: OpenCode mirror
+  steps:
+  - id: P6.T2.S1
+    text: |
+      [RED] Run: uv run scripts/sync-opencode.py --check
+      EXPECT: RED — non-zero, reporting drift because .opencode/skills/blog-craft-glossary/ and .opencode/commands/blog-craft-glossary.md do not exist.
+  - id: P6.T2.S2
+    text: |
+      [GREEN] Run: uv run scripts/sync-opencode.py
+      then: uv run scripts/sync-opencode.py --check && bash tests/run-unit.sh -k "opencode"
+      EXPECT: --check exits 0; test_opencode_sync.py and test_opencode_namespace.py green; the generated skill's frontmatter name is `blog-craft-glossary` (never hand-edit the mirror).
+- number: 3
+  title: CI template step
+  steps:
+  - id: P6.T3.S1
+    text: |
+      [RED] Extend tests/unit/test_ci_template.py: rendering .github/workflows/blog-ci.yml.tmpl with features.glossary.enabled true emits a "Validate glossary" step running `python3 scripts/validate_glossary.py --config .blog-craft.yaml content/docs/*/*/index.md`; with the feature absent or false, no such step appears; and the rendered YAML still parses (yaml.safe_load) in both cases.
+      Run: bash tests/run-unit.sh -k ci_template
+      EXPECT: RED.
+  - id: P6.T3.S2
+    text: |
+      [GREEN] In templates/hugo-hextra/.github/workflows/blog-ci.yml.tmpl, add the step before the mermaid step, gated exactly like the quality gate:
+        {{- with .features }}{{- with .glossary }}{{- if .enabled }}
+        …step…
+        {{- end }}{{- end }}{{- end }}
+      with a comment in the same voice as the neighbouring ones explaining that a dangling abbreviation is a broken promise to the reader.
+      Run: bash tests/run-unit.sh -k ci_template
+      EXPECT: GREEN.
+- number: 4
+  title: Bootstrap wizard question
+  steps:
+  - id: P6.T4.S1
+    text: |
+      In skills/bootstrap-blog/SKILL.md, add one wizard question in the existing features section's style: "Mark technical abbreviations with expandable inline definitions? (y/N)" defaulting to NO, writing features.glossary.enabled into the answers YAML, with a one-line note that the operator populates the registry later by running /glossary.
+      Run: bash tests/run-unit.sh -k "bootstrap or gating"
+      EXPECT: green — this is a docs/skill edit; the gating behaviour is already covered by phase 5.
+- number: 5
+  title: Verify (phase 6)
+  steps:
+  - id: P6.T5.S1
+    text: |
+      [VERIFY] bash tests/run-unit.sh && uv run scripts/sync-opencode.py --check && bash tests/smoke-bootstrap.sh
+      EXPECT: full unit suite green, no OpenCode drift, smoke green.
+state:
+  steps:
+    P6.T1.S1:
+      state: x
+      ticked_at: '2026-07-25T23:03:05+00:00'
+      note: null
+    P6.T1.S2:
+      state: x
+      ticked_at: '2026-07-25T23:03:06+00:00'
+      note: null
+    P6.T2.S1:
+      state: x
+      ticked_at: '2026-07-25T23:03:07+00:00'
+      note: null
+    P6.T2.S2:
+      state: x
+      ticked_at: '2026-07-25T23:03:08+00:00'
+      note: null
+    P6.T3.S1:
+      state: x
+      ticked_at: '2026-07-25T23:03:09+00:00'
+      note: null
+    P6.T3.S2:
+      state: x
+      ticked_at: '2026-07-25T23:03:10+00:00'
+      note: null
+    P6.T4.S1:
+      state: x
+      ticked_at: '2026-07-25T23:03:11+00:00'
+      note: null
+    P6.T5.S1:
+      state: x
+      ticked_at: '2026-07-25T23:03:12+00:00'
+      note: null
+  completion:
+    at: '2026-07-25T23:03:14+00:00'
+    note: null
+    observed_prs: []

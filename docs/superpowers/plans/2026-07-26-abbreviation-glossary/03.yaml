@@ -1,0 +1,80 @@
+schema_version: 2
+phase:
+  number: 3
+  title: tools/glossary_apply.py — safe, idempotent marker insertion
+  tag: agentic
+  tier: standard
+  depends_on:
+  - 2
+  tracking_issue: null
+  acceptance:
+  - GL-4
+tasks:
+- number: 1
+  title: First-occurrence insertion
+  steps:
+  - id: P3.T1.S1
+    text: |
+      [RED] Create tests/unit/test_glossary_apply.py. Cases for `apply_file(path, registry, first_occurrence_only=True) -> list[edit]`:
+        - "We ran NUT twice; NUT again." with NUT in the registry -> only the FIRST becomes {{< abbr "NUT" >}}, the second is untouched
+        - inflected display: "our SLOs slipped" -> {{< abbr "SLO" text="SLOs" >}}
+        - a term NOT in the registry is never inserted (apply only marks what is defined — the scan step is what proposes)
+        - the returned edit list carries file and 1-based line for each insertion
+      Run: bash tests/run-unit.sh -k glossary_apply
+      EXPECT: RED.
+  - id: P3.T1.S2
+    text: |
+      [GREEN] Create tools/glossary_apply.py importing `excluded_spans` and the token scanner from glossary_scan (do NOT re-implement the exclusion logic — a divergence between propose and apply is exactly the bug class this split exists to prevent). Insert right-to-left by span offset so earlier offsets stay valid.
+      Run: bash tests/run-unit.sh -k glossary_apply
+      EXPECT: GREEN.
+- number: 2
+  title: Idempotence, all-occurrences mode, write discipline
+  steps:
+  - id: P3.T2.S1
+    text: |
+      [RED] Add cases:
+        - idempotence: apply twice -> second run returns [] and the file bytes are IDENTICAL to after the first
+        - a file already containing {{< abbr "NUT" >}} and a later bare NUT, first_occurrence_only=True -> no new insertion (the post is already marked)
+        - first_occurrence_only=False -> every prose occurrence marked, still skipping excluded regions
+        - excluded regions are never rewritten: a fixture with NUT in a fence, a heading, a link and frontmatter plus ONE prose occurrence -> exactly one insertion, and the fence/heading/link/frontmatter bytes are unchanged
+        - a file with no changes is not rewritten at all (assert mtime unchanged, or that write is not called)
+      Run: bash tests/run-unit.sh -k glossary_apply
+      EXPECT: RED.
+  - id: P3.T2.S2
+    text: |
+      [GREEN] Implement the above plus `_main(argv)`: `--config` (required), `--all` (override first_occurrence_only), positional paths; reads features.glossary.first_occurrence_only from the config, defaulting True. Print one `file:line  TERM` line per insertion and a trailing count.
+      Run: bash tests/run-unit.sh -k glossary_apply
+      EXPECT: GREEN.
+- number: 3
+  title: Verify (phase 3)
+  steps:
+  - id: P3.T3.S1
+    text: |
+      [VERIFY] bash tests/run-unit.sh
+      EXPECT: green apart from the known explainers flake.
+state:
+  steps:
+    P3.T1.S1:
+      state: x
+      ticked_at: '2026-07-25T22:35:50+00:00'
+      note: null
+    P3.T1.S2:
+      state: x
+      ticked_at: '2026-07-25T22:35:54+00:00'
+      note: null
+    P3.T2.S1:
+      state: x
+      ticked_at: '2026-07-25T22:35:58+00:00'
+      note: null
+    P3.T2.S2:
+      state: x
+      ticked_at: '2026-07-25T22:36:01+00:00'
+      note: null
+    P3.T3.S1:
+      state: x
+      ticked_at: '2026-07-25T22:36:05+00:00'
+      note: null
+  completion:
+    at: '2026-07-25T22:36:10+00:00'
+    note: null
+    observed_prs: []

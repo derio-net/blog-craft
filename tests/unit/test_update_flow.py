@@ -83,3 +83,61 @@ def test_three_way_helper_direct(tmp_path):
     _mk(tmp_path, {"b": "x\n", "l": "x\n", "i": "y\n"})
     merged, conflict = three_way(tmp_path / "b", tmp_path / "l", tmp_path / "i")
     assert not conflict and merged == b"y\n"
+
+
+# --- glossary adoption via /update (GL-8) ------------------------------------
+# A blog that turns features.glossary.enabled on and runs /update must RECEIVE
+# the shortcodes + stylesheet, and must never have its own curated definitions
+# touched. Both halves are properties of the manifest + planner, so they are
+# checkable here rather than only by hand.
+
+GLOSSARY_SHIPPED = ("layouts/shortcodes/abbr.html",
+                    "layouts/shortcodes/glossary-index.html",
+                    "assets/css/glossary.css")
+
+
+def test_glossary_files_arrive_as_clean_adds(tmp_path):
+    plan = _plan(
+        tmp_path,
+        base={},                                        # not present at the recorded version
+        blog={"content/p.md": "post\n"},                # blog has never had the feature
+        stg={rel: "shipped\n" for rel in GLOSSARY_SHIPPED},
+    )
+    by = {e["path"]: e for e in plan}
+    for rel in GLOSSARY_SHIPPED:
+        assert by[rel]["action"] == "add", f"{rel} should arrive as a clean add"
+    assert not any(e["action"] == "conflict" for e in plan)
+
+
+def test_operator_definitions_are_never_touched(tmp_path):
+    plan = _plan(
+        tmp_path,
+        base={"data/glossary.yaml": "NUT: {}\n"},
+        blog={"data/glossary.yaml": "NUT:\n  name: My own words\n"},
+        stg={"data/glossary.yaml": "NUT: {}\n"},
+    )
+    assert "data/glossary.yaml" not in {e["path"] for e in plan}, \
+        "the registry is content-class — /update must never plan an action on it"
+
+
+def test_a_tweaked_stylesheet_merges_rather_than_being_clobbered(tmp_path):
+    # assets/css/** is 'merged', so a blog that recoloured the panel keeps it.
+    # Separated by context lines: git merge-file folds ADJACENT changed lines
+    # into one hunk and conflicts, which is diff3 behaviour rather than anything
+    # about this feature. A real stylesheet has rules between these two.
+    def css(panel, index):
+        return (f".abbr-trigger {{ cursor: help; }}\n\n"
+                f".abbr-panel {{ color: {panel}; }}\n\n"
+                f".abbr-name {{ font-weight: 600; }}\n\n"
+                f".glossary-index {{ margin: {index}; }}\n")
+    plan = _plan(
+        tmp_path,
+        base={"assets/css/glossary.css": css("black", "1rem 0")},
+        blog={"assets/css/glossary.css": css("rebeccapurple", "1rem 0")},
+        stg={"assets/css/glossary.css": css("black", "2rem 0")},
+    )
+    e = {x["path"]: x for x in plan}["assets/css/glossary.css"]
+    assert e["action"] == "merge"
+    assert b"rebeccapurple" in e["merged"]      # the operator's tweak survives
+    assert b"2rem 0" in e["merged"]             # and the shipped change lands
+    assert b"<<<<<<<" not in e["merged"]

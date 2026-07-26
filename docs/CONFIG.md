@@ -61,6 +61,9 @@ quality:                  # optional; educational-writing gate (see §7). Absent
 
 features:                 # series_overview_posts, read_tracker, banners,
                           # roadmap{enabled,data}, analytics, css{mermaid_palette}
+  glossary:               # optional; abbreviation glossary (see §9). Absent => off.
+    enabled: true
+    first_occurrence_only: true
 voice: |
   <tone>
 voice_level: balanced     # optional; dry | balanced | rich — how thick the persona
@@ -314,3 +317,127 @@ Dryness is orthogonal to correctness.
 
 `/blog-post` and `/post-rewrite` read it from config and accept a per-run
 `voice_level` override. Full guidance: `skills/educational-writing/references/voice.md`.
+
+## §9 Abbreviation glossary (`features.glossary`)
+
+Optional, off unless asked for. A teaching blog leans on abbreviations — NUT,
+SLO, CDP, OKLCH — because spelling each one out every time would wreck the
+prose. The cost lands on the reader who does not already know the term: they
+leave the page to search, or they guess. This feature lets them click the term
+instead.
+
+```yaml
+features:
+  glossary:
+    enabled: true
+    first_occurrence_only: true   # optional, default true
+```
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `enabled` | *(absent → false)* | Master switch. When true, bootstrap/`/update` materialize the two shortcodes and `assets/css/glossary.css`, and the shipped CI wires the validator step. |
+| `first_occurrence_only` | `true` | An **authoring** knob, not a rendering one: it governs where `/glossary` inserts markers. `false` marks every occurrence in a post rather than just the first. |
+
+No schema version bump is involved — `features` passes through untouched, so
+turning this on is a two-line edit to an existing v5 config followed by
+`/update`.
+
+### The registry — `data/glossary.yaml`
+
+One blog-wide file. A term defined while writing post 3 is available to post 7,
+so a series never redefines itself.
+
+```yaml
+NUT:
+  name: Network UPS Tools
+  description: >-
+    Daemon suite that monitors a UPS over USB or the network and triggers a
+    clean shutdown before the battery dies.
+  url: https://networkupstools.org      # optional
+SLO:
+  name: Service Level Objective
+  description: >-
+    The numeric reliability target a service commits to — the line an error
+    budget is measured against.
+```
+
+- Keyed by the literal token as it appears in prose. **Case-sensitive.**
+- `name` and `description` are required. `url` is optional, must be absolute
+  `http(s)`, and renders as a "Read more" link inside the panel.
+- Classified `content` by `templates/manifest.yaml` (`data/**`), so **`/update`
+  never touches your definitions.**
+- Keep it alphabetically sorted; the validator warns (never fails) otherwise.
+
+### Marking terms — the `/glossary` skill
+
+```bash
+/glossary                          # every post in the blog
+/glossary tutorials                # one series
+/glossary tutorials/07-monitoring  # one post
+```
+
+It scans for candidates, writes a definition for each from the sentence it was
+found in, shows you the registry diff before writing, then inserts the markers.
+It is **idempotent** — running it again on an already-marked post changes
+nothing, which is what makes a repeated series-wide sweep safe.
+
+Candidates are 2–10 character uppercase tokens found in genuine prose. Code
+fences, inline code, frontmatter, headings, link text, URLs, existing shortcodes
+and raw HTML are never touched. Lowercase tool names (`systemd`, `kubectl`) are
+deliberately not proposed — too noisy — but you can hand-add any term to the
+registry and it renders identically.
+
+### The shortcodes
+
+```
+I wired {{< abbr "NUT" >}} into the rack.
+The {{< abbr "SLO" "SLOs" >}} we agreed on were generous.
+```
+
+The optional second argument overrides the **displayed** text while the lookup
+still uses the first — that is how plurals and possessives work without forking
+a registry entry. It is positional rather than named because Hugo refuses to mix
+positional and named parameters in one shortcode call.
+
+The rendered markup is a `<button popovertarget>` wrapping an `<abbr title>`,
+plus a `<span popover>` panel. **No JavaScript**: click/tap to open, Esc or
+click-away to close, keyboard focusable, top-layer positioned — all native
+browser behaviour. The inner `<abbr title>` carries the expansion for screen
+readers.
+
+A key with no registry entry **fails the Hugo build**. A marker with nothing
+behind it is a broken promise to the reader.
+
+```
+{{< glossary-index >}}
+```
+
+renders the whole registry as an alphabetical definition list. Put it on a page
+of your own choosing — blog-craft deliberately does not create a `/glossary/`
+page, because that page would be operator-owned content `/update` could never
+manage. It emits nothing (not an error) when the registry is absent.
+
+### The CI gate
+
+Run it directly:
+
+```bash
+python <blog-craft>/tools/validate_glossary.py --config .blog-craft.yaml \
+    content/docs/*/*/index.md
+```
+
+| Check | Severity |
+|---|---|
+| a marker with no registry entry | **error** |
+| an entry missing or blank `name` / `description` | **error** |
+| `url` present but not an absolute http(s) URL | **error** |
+| two keys differing only in case | **error** |
+| an entry no post references | warning |
+| the registry is not alphabetically sorted | warning |
+
+Markers inside code fences are ignored, so a post that *documents* the shortcode
+is not gated on its own example.
+
+Ships at `scripts/validate_glossary.py` (with its `scripts/glossary_scan.py`
+companion — the validator imports it) so a plain-python CI runs it without the
+plugin, and runs as a CI step when `features.glossary.enabled` is true.

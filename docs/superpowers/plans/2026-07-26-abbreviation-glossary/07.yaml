@@ -1,0 +1,99 @@
+schema_version: 2
+phase:
+  number: 7
+  title: Docs, version bump, changelog, acceptance-matrix flips
+  tag: agentic
+  tier: mechanical
+  depends_on:
+  - 5
+  - 6
+  tracking_issue: null
+  acceptance:
+  - GL-1
+  - GL-2
+  - GL-4
+  - GL-5
+  - GL-6
+  - GL-7
+tasks:
+- number: 1
+  title: Documentation
+  steps:
+  - id: P7.T1.S1
+    text: |
+      docs/CONFIG.md: add the `glossary` key to the `features:` comment in the top config sketch, and write a new "## §9 Abbreviation glossary (`features.glossary`)" section after §8 in the established voice — what it is and the reader problem it solves, the config keys table (enabled / first_occurrence_only with defaults), the data/glossary.yaml format with a real two-entry example, both shortcodes including the text= override, the CI gate and how to run the validator directly, and the note that the registry is content-class so /update never touches it.
+      EXPECT: section renders; no TODOs left.
+  - id: P7.T1.S2
+    text: |
+      docs/ARCHITECTURE.md: add a short section on the scan → author → apply split, stating why only the middle step needs a model and that the exclusion span-scanner is shared between propose and apply so the two can never disagree.
+      docs/USING-ON-A-HOST.md: add enabling the feature on an existing blog (set features.glossary.enabled, run /update to get the shortcodes + CSS, run /glossary to build the registry).
+      EXPECT: both files updated.
+- number: 2
+  title: Version + changelog
+  steps:
+  - id: P7.T2.S1
+    text: |
+      Run: python tools/bump_version.py --minor  (check its actual flag names with --help first; the canonical version lives in pyproject.toml and the tool keeps the plugin manifests in lockstep)
+      EXPECT: 0.12.0 -> 0.13.0 across pyproject.toml, .claude-plugin/plugin.json and .claude-plugin/marketplace.json.
+      Run: bash tests/run-unit.sh -k version
+      EXPECT: GREEN.
+  - id: P7.T2.S2
+    text: |
+      CHANGELOG.md: add a "## [0.13.0] - 2026-07-26" section under [Unreleased] with an "### Added" entry for the glossary feature (config surface, both shortcodes, the skill, the validator, the opt-in gate) and a "### Fixed" entry for the test_explainers_hugo future-date flake. Match the density and voice of the 0.10.0 entry.
+      Run: bash tests/run-unit.sh -k "version or changelog"
+      EXPECT: GREEN.
+- number: 3
+  title: Acceptance matrix flips
+  steps:
+  - id: P7.T3.S1
+    text: |
+      Update docs/acceptance/matrix.yaml rows to reflect the evidence that now exists. For each of GL-1, GL-2, GL-4, GL-5, GL-6, GL-7: set status `ci` and fill `levels` with the real unit refs (`unit: [blog-craft:tests/unit/test_glossary_scan.py]` etc — use the actual file paths written in phases 2-6). Leave GL-3 and GL-8 as they are for now; phase 8 moves them to `skipped`.
+      Run: fr acceptance check
+      EXPECT: exit 0; the GL-* not-implemented warnings for the six flipped rows are gone.
+  - id: P7.T3.S2
+    text: |
+      Run: fr acceptance report --deterministic
+      then commit the regenerated report set (report_local.html, report_linked.html, report_linked.md) — `fr acceptance check` errors on report drift.
+      Run: fr acceptance check
+      EXPECT: exit 0, no drift errors.
+- number: 4
+  title: Full verification (phase 7)
+  steps:
+  - id: P7.T4.S1
+    text: |
+      [VERIFY] bash tests/run-unit.sh && bash tests/smoke-bootstrap.sh && bash tests/smoke-update.sh && uv run scripts/sync-opencode.py --check && fr acceptance check && bash scripts/validate-plans.sh
+      EXPECT: full unit suite green with ZERO failures, both smokes green, no OpenCode drift, acceptance check exit 0, plans valid. Capture the real counts — they go in the PR body.
+state:
+  steps:
+    P7.T1.S1:
+      state: x
+      ticked_at: '2026-07-25T23:11:13+00:00'
+      note: null
+    P7.T1.S2:
+      state: x
+      ticked_at: '2026-07-25T23:11:14+00:00'
+      note: null
+    P7.T2.S1:
+      state: x
+      ticked_at: '2026-07-25T23:11:15+00:00'
+      note: null
+    P7.T2.S2:
+      state: x
+      ticked_at: '2026-07-25T23:11:16+00:00'
+      note: null
+    P7.T3.S1:
+      state: x
+      ticked_at: '2026-07-25T23:11:17+00:00'
+      note: null
+    P7.T3.S2:
+      state: x
+      ticked_at: '2026-07-25T23:11:18+00:00'
+      note: null
+    P7.T4.S1:
+      state: x
+      ticked_at: '2026-07-25T23:11:19+00:00'
+      note: null
+  completion:
+    at: '2026-07-25T23:11:21+00:00'
+    note: null
+    observed_prs: []

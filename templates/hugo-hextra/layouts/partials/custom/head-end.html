@@ -2,10 +2,16 @@
   Hextra "head-end" override — runs at the end of <head>.
   Loads the fingerprinted custom.css (always — Hextra does NOT auto-load it),
   optional asciinema-player assets (only on pages using the {{< asciinema >}}
-  shortcode), the read-tracker script (only when features.read_tracker
-  materialized it), and the analytics partial (only when features.analytics
-  materialized it).
+  shortcode), the glossary stylesheet (only when features.glossary materialized
+  it), the read-tracker script (only when features.read_tracker materialized
+  it), and the analytics partial (only when features.analytics materialized it).
 */ -}}
+{{- /* glossary.css — present only when features.glossary materialized it.
+       Deliberately BEFORE custom.css: a blog overrides feature styling in its
+       own custom.css, which only works if this loads first. */}}
+{{- with resources.Get "css/glossary.css" }}
+<link rel="stylesheet" href="{{ (. | minify | fingerprint).RelPermalink }}">
+{{- end }}
 {{ $customCSS := resources.Get "css/custom.css" | minify | fingerprint }}
 <link rel="stylesheet" href="{{ $customCSS.RelPermalink }}">
 {{- if .HasShortcode "asciinema" }}

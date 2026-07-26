@@ -131,6 +131,15 @@ config contract — the generator reads `image.*`, docs/CONFIG.md):
   When `false`, omit the `quality` block entirely (no gate wired). The methodology skills (`/blog-post`, `/post-rewrite`) still apply even without the CI gate.
 - **`features.roadmap_shortcode`** — default `false`. "Include a roadmap shortcode skeleton?" Yes only if you have a temporally-evolving thing to visualize.
 - **`features.series_overview_posts`** — default `true`. "Seed a `00-overview/index.md` per series?"
+- **`features.glossary.enabled`** — default `false`. "Mark technical abbreviations with expandable inline definitions?" Ships the `{{< abbr >}}` and `{{< glossary-index >}}` shortcodes plus their stylesheet. Write it nested:
+
+  ```yaml
+  features:
+    glossary:
+      enabled: true
+  ```
+
+  The definitions themselves are operator-owned and live in `data/glossary.yaml` — bootstrap does not create it. The author populates it later by running `/glossary`, which scans a post, a series, or the whole blog. See `docs/CONFIG.md` §9.
 - **`git_init`** — default `true`. Initialize git in the target dir after rendering.
 - **`gh_repo_create`** — default `ask`. Create a GitHub remote? If yes: `org/name`? Visibility?
 

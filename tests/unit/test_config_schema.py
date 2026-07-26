@@ -255,3 +255,46 @@ def test_missing_both_order_forms_flagged():
     cfg = _valid()
     del cfg["image"]["composition_order"]
     assert any("composition_order" in e for e in validate_config(cfg))
+
+
+# --- features.glossary (abbreviation glossary, docs/CONFIG.md §9) -------------
+# The `features` block was unvalidated until now; these are the first assertions
+# over it. Only the glossary sub-block is checked — a typo'd `enable: true` would
+# otherwise silently disable the whole feature with no signal.
+
+def test_features_glossary_valid_block_passes():
+    cfg = _valid()
+    cfg["features"] = {"glossary": {"enabled": True, "first_occurrence_only": True}}
+    assert validate_config(cfg) == []
+
+
+def test_features_glossary_must_be_a_mapping():
+    cfg = _valid()
+    cfg["features"] = {"glossary": True}
+    assert any("features.glossary must be a mapping" in e for e in validate_config(cfg))
+
+
+def test_features_glossary_enabled_must_be_bool():
+    cfg = _valid()
+    cfg["features"] = {"glossary": {"enabled": "yes"}}
+    assert any("features.glossary.enabled must be a boolean" in e
+               for e in validate_config(cfg))
+
+
+def test_features_glossary_first_occurrence_only_must_be_bool():
+    cfg = _valid()
+    cfg["features"] = {"glossary": {"first_occurrence_only": 1}}
+    assert any("features.glossary.first_occurrence_only must be a boolean" in e
+               for e in validate_config(cfg))
+
+
+def test_no_features_block_is_never_an_error():
+    cfg = _valid()
+    cfg.pop("features", None)
+    assert validate_config(cfg) == []
+
+
+def test_other_feature_keys_stay_unvalidated():
+    cfg = _valid()
+    cfg["features"] = {"read_tracker": "not-a-bool"}
+    assert validate_config(cfg) == []
