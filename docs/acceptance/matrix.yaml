@@ -434,10 +434,17 @@ rows:
       click-away, on desktop and touch
     origin:
     - blog-craft:docs/superpowers/specs/2026-07-26-abbreviation-glossary-design.md
-    levels: {}
-    status: not-implemented
-    notes: Native Popover API behaviour; only a real browser can confirm it — Test Plan
-      steps 3-4.
+    levels:
+      ui:
+      - blog-craft:docs/superpowers/plans/2026-07-26-abbreviation-glossary/08.yaml
+    status: skipped
+    notes: 'Proven live once (2026-07-26) via browser-harness against Brave: click
+      opens the panel with name + description, Esc closes, click-away closes, the
+      trigger is keyboard-focusable and activates from the keyboard, readable and
+      fully on-screen at 500px width, dark mode correct. Manual walk, not automatable
+      in CI, so it rests at skipped and a backfill is owed if this is ever scriptable.
+      Placement is NOT covered here - see GL-9 and blog-craft#49.'
+
   - id: GL-4
     capability: abbreviation-glossary
     acceptance: Marker insertion never rewrites code blocks, headings, frontmatter or
@@ -513,3 +520,16 @@ rows:
       registry is content-class so /update never plans an action on it, and an
       operator-tweaked glossary.css 3-way merges instead of being clobbered. A real
       end-to-end /update against a live blog config remains Test Plan step 8.'
+  - id: GL-9
+    capability: abbreviation-glossary
+    acceptance: The definition panel appears adjacent to the abbreviation it defines,
+      not over unrelated page content
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-26-abbreviation-glossary-design.md
+    levels: {}
+    status: not-implemented
+    notes: 'Discovered post-merge by the Test Plan browser walk and filed as blog-craft#49:
+      with no CSS anchor positioning the top-layer popover falls back to the viewport
+      corner, 375px left and 299px above the term, overlapping the h1 and sidebar. Structure-only
+      unit tests cannot see position. Fix is anchor positioning with a unique per-trigger
+      anchor name plus an @supports fallback.'
