@@ -531,16 +531,14 @@ rows:
       - blog-craft:tests/unit/test_glossary_hugo.py
       - blog-craft:tests/unit/test_glossary_css.py
     status: skipped
-    notes: 'CI pins the two halves of the mechanism but not the outcome. test_glossary_hugo.py
-      asserts the emitted anchor names — that trigger and panel carry the same
-      --abbr-<key>-<ordinal>, and that each occurrence gets its own rather than one
-      shared name. test_glossary_css.py asserts the placement contract in the shipped
-      stylesheet: anchored rules gated behind @supports, block-end preferred, both
-      try-fallbacks declared, the UA popover inset/margin reset, and a fallback that
-      cannot regress to the corner. Whether the box lands next to the term needs a
-      real layout engine, and there is no browser in CI — hence skipped, not ci. That
-      half was verified by hand in Chrome 147 on this branch (6px below the term,
-      dx=0 at 1280x850; inline flip at 500px; block-start flip with the term 30px
-      from the viewport foot; fallback docked 1rem above the foot and inline-centred
-      — measurements in the plan journal for 2026-07-26-glossary-panel-placement) and
-      is Test Plan step 3a for the operator.'
+    notes: 'Verified live 2026-07-26 post-merge (Test Plan step 3a, blog-craft#51 on
+      main): panel 6px below its own trigger with dx=0 at 1280x850, inline flip at
+      500px, block-start flip with the term 30px from the viewport foot, and the
+      unanchored fallback docked 1rem above the foot and inline-centred at both
+      widths — no viewport-corner placement and no h1 overlap on any path. Stays
+      skipped rather than ci because that evidence is a browser walk and CI has no
+      layout engine. What CI does pin: test_glossary_hugo.py asserts the emitted
+      anchor names are paired and unique per occurrence, and test_glossary_css.py
+      asserts the stylesheet contract (anchored rules gated behind @supports,
+      block-end preferred, both try-fallbacks declared, UA popover inset/margin
+      reset, fallback that cannot regress to the corner).'
