@@ -48,10 +48,14 @@ def _corrupt_png(path):
         f.write(bytes(data))
 
 
-def _build(tmp_path, optimize):
+def _build(tmp_path, optimize, cover=False):
     cfg = _base_cfg()
     if optimize is not None:
         cfg.setdefault("image", {})["optimize"] = optimize
+    if cover:
+        # the cover <img> lives in docs/single.html, which only materializes with
+        # the papers content-type enabled
+        cfg.setdefault("content_types", {}).setdefault("papers", {})["enabled"] = True
     ans = tmp_path / "ans.yaml"; ans.write_text(yaml.safe_dump(cfg))
     blog = str(tmp_path / "blog")
     subprocess.run(["bash", RENDER, str(ans), blog], check=True, capture_output=True, text=True)
@@ -61,6 +65,8 @@ def _build(tmp_path, optimize):
     _png(os.path.join(d, "inline.png"), 2000, 1200)
     _png(os.path.join(d, "shot.png"), 1800, 1000)
     _corrupt_png(os.path.join(d, "broken.png"))   # a placeholder stub that won't decode
+    if cover:
+        _png(os.path.join(d, "cover.png"), 2400, 1000, (200, 60, 60))
     open(os.path.join(d, "index.md"), "w").write(
         "---\ntitle: Alpha\nseries: [%s]\nweight: 2\ndraft: false\nsummary: s\n---\n\n"
         "![an inline pic](inline.png)\n\n"
@@ -98,6 +104,21 @@ def test_bundle_images_become_capped_webp_with_srcset(tmp_path):
     assert re.search(r'site-track-banner[^<]*<img src="[^"]+\.webp"[^>]*\bwidth="2560"', html), \
         "banner not optimized/capped to bannerMaxWidth"
     assert html.count(".webp") >= 3   # inline + screenshot + banner
+
+
+def test_post_cover_is_optimized(tmp_path):
+    """The post cover is the largest image on the page — it must go through
+    opt-image like every other image path, not ship as a raw <img>."""
+    html = _build(tmp_path, {"enabled": True, "quality": 80,
+                             "max_width": 1600, "banner_max_width": 2560},
+                  cover=True)
+    m = re.search(r'<div class="post-cover">\s*(<img [^>]*>)', html)
+    assert m, "post cover not rendered"
+    img = m.group(1)
+    assert ".webp" in img, "cover not optimized to webp: %s" % img
+    assert "srcset=" in img, "cover has no srcset: %s" % img
+    assert 'width="1600"' in img, "2400px cover not capped to maxWidth: %s" % img
+    assert 'height="' in img, "cover missing explicit height (layout shift): %s" % img
 
 
 def test_optimize_off_leaves_raw_png(tmp_path):

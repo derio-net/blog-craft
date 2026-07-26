@@ -10,6 +10,40 @@ matching `vX.Y.Z` tag on merge (#18).
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-07-26
+
+### Fixed
+- **Post covers went out unoptimized (#53).** `docs/single.html` rendered the
+  cover as a raw `<img>` while every other image path — `list.html` (the cover
+  *thumbnail*), `render-image.html`, `screenshot.html`, `site-banner.html` —
+  went through `opt-image.html`. So the largest image on the page was the one
+  image skipping WebP conversion, `maxWidth` capping and `srcset`: a retina
+  display got no high-DPI variant and a phone downloaded the full-size asset.
+  The partial and `[params.imageOptimize]` were both already shipped and
+  enabled; only this call site was missed. `test_image_optimize.py` never caught
+  it because its fixture leaves the papers content-type off, so the layout
+  carrying the cover was never materialized in the test blog — the test now
+  enables it, drops a `cover.png`, and asserts the cover is capped WebP with a
+  srcset.
+- **`.reference-pool/README.md` documented the v4 chain v5 removed (#53).** It
+  described reference selection as a three-tier precedence chain that "stacks",
+  which `docs/CONFIG.md` has said does not run for a v5 entry since 0.10.0. A
+  blog bootstrapped today got a README contradicting its own engine. Rewritten
+  to the v5 contract (exactly one `primary`, `clothing:` anchors, order is
+  load-bearing), with the v4 chain kept as an explicit legacy note.
+
+### Added
+- **`resize` accepts `target` and `size` (#53).** Of `post_process()`'s three
+  steps, `crop_resize` and `ico` already wrote to a `target` and `ico` already
+  took `size` as a square shorthand — `resize` alone always clobbered the source
+  image. That made a one-master-to-many-derivatives pass inexpressible, because
+  each `resize` destroyed the source the next step had to read; the canonical
+  favicon set (crop square, then fan out to apple-touch/32/16/ico) could not be
+  written. `resize` now honours both, strictly backwards compatibly: with
+  `width`/`height` and no `target`, behaviour is unchanged. `post_process()` had
+  no test coverage at all, which is how the three steps drifted apart —
+  `tests/unit/test_post_process_steps.py` now pins the shared contract.
+
 ## [0.13.1] - 2026-07-26
 
 ### Fixed

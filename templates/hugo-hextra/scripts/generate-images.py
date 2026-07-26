@@ -164,9 +164,14 @@ def post_process(output: Path, steps: list) -> None:
     from PIL import Image
     for step in steps or []:
         if "resize" in step:
+            # `size` is the square shorthand (as on `ico`); `target` writes the
+            # derivative elsewhere (as on `crop_resize`) so a one-master ->
+            # many-derivatives pass doesn't clobber the source it reads.
             s = step["resize"]
+            w = s.get("width", s.get("size"))
+            h = s.get("height", s.get("size"))
             im = Image.open(output)
-            im.resize((s["width"], s["height"]), Image.LANCZOS).save(str(output))
+            im.resize((w, h), Image.LANCZOS).save(str(s.get("target", output)))
         elif "crop_resize" in step:
             s = step["crop_resize"]
             im = Image.open(output).convert("RGB")
