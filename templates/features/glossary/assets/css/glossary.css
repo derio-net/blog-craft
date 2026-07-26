@@ -96,7 +96,10 @@
    stretch the panel across the whole area rather than sizing it to its content.
 
    position-try-fallbacks is what keeps a term in the last line, or hard against
-   the inline edge, from opening a panel that runs off-screen. */
+   the inline edge, from opening a panel that runs off-screen.
+
+   Sizing (width, max-width, and everything cosmetic) is inherited from the rule
+   above — only the properties that place the box are restated here. */
 @supports (anchor-name: --x) {
   .abbr-panel {
     position-area: block-end span-inline-end;
@@ -106,8 +109,6 @@
       block-start span-inline-start;
     inset: auto;
     margin: 0.35rem 0;
-    width: max-content;
-    max-width: min(22rem, calc(100vw - 2rem));
   }
 }
 

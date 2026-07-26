@@ -10,6 +10,21 @@ matching `vX.Y.Z` tag on merge (#18).
 
 ## [Unreleased]
 
+### Fixed
+- **The glossary definition panel opens next to the term it defines (#49).** It
+  was opening in the top-left corner of the viewport — 375px left and 299px above
+  the abbreviation, on top of the page `<h1>`. The Popover API's top layer decides
+  stacking, not coordinates, so a panel nobody positions takes the UA default and
+  lands in the corner; `glossary.css` styled the panel but never placed it. The
+  `{{< abbr >}}` shortcode now emits a unique `anchor-name` per trigger, derived
+  from the panel id it already computes, with a matching `position-anchor` on the
+  panel, and `glossary.css` anchors the panel below the term — flipping above it
+  at the viewport foot and flipping its inline side at the edge. Browsers without
+  CSS anchor positioning get a bottom-centred, viewport-clamped dock rather than
+  the corner. Every unit test passed while the bug was live, because they assert
+  structure and never position; `tests/unit/test_glossary_css.py` now pins the
+  placement contract, and matrix row GL-9 books the part only a browser can check.
+
 ## [0.13.0] - 2026-07-26
 
 ### Added

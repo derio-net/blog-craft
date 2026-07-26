@@ -401,9 +401,22 @@ positional and named parameters in one shortcode call.
 
 The rendered markup is a `<button popovertarget>` wrapping an `<abbr title>`,
 plus a `<span popover>` panel. **No JavaScript**: click/tap to open, Esc or
-click-away to close, keyboard focusable, top-layer positioned — all native
-browser behaviour. The inner `<abbr title>` carries the expansion for screen
-readers.
+click-away to close, keyboard focusable, top-layer stacked — all native browser
+behaviour. The inner `<abbr title>` carries the expansion for screen readers.
+
+**Where the panel appears.** Directly below the term, flipping above it when
+there is no room below and flipping its inline side near the viewport edge. That
+placement is *not* free with the Popover API: the top layer decides stacking, not
+coordinates, and an unpositioned panel takes the UA default and lands in the
+viewport corner. It comes from CSS anchor positioning — the shortcode emits a
+unique `anchor-name` per trigger and a matching `position-anchor` on its panel,
+and the `@supports (anchor-name: --x)` block in `assets/css/glossary.css` carries
+the geometry. Browsers without anchor positioning fall through to the base
+`.abbr-panel` rule, which docks the panel bottom-centred and viewport-clamped.
+
+If you override the panel's look in your own `custom.css`, leave those two rules
+alone unless you mean to move it — and if you do move it, override *both* paths,
+or a reader on a non-supporting browser gets whichever one you forgot.
 
 A key with no registry entry **fails the Hugo build**. A marker with nothing
 behind it is a broken promise to the reader.
