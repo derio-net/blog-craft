@@ -1,0 +1,74 @@
+schema_version: 2
+phase:
+  number: 1
+  title: Anchor the panel to its trigger
+  tag: agentic
+  depends_on: []
+  acceptance:
+  - GL-9
+  tracking_issue: null
+tasks:
+- number: 1
+  title: Emit a unique anchor name per trigger/panel pair
+  steps:
+  - id: P1.T1.S1
+    text: |-
+      [RED] tests/unit/test_glossary_hugo.py — assert the rendered trigger carries an inline style setting anchor-name to --abbr-nut-0 and the matching panel carries position-anchor: --abbr-nut-0; and that a term marked twice yields --abbr-nut-0 and --abbr-nut-1, never one shared name. Both must fail against today's markup.
+  - id: P1.T1.S2
+    text: |-
+      [GREEN] templates/features/glossary/layouts/shortcodes/abbr.html — derive $anchor from the existing $id ('--' + $id) and emit style="anchor-name: {{ $anchor }}" on the button and style="position-anchor: {{ $anchor }}" on the span. One printf, no new id computation, so the pairing cannot drift.
+- number: 2
+  title: Position the panel next to the term, with a sane unanchored fallback
+  steps:
+  - id: P1.T2.S1
+    text: |-
+      [RED] tests/unit/test_glossary_css.py (new) — read templates/features/glossary/assets/css/glossary.css and assert: the anchored rules are wrapped in @supports (anchor-name: --x); inside it position-area places the panel at block-end with position-try-fallbacks flipping to block-start and to span-inline-start, and inset/margin are reset off the UA [popover] defaults; outside it the fallback pins .abbr-panel to the viewport block end, inline-centred, and never uses the top/left corner.
+  - id: P1.T2.S2
+    text: |-
+      [GREEN] templates/features/glossary/assets/css/glossary.css — replace the 'positioned by the browser' comment with the real placement rules per spec §5a: bottom-centred fixed dock as the base, @supports (anchor-name: --x) block layering position-anchor-driven placement on top, with inset:auto and an explicit margin so the UA inset:0/margin:auto cannot stretch the panel across its position area.
+  - id: P1.T2.S3
+    text: |-
+      [VERIFY] pytest tests/unit/test_glossary_hugo.py tests/unit/test_glossary_css.py tests/unit/test_glossary_gating.py — green, and the full suite still green.
+- number: 3
+  title: Verify placement in a real browser
+  steps:
+  - id: P1.T3.S1
+    text: |-
+      Build a throwaway blog with the feature on (the test helper's bootstrap-render path), serve it, and drive a real browser: read the trigger's and the panel's bounding boxes and assert the panel's top is below the trigger's bottom by a small gap and its left is within the term's line — the exact measurement #49 reported as x=0,y=0. Record the numbers in the plan journal; this is the check the unit tests structurally cannot make.
+  - id: P1.T3.S2
+    text: |-
+      In the same browser, open two different terms in turn and confirm each panel lands under its own trigger — the shared-anchor-name failure mode, invisible to a single-term walk.
+state:
+  steps:
+    P1.T1.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T1.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T2.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T2.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T2.S3:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T3.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T3.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+  completion:
+    at: null
+    note: null
+    observed_prs: []

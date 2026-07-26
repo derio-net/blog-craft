@@ -46,3 +46,19 @@ Baseline on the branch point (docs-only commit off origin/main): 395 passed, 1 F
 Root cause, reproduced by hand: local clock was 00:19 CEST 2026-07-26 = 22:19 UTC 2026-07-25. scaffold-explainer.sh stamps `date:` from the LOCAL date (2026-07-26); Hugo parses a bare `date: YYYY-MM-DD` as midnight in the SITE timezone, so the page is future-dated and Hugo silently omits it — build still exits 0, which is why the test's returncode assertion passes and only the glob fails. Confirmed: `hugo --buildDrafts` renders 22 pages and no 01-smoke-test; `hugo --buildDrafts --buildFuture` renders 23 and the page appears.
 
 Not an environment break and not caused by this branch: it passes in CI (UTC) and locally outside the midnight..UTC-midnight window. It matters here because the glossary render tests (GL-2, GL-7) scaffold content and build Hugo the same way and would inherit the identical flake. Plan phase 5 fixes the existing test and writes the new ones with --buildFuture from the start.
+
+<!-- fr:journal kind=decision scope=spec id=d5-anchor-positioning created=2026-07-26T14:48:15 -->
+### d5-anchor-positioning · decision · Placement is CSS anchor positioning with a per-trigger anchor name (#49)
+
+The Popover API places nothing — the top layer decides stacking, not coordinates. With no author positioning the UA default (inset:0 + margin:auto) puts the panel in the viewport's block-start/inline-start corner, 375px left and 299px above the term it defines, on top of the page h1. Spec §3 read top-layer positioning as a placement guarantee and never said where the panel goes; that gap is #49's root cause.
+
+Fix: anchor-name on the trigger, position-anchor on the panel, both derived from the id the shortcode already computes (abbr-<key>-<ordinal> -> --abbr-<key>-<ordinal>), both emitted inline. Per-pair because a single shared --abbr would anchor every panel on the page to one trigger; inline because a stylesheet cannot address one shortcode instance. Recorded as spec §5a.
+
+<!-- fr:journal kind=decision scope=spec id=d6-fallback-bottom-dock created=2026-07-26T14:48:25 -->
+### d6-fallback-bottom-dock · decision · No-anchor-positioning browsers get a bottom-centred dock, not the corner (#49)
+
+CSS anchor positioning is not universally supported yet, so the unanchored path is a real path, not a theoretical one. Chosen: position:fixed pinned to the viewport block end, inline-centred, width clamped to the viewport — the conventional definition-sheet shape, thumb-reachable on a phone, and clear of the page heading.
+
+Rejected: leaving the UA default. That IS the bug — the corner placement in #49 is exactly what an unstyled popover does, so it must not also be what the fallback lands on. Not adjacent to the term is a compromise; covering the h1 is not.
+
+Also recorded: two properties the CSS must fight explicitly. .abbr-trigger sets 'all: unset', so only the inline anchor-name survives; and the UA [popover] sheet's inset:0/margin:auto stretch the panel across its position area unless the anchored rule resets them.
