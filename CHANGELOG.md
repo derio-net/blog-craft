@@ -10,6 +10,89 @@ matching `vX.Y.Z` tag on merge (#18).
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-07-26
+
+### Fixed
+- **Two templates emitted an inline `<script>`, which a CSP silently drops
+  (#56).** `script-src 'self'` without `'unsafe-inline'` is the ordinary
+  hardening posture for a public blog, and it drops inline blocks with no build
+  error and nothing in the console an author would think to look for — the
+  feature simply renders and does nothing. The read-tracker's "Clear read
+  history" link cleared nothing, and `{{< asciinema >}}` never started a player.
+  Both now behave through external assets, with per-instance configuration
+  travelling as `data-*` attributes. The read-tracker feature already shipped its
+  main logic as an external asset, so these were the two call sites that missed
+  an established pattern — structurally the same as `resize` vs
+  `crop_resize`/`ico` in #53.
+
+### Added
+- **`assets/js/asciinema-init.js`** — reads the shortcode's `data-*` attributes
+  and bootstraps the player. Loaded (deferred, after the player library) only on
+  pages that use the shortcode, matching how `read-tracker.js` is wired.
+- **`.clear-read-history` in `custom.css`** — replaces the inline `style`
+  attribute on the footer link, so that partial emits no inline markup at all.
+- **`tests/unit/test_templates_csp_safe.py`** — the guard. Fails on any inline
+  `<script>` in an HTML-emitting template, ignoring prose inside Go-template and
+  HTML comments (a note explaining why a handler moved out of a `<script>` is not
+  an offence — this fired on its own first draft) and skipping `.js.tmpl` /
+  `.css.tmpl`, which are not markup. Carries a detector self-test pinning both
+  match directions so the guard cannot go vacuous, plus a Hugo build asserting
+  the wiring survives in the OUTPUT — external scripts loaded, `data-*` present,
+  zero inline blocks. Inline `style=` is deliberately out of scope: `abbr.html`
+  needs a unique `anchor-name` per trigger and `screenshot.html` a per-invocation
+  `max-width`, and `style-src` is commonly left permissive where `script-src` is
+  not.
+
+- **asciinema-player is vendored and served same-origin (#56).** `head-end.html`
+  loaded both the player script and its stylesheet from `unpkg.com`, which was
+  wrong three ways at once: a `script-src 'self'` CSP blocks it outright (so
+  fixing the inline `<script>` above would have left the feature broken anyway),
+  the tags carried no Subresource Integrity so a substituted CDN response would
+  have executed unchecked, and a CDN outage took the feature down with it.
+  Serving from the blog's own origin resolves all three — which is why there is
+  still no `integrity=` attribute: pinning a hash to a URL the CSP rejects would
+  have been motion without progress. Apache-2.0, with `LICENSE` and a
+  `PROVENANCE.md` recording version, sha256s and the update procedure. Hugo
+  publishes an `assets/` resource only when a template retrieves it and both are
+  gated behind `.HasShortcode "asciinema"`, so a blog that never uses the
+  shortcode carries the files in its repo and ships **zero bytes** of them to
+  readers. New `assets/vendor/**` manifest rule (framework) — deliberately not
+  under `assets/css/**`, which is `merged`, because 3-way-merging a minified
+  upstream bundle is meaningless.
+- **`0.14.1` had no CHANGELOG entry** — added retroactively above, and
+  `tests/unit/test_changelog.py` now makes the omission impossible: the version
+  in `pyproject.toml` must have a matching section, released sections must be
+  ordered newest-first, and `[Unreleased]` must survive. Two gates already gate
+  the version (`bump_version.py --check`, `check_version_bump_needed.py`) and
+  nothing gated the record of what changed.
+
+## [0.14.1] - 2026-07-26
+
+### Fixed
+- **`srcset` could make the full-resolution image unreachable (#55).**
+  `opt-image.html` built its candidate list from `slice 480 960 $maxW` and then
+  clamped each candidate with `le $w $srcW` — comparing the cap against itself
+  rather than against the primary actually emitted. Whenever the source was
+  **narrower than the cap**, that top candidate failed the clamp and was dropped,
+  leaving nothing in the srcset matching the primary. That is not a missing size:
+  per the HTML spec, once a `srcset` carries `w` descriptors the `src` attribute
+  stops being a selection candidate, so the full-resolution derivative
+  `opt-image` had just generated became **unreachable** and the browser upscaled
+  the largest survivor. With no `sizes` attribute it also assumes `100vw`, which
+  makes the upscale deterministic rather than occasional, and every derivative
+  still returns 200 so nothing fails server-side. Measured downstream on frank
+  (derio-net/frank#710): banners at 2169w under a 2560 cap and covers at 1424w
+  under a 1600 cap both emitted `480w, 960w` only — 179 affected images, a 2.0×
+  upscale on a DPR-2 viewport. The top candidate now comes from `$primary.Width`
+  and reuses the primary resource rather than re-`Resize`-ing to its own width
+  (which would emit a byte-identical second file under a different hash). The
+  existing tests all fed a source *larger* than the cap, where the cap and the
+  primary width coincide and the defect cannot appear.
+
+  *(Entry added retroactively in #57 — 0.14.1 shipped without one. Nothing
+  enforced a CHANGELOG section at the time; `tests/unit/test_changelog.py` now
+  does.)*
+
 ## [0.14.0] - 2026-07-26
 
 ### Fixed

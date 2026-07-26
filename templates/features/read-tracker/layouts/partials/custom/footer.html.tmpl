@@ -1,10 +1,9 @@
-<a href="#" id="clear-read-history" style="font-size: 0.75rem; opacity: 0.5;">
+{{- /* Styling lives in assets/css/custom.css and the click handler in
+       assets/js/read-tracker.js (loaded by custom/head-end.html). Both were
+       inline here until a blog turned on `script-src 'self'`, which dropped the
+       handler on every page — the link rendered but never cleared anything, with
+       no build error and nothing in the console the author would look for. Keep
+       them external. */ -}}
+<a href="#" id="clear-read-history" class="clear-read-history">
   Clear read history
 </a>
-<script>
-document.getElementById('clear-read-history').addEventListener('click', function(e) {
-  e.preventDefault();
-  localStorage.removeItem('{{ lower .project.name }}-read-posts');
-  window.location.reload();
-});
-</script>
