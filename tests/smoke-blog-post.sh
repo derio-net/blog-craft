@@ -89,8 +89,12 @@ grep -q "Test prompt for hello-world cover image" "$PROMPTS" && pass "B2.b scene
 grep -A10 "key: tutorials-01" "$PROMPTS" | grep -q "series: tutorials" && pass "B2.c series modifier emitted" || fail "B2.c series modifier missing"
 # scene-only: the appended prompt block must be exactly the scene brief (one
 # line here), not a pre-composed multi-layer prompt (#39 item 2). awk, not
-# sed ranges — GNU/BSD sed disagree on `\|` alternation.
-ENTRY_PROMPT_LINES=$(awk '/key: tutorials-01/{f=1} f && /scene: \|/{p=1; next} p && /^  - key:/{exit} p && NF{c++} END{print c+0}' "$PROMPTS")
+# sed ranges — GNU/BSD sed disagree on `\|` alternation. The terminator matches
+# a sequence item at ANY indent: prompts_append.py places the entry on the file's
+# own `images:` indentation (#65 item 1), and a terminator hardcoded to `^  - `
+# would simply stop terminating on a column-0 file — counting to end-of-file and
+# making this assertion vacuous rather than red.
+ENTRY_PROMPT_LINES=$(awk '/key: tutorials-01/{f=1} f && /scene: \|/{p=1; next} p && /^[[:space:]]*- key:/{exit} p && NF{c++} END{print c+0}' "$PROMPTS")
 [[ "$ENTRY_PROMPT_LINES" -eq 1 ]] && pass "B2.d entry prompt is scene-only (1 line)" || fail "B2.d entry prompt has $ENTRY_PROMPT_LINES lines (expected scene-only)"
 
 # B3: cover PNG generated

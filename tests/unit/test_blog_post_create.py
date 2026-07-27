@@ -25,7 +25,14 @@ TPL_SCRIPTS = os.path.join(ROOT, "templates", "hugo-hextra", "scripts")
 SCENE = "Frank kneels beside an open server chassis, torch in hand."
 
 
-def _mk_blog(tmp_path, cfg: dict, site_dir: str = "."):
+def _mk_blog(tmp_path, cfg: dict, site_dir: str = ".", prompts_seed: str = "images:\n"):
+    """`prompts_seed` seeds the entries file — override it to seed a REAL entry.
+
+    The default `"images:\\n"` is an EMPTY sequence, which is exactly why six
+    passing tests coexisted with a file-corrupting append (#65 item 1): an empty
+    sequence parses identically at any indentation and establishes no convention
+    to detect. Every indent-fidelity assertion passes a real seeded entry.
+    """
     blog = tmp_path / "blog-root"
     site = blog / site_dir
     (site / "scripts").mkdir(parents=True)
@@ -34,7 +41,7 @@ def _mk_blog(tmp_path, cfg: dict, site_dir: str = "."):
     (blog / ".blog-craft.yaml").write_text(yaml.safe_dump(cfg))
     prompts_rel = (cfg.get("image") or {}).get("prompts_file", "prompt_for_images.yaml")
     (blog / prompts_rel).parent.mkdir(parents=True, exist_ok=True)
-    (blog / prompts_rel).write_text("images:\n")
+    (blog / prompts_rel).write_text(prompts_seed)
     return blog
 
 
@@ -168,3 +175,79 @@ def test_no_generate_skips_image_generation(tmp_path):
     entries = yaml.safe_load((blog / "prompt_for_images.yaml").read_text())["images"]
     assert entries[0]["key"] == "building-06"       # entry appended
     assert not (blog / "static" / "images" / "building-06-cover.png").exists()
+
+
+# --- the append is indent-faithful and verified (#65 item 1, spec D1/D2) -------
+#
+# Seeded with a real entry, because that is the shape that broke: the hard-coded
+# `  - key:` made the new item a continuation of the previous entry's mapping, so
+# `yaml.safe_load` raised ParserError while the scaffolder still exited 0.
+
+SEED_COL0 = """images:
+- key: existing-01
+  output: static/images/existing.png
+  composition:
+    scene: |
+      an existing scene
+"""
+
+SEED_2SPACE = """images:
+  - key: existing-01
+    output: static/images/existing.png
+    composition:
+      scene: |
+        an existing scene
+"""
+
+
+def _scaffold(tmp_path, seed, number="07", slug="appended"):
+    blog = _mk_blog(tmp_path, DEFAULT_CFG, prompts_seed=seed)
+    inp = _inputs(tmp_path)
+    r = _run(blog, ["--no-generate"],
+             ["building", number, slug, "Appended",
+              str(inp / "scene.txt"), str(inp / "body.md"), str(inp / "summary.txt")])
+    return blog, r
+
+
+def _assert_appended(blog, r, key):
+    """The file still parses, grew by exactly one entry, and kept the old one."""
+    assert r.returncode == 0, r.stderr + r.stdout
+    text = (blog / "prompt_for_images.yaml").read_text()
+    entries = yaml.safe_load(text)["images"]     # ParserError here == the bug
+    assert len(entries) == 2, f"expected the seeded entry plus one, got {entries}"
+    assert entries[0]["key"] == "existing-01"
+    assert entries[0]["composition"]["scene"].strip() == "an existing scene"
+    assert entries[1]["key"] == key
+    assert entries[1]["composition"]["scene"].strip() == SCENE
+    return text
+
+
+def test_append_onto_column0_sequence(tmp_path):
+    # The exact reproduction in #65: `images:` at column 0, which is what
+    # bootstrap plus 88 hand-written entries produced in the reporting blog.
+    blog, r = _scaffold(tmp_path, SEED_COL0)
+    text = _assert_appended(blog, r, "building-07")
+    assert text.startswith(SEED_COL0), "every byte above the insertion point stays put (D1)"
+
+
+def test_append_onto_two_space_sequence(tmp_path):
+    blog, r = _scaffold(tmp_path, SEED_2SPACE, number="08", slug="two-space")
+    text = _assert_appended(blog, r, "building-08")
+    assert text.startswith(SEED_2SPACE), "every byte above the insertion point stays put (D1)"
+
+
+def test_append_onto_file_with_no_trailing_newline(tmp_path):
+    # Without seam normalisation the last seeded line and the first appended one
+    # fuse into `...existing scene  - key: building-09`.
+    blog, r = _scaffold(tmp_path, SEED_COL0.rstrip("\n"), number="09", slug="no-newline")
+    _assert_appended(blog, r, "building-09")
+
+
+def test_broken_entries_file_fails_loudly_and_is_left_alone(tmp_path):
+    # A file that already does not parse is refused before it is touched — the
+    # old shell append made it worse and still exited 0.
+    broken = SEED_COL0 + "  - key: already-broken\n    output: x.png\n"
+    blog, r = _scaffold(tmp_path, broken, number="10", slug="broken")
+    assert r.returncode != 0, "a prompts file that does not parse must fail the scaffold"
+    assert (blog / "prompt_for_images.yaml").read_text() == broken, "bytes must be untouched"
+    assert "building-10" not in (blog / "prompt_for_images.yaml").read_text()

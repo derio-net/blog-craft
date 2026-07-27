@@ -134,8 +134,20 @@ echo "  page bundle: $BUNDLE_DIR/index.md (body from $BODY_FILE, summary from $S
 #    explicit — when the config declares image.reference_image, freeze it into
 #    reference_images.primary (the operator will point at named character
 #    sheets over time).
+#    The block is composed at a 2-space indent and PLACED by prompts_append.py,
+#    never appended with `>>`: a literal `  - key:` corrupts every prompts file
+#    whose `images:` sequence sits at column 0 — valid YAML, and what bootstrap
+#    plus 88 hand-written entries produced in the reporting blog (#65 item 1).
+#    The helper reads the file's own indent (spec D1) and re-parses what it wrote
+#    (D2), so a bad append is loud here instead of surfacing as a ParserError in
+#    the next generate-images.py run. Plugin-side only — a blog's scripts/ never
+#    invokes it, so there is no mirrored copy to keep in step.
 INDENTED_SCENE=$(sed 's/^/        /' "$SCENE_FILE")
 PRIMARY_REF=$(cfg image.reference_image --default "")
+PROMPTS_APPEND="$HERE/prompts_append.py"
+[[ -f "$PROMPTS_APPEND" ]] || { echo "ERROR: prompts_append.py not found beside blog-post-create.sh ($HERE)" >&2; exit 2; }
+ENTRY_BLOCK=$(mktemp)
+trap 'rm -f "$ENTRY_BLOCK"' EXIT
 {
   echo "  - key: $KEY"
   echo "    output: $OUTPUT_IMAGE"
@@ -157,7 +169,11 @@ PRIMARY_REF=$(cfg image.reference_image --default "")
   done
   echo "      scene: |"
   echo "$INDENTED_SCENE"
-} >> "$PROMPTS_YAML"
+} > "$ENTRY_BLOCK"
+# Its exit 2 already names what is wrong on stderr and guarantees the file was
+# left as it was found; `set -e` propagates it rather than reporting a success
+# the operator would only discover was a lie at generate time.
+python3 "$PROMPTS_APPEND" append --file "$PROMPTS_YAML" --key "$KEY" --entry-file "$ENTRY_BLOCK"
 echo "  prompts entry: key=$KEY appended to $PROMPTS_YAML (v5 composition block)"
 
 # 3. Image generation from the config root — the generator resolves every path
