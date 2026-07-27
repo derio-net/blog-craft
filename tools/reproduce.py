@@ -19,6 +19,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from path_ownership import classify, load_manifest  # noqa: E402
+from proc import run_checked  # noqa: E402
 
 _PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 # Build artifacts + VCS — never part of the materialized template surface.
@@ -27,11 +28,18 @@ _IGNORE_FILES = {".hugo_build.lock", "hugo_stats.json"}
 
 
 def apply(config_path: str, scratch_dir: str) -> Path:
-    """Materialize a blog from a .blog-craft.yaml (== v2 answers) into scratch_dir."""
-    target = Path(scratch_dir)
-    subprocess.run(
+    """Materialize a blog from a .blog-craft.yaml (== v2 answers) into scratch_dir.
+
+    Both paths are resolved to absolute here: `bootstrap-render.sh` runs the Go
+    renderer inside `( cd "$RENDERER_DIR" && … )` subshells, so a *relative*
+    config or target would be resolved against `tools/render-template/` (#59).
+    The shell script defends itself too; this is the Python-side boundary, and
+    it covers library callers that never touch the CLI.
+    """
+    config_path = Path(config_path).resolve()
+    target = Path(scratch_dir).resolve()
+    run_checked(
         ["bash", str(_PLUGIN_ROOT / "tools" / "bootstrap-render.sh"), str(config_path), str(target)],
-        check=True, capture_output=True, text=True,
     )
     return target
 
@@ -95,7 +103,7 @@ def render_and_diff(root_a: str | Path, root_b: str | Path) -> list[str]:
     """
     a, b = Path(root_a), Path(root_b)
     for r in (a, b):
-        subprocess.run(["hugo", "--buildDrafts", "--quiet"], cwd=str(r), check=True, capture_output=True, text=True)
+        run_checked(["hugo", "--buildDrafts", "--quiet"], cwd=str(r))
     diffs: list[str] = []
     pa, pb = a / "public", b / "public"
 
@@ -126,8 +134,14 @@ def _main(argv):
     ap.add_argument("--reference", required=True, help="existing blog tree to diff against")
     ap.add_argument("--scratch", required=True)
     a = ap.parse_args(argv)
-    apply(a.config, a.scratch)
-    drift = structural_diff(a.scratch, a.reference, default_manifest())
+    # Resolve every path argument up front (#59): --config and --scratch are
+    # threaded into bootstrap-render.sh, which resolves them after an internal
+    # `cd`; --reference is only Path-joined, but there is no reason for the three
+    # to behave differently.
+    config, scratch = str(Path(a.config).resolve()), str(Path(a.scratch).resolve())
+    reference = str(Path(a.reference).resolve())
+    apply(config, scratch)
+    drift = structural_diff(scratch, reference, default_manifest())
     if drift:
         print(f"STRUCTURAL DRIFT ({len(drift)}):", file=sys.stderr)
         for d in drift:

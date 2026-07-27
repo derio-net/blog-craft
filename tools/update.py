@@ -25,12 +25,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from path_ownership import _glob_to_regex, classify, load_manifest  # noqa: E402
+from proc import run_checked                         # noqa: E402
 from reproduce import apply, materialized_paths      # noqa: E402
 
 _PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 
 
 def render_staging(config: str, staging: str) -> Path:
+    # apply() resolves both — the renderer cds before reading them (#59).
     return apply(config, staging)
 
 
@@ -138,14 +140,18 @@ def base_by_rerender(config: str, blog_craft_version: str, base_dir: str) -> Pat
     baseline is stored (spec §8.2). Raises if the tag isn't reachable.
     """
     import tempfile
+    config = Path(config).resolve()          # the renderer cds before reading it (#59)
+    base_dir = Path(base_dir).resolve()
     with tempfile.TemporaryDirectory() as td:
         arch = Path(td) / "old.tar"
-        subprocess.run(["git", "-C", str(_PLUGIN_ROOT), "archive", "--output", str(arch),
-                        blog_craft_version], check=True, capture_output=True)
+        # run_checked, not bare check=True: an unreachable tag is exactly the
+        # failure /update's own guardrail ("keep blog_craft_version accurate")
+        # warns about, and git says which ref it could not find (#59).
+        run_checked(["git", "-C", str(_PLUGIN_ROOT), "archive", "--output", str(arch),
+                     blog_craft_version])
         old = Path(td) / "old"; old.mkdir()
-        subprocess.run(["tar", "-xf", str(arch), "-C", str(old)], check=True)
-        subprocess.run(["bash", str(old / "tools" / "bootstrap-render.sh"), str(config), str(base_dir)],
-                       check=True, capture_output=True, text=True)
+        subprocess.run(["tar", "-xf", str(arch), "-C", str(old)], check=True)  # output already visible
+        run_checked(["bash", str(old / "tools" / "bootstrap-render.sh"), str(config), str(base_dir)])
     return Path(base_dir)
 
 
@@ -162,21 +168,28 @@ def _main(argv):
     ap.add_argument("--apply", action="store_true", help="apply (default is dry-run)")
     a = ap.parse_args(argv)
     import yaml
+    # Resolve every path argument up front (#59). --config is threaded into
+    # bootstrap-render.sh, which resolves it AFTER an internal `cd` — the
+    # documented `--config .blog-craft.yaml --blog .` invocation always failed
+    # because of it. --blog/--base are only Path-joined, but resolving all three
+    # keeps one file in view for both the plan and the render.
+    config = Path(a.config).resolve()
+    blog = Path(a.blog).resolve()
     m = default_manifest()
-    cfg = yaml.safe_load(open(a.config)) or {}
+    cfg = yaml.safe_load(open(config)) or {}
     with tempfile.TemporaryDirectory() as td:
-        staging = render_staging(a.config, str(Path(td) / "staging"))
-        base = a.base
+        staging = render_staging(str(config), str(Path(td) / "staging"))
+        base = str(Path(a.base).resolve()) if a.base else None
         if not base:
             ver = cfg.get("blog_craft_version")
             if ver:
-                base = str(base_by_rerender(a.config, ver, str(Path(td) / "base")))
-        plan = plan_update(a.blog, staging, base, m, cfg=cfg, only=a.only)
+                base = str(base_by_rerender(str(config), ver, str(Path(td) / "base")))
+        plan = plan_update(blog, staging, base, m, cfg=cfg, only=a.only)
         print(dry_run_diff(plan))
         if not a.apply:
             print("\n(dry-run — pass --apply to write)")
             return 0
-        conflicts = apply_plan(a.blog, staging, plan)
+        conflicts = apply_plan(blog, staging, plan)
         if conflicts:
             print("CONFLICTS (resolve manually):", *conflicts, sep="\n  ", file=sys.stderr)
             return 1
