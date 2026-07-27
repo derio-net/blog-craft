@@ -6,7 +6,7 @@ versions 2–5; `tools/migrate_config.py` climbs the ladder; `tools/migrate_prom
 
 ```yaml
 version: 5
-blog_craft_version: "<release applied>"   # set by bootstrap/update
+blog_craft_version: "<release applied>"   # set by bootstrap/update; see §11
 
 project: { name, tagline, base_url, base_path, module_path }
 
@@ -506,3 +506,45 @@ output; flag off ⇒ the asset is never materialized) and additionally asserts t
 theme *still* emits the inline init this feature supersedes — so a theme bump
 that fixes it upstream fails loudly and tells you to retire the flag rather than
 leaving you with a silent double-init.
+
+## §11 Sync state — `.blog-craft.sync.yaml`
+
+A generated sibling of `.blog-craft.yaml`, holding the config **as of the last
+successful blog-craft sync**. Written by `bootstrap-render.sh` and by
+`tools/update.py --apply` when the run is conflict-free and unscoped. Not
+hand-edited. **Commit it** — see below for what its absence costs.
+
+It exists because the two axes are not the same axis. `blog_craft_version`
+records which *templates* the blog last received; the snapshot records which
+*config* they were rendered with. `/update`'s 3-way base is
+`render(config_at_last_sync, templates_at_recorded_version)`, and it needs both:
+
+| | |
+|---|---|
+| `blog_craft_version` (in `.blog-craft.yaml`) | which templates — a git ref |
+| `.blog-craft.sync.yaml` | which config those templates were fed |
+
+Without the snapshot the updater has to fall back to your *current* config,
+which makes any edit you have made since the last sync look like content
+blog-craft already shipped. The merge then reads your on-disk file as a
+deliberate deletion and keeps the deletion, so enabling a `features.*` flag is a
+silent no-op for every `merged` path — `hugo.toml`, `assets/css/**`,
+`.github/**`, `README.md` (derio-net/blog-craft#60). `/update` warns when it
+takes that fallback, and records the snapshot so the next run is exact.
+
+Blogs bootstrapped before the snapshot existed keep working: the first
+conflict-free, unscoped `--apply` backfills it. A **scoped** `--only` apply
+deliberately leaves it alone — a partial apply is not a sync, and recording one
+would give every out-of-scope path a base built from a config it was never
+rendered with.
+
+```yaml
+# .blog-craft.sync.yaml — GENERATED, DO NOT EDIT
+#   <provenance header>
+version: 5                    # ...then the config, verbatim, as it was at sync
+blog_craft_version: "v0.16.1" #    time: comments, key order and all
+...
+```
+
+Delete it only to deliberately forget what was last synced; `/update` will then
+warn and rebuild it from whatever the config says today.

@@ -10,6 +10,39 @@ matching `vX.Y.Z` tag on merge (#18).
 
 ## [Unreleased]
 
+## [0.16.1] - 2026-07-27
+
+### Fixed
+- **Enabling a `features.*` flag no longer silently drops its contribution to
+  merged files (#60).** `/update` recovered the 3-way base by re-rendering the
+  templates at the recorded `blog_craft_version` — but fed them the config the
+  operator had *just* edited. The base therefore already contained the new
+  feature while the on-disk file did not, so `diff3` read the file as a
+  deliberate deletion and kept the deletion. Enabling `features.glossary` on a
+  synced blog added `abbr.html`, `glossary-index.html` and `glossary.css` but
+  never the `Validate glossary` CI step, under a printed `MERGE` and an `update
+  applied` — five of six planned paths landing is what made it read as success.
+  Not glossary-specific: a changed `site_dir`, palette or series list had the
+  identical shape, and every `merged` path was exposed — `hugo.toml`,
+  `assets/css/**`, `.github/**`, `README.md`. The base is now
+  `render(config_at_last_sync, templates_at_recorded_version)` in both halves,
+  the first coming from a new sync snapshot. Documented as `docs/CONFIG.md` §11.
+
+### Added
+- **`.blog-craft.sync.yaml` — the sync snapshot.** The config, verbatim, as of
+  the last successful sync; written by `bootstrap-render.sh` and by every
+  conflict-free, unscoped `update.py --apply`, and classified `content` so the
+  update flow never touches it. One small YAML file, not a rendered baseline tree
+  (spec §8.2). Blogs synced before it existed keep working: `/update` warns that
+  its base is approximate and backfills the snapshot, so the run after that is
+  exact. **Commit the file** — an untracked snapshot is lost on the next clone.
+- **`NOOP` as a distinct update outcome.** A 3-way merge that resolves entirely
+  in the blog's favour writes nothing; reported as `MERGE` it was
+  indistinguishable from one that shipped something, which is what kept #60
+  invisible for a release. A `NOOP` on a path you expected to change is now the
+  visible fingerprint of a wrong base. The dry-run also prints a per-action
+  tally.
+
 ## [0.16.0] - 2026-07-27
 
 ### Added
