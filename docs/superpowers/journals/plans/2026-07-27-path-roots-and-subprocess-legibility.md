@@ -29,3 +29,8 @@ First implementation of _prune_empty_parents walked up while each directory was 
 ### p4-replan-assertion · finding [fixed] · The smoke re-plan assertion conflated two different things (phase 4)
 
 Asserted REPLAN=0 after applying a relocation. But the operator's surviving edit legitimately still differs from the shipped render, so an ordinary 3-way  remains — that is correct behaviour, not the #61 dead-file loop. Tightened to the actual invariant: the re-run must have zero entries carrying a  and must never target <site_dir>/.github again.
+
+<!-- fr:journal kind=finding scope=plan id=r1-claude-glob-too-broad created=2026-07-27T16:40:17 phase=3 state=fixed -->
+### r1-claude-glob-too-broad · finding [fixed] · Review: the .claude framework glob claimed files blog-craft does not own (phase 3)
+
+Classifying .claude/** as framework was broader than the one file blog-craft ships there. reproduce.structural_diff walks the REFERENCE tree too and reports any framework/merged path missing from the generated tree as drift — so a blog with its own .claude/settings.json, commands/ or agents/ would have had them reported as drift, and /update would treat them as blog-craft(s) to overwrite. Narrowed to .claude/hookify.*.local.md, with a test pinning that an operator .claude/ file classifies as None. The roots glob stays broad on purpose: root_of is only consulted for paths blog-craft materializes, and any .claude/ path is repo-rooted.

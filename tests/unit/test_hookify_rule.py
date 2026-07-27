@@ -106,3 +106,22 @@ def test_rendered_rule_has_the_shape_hookify_parses(tmp_path):
 def test_the_message_body_survives_templating(tmp_path):
     body = _render({"site_dir": "blog"}, tmp_path).read_text().split("---", 2)[2]
     assert "weight: 0" in body and "Hextra sidebar" in body
+
+
+def test_blog_craft_claims_only_the_file_it_ships(tmp_path):
+    """The framework glob must not swallow an operator's own .claude/ files.
+
+    `.claude/**` would classify `.claude/settings.json`, `.claude/commands/…`
+    and anything else a blog keeps there — which reproduce.py then reports as
+    `missing in generated` drift, and /update treats as blog-craft's to
+    overwrite. blog-craft ships exactly one file under .claude/ and owns only
+    that one.
+    """
+    from path_ownership import classify, load_manifest
+
+    m = load_manifest(os.path.join(ROOT, "templates", "manifest.yaml"))
+    assert classify(DISCOVERABLE, m) == "framework"
+    for operator_owned in (".claude/settings.json", ".claude/commands/x.md",
+                           ".claude/agents/reviewer.md", ".claude/launch.json"):
+        assert classify(operator_owned, m) is None, (
+            f"{operator_owned} is the operator's, not blog-craft's")

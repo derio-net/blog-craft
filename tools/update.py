@@ -98,8 +98,9 @@ def legacy_dests(path: str, cfg: dict | None, manifest: dict | None = None) -> l
     here = map_dest(path, cfg, manifest)
     out = []
     for tmpl in table:
-        # "{site}/x" -> "<site_dir>/x" with site_dir, or "x" without.
-        dest = tmpl.replace("{site}/", prefix) if prefix else tmpl.replace("{site}/", "")
+        # "{site}/x" -> "<site_dir>/x", or just "x" when the site IS the config
+        # root (site_prefix is "" there, so one substitution covers both).
+        dest = tmpl.replace("{site}/", prefix)
         if dest != here and dest not in out:
             out.append(dest)
     return out

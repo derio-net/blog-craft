@@ -13,7 +13,11 @@ framework:
   - "assets/js/**"
   - ".gitignore"
   - "MEDIA-GUIDE.md"
-  - ".claude/**"   # the hookify weight-zero guard, at the ONLY path hookify globs
+  - ".claude/hookify.*.local.md"   # the weight-zero guard, at the ONLY shape hookify
+                                   # globs. Deliberately NOT `.claude/**`: blog-craft
+                                   # ships one file there and owns only that one — a
+                                   # broader glob would classify an operator's own
+                                   # .claude/ files and make reproduce.py call them drift.
   - "static/images/.gitkeep"
   - "assets/images/.gitkeep"
   - ".reference-pool/README.md"
@@ -63,8 +67,11 @@ roots:
     - "prompt_for_images.yaml"    # relocated by image.prompts_file (config-declared)
     - ".reference-pool/**"        # relocated by image.reference_pool (config-declared)
     - ".github/**"                # GitHub Actions: <repo>/.github/workflows/ only
-    - ".claude/**"                # Claude Code: hookify globs .claude/hookify.*.local.md
-                                  # from the project root (verified against its loader)
+    - ".claude/**"                # Claude Code reads .claude/ from the project root —
+                                  # hookify globs .claude/hookify.*.local.md there
+                                  # (verified against its loader). Broad on purpose:
+                                  # roots is consulted only for paths blog-craft
+                                  # materializes, and ANY .claude/ path is repo-rooted.
   site:
     - "layouts/**"                # Hugo's directory contract
     - "assets/**"
