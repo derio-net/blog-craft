@@ -9,6 +9,7 @@
 #
 # Usage:
 #   blog-post-create.sh [--entry-field k=v]... [--output <path>] \
+#                       [--layer <code>] [--tag <t>]... \
 #                       <blog_root> <series> <number> <slug> <title> \
 #                       <scene-file> <body-file> <summary-file> \
 #                       [<reader-goal-file>] [<diataxis>]
@@ -17,6 +18,13 @@
 #                  torso_variant=1); repeatable. Integers stay integers.
 # --output <path>  — entry output path override (default
 #                  <image.output_dir>/<key>-cover.png), config-root-relative.
+# --layer <code>   — frontmatter `layer:`, validated against the blog's
+#                  series_index.layers registry. Omitted on a blog that declares
+#                  layers → `layer: TODO` + a warning; on one that declares none
+#                  → no `layer` key at all (#65 item 2, spec D4).
+# --tag <t>        — frontmatter tag; repeatable. None → `tags: []` with a TODO
+#                  comment (a literal TODO tag would publish a bogus taxonomy
+#                  term, since this scaffolder emits draft: false — spec D5).
 # <scene-file>   — the per-post SCENE brief only (multi-paragraph OK). Never a
 #                  fully composed prompt: the engine composes
 #                  image.composition_order around it (#39 item 2).
@@ -34,11 +42,15 @@ set -euo pipefail
 
 ENTRY_FIELDS=()
 OUTPUT_OVERRIDE=""
+LAYER=""
+TAGS=()
 NO_GENERATE=0
 while [[ $# -gt 0 && "$1" == --* ]]; do
   case "$1" in
     --entry-field) ENTRY_FIELDS+=("${2:?"--entry-field needs k=v"}"); shift 2 ;;
     --output)      OUTPUT_OVERRIDE=${2:?"--output needs a path"}; shift 2 ;;
+    --layer)       LAYER=${2:?"--layer needs a code"}; shift 2 ;;
+    --tag)         TAGS+=("${2:?"--tag needs a value"}"); shift 2 ;;
     --no-generate) NO_GENERATE=1; shift ;;
     *) echo "ERROR: unknown flag $1" >&2; exit 2 ;;
   esac
@@ -90,9 +102,58 @@ OUTPUT_DIR=$(cfg image.output_dir --default "static/images")
 # YAML double-quoted-scalar escaping: backslashes first, then double quotes.
 yaml_escape() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'; }
 
+# The blog's own layer registry (series_index.layers[].code, docs/CONFIG.md §5) —
+# read with an inline PyYAML heredoc, the pattern at scaffold-paper.sh:26-34 and
+# scaffold-explainer.sh:220-227. blog_config.py get cannot serve it: it flow-dumps
+# non-scalars (blog_config.py:52), which is not shell-parseable.
+LAYER_CODES=$(python3 - "$CONFIG" <<'PY'
+import sys, yaml
+c = yaml.safe_load(open(sys.argv[1])) or {}
+codes = [str(e["code"]) for e in ((c.get("series_index") or {}).get("layers") or [])
+         if isinstance(e, dict) and e.get("code")]
+print(" ".join(codes))
+PY
+)
+
+# --layer validation (spec D4). An unknown code is an error that lists the valid
+# ones; omitted-on-a-layered-blog is a WARNING plus a greppable `layer: TODO`
+# (scaffold-paper.sh:59's convention), never a hard failure — the helper must stay
+# usable on a blog mid-setup. `TODO` is inert in the rendered site:
+# series-index.html:79-80 looks the code up in data/layer_palette.yaml behind a
+# `with` guard, so an unmatched code renders exactly like no layer at all.
+if [[ -n "$LAYER" ]]; then
+  # No registry → accept verbatim; there is nothing to validate against, and a
+  # blog may declare series_index.layers later.
+  if [[ -n "$LAYER_CODES" && " $LAYER_CODES " != *" $LAYER "* ]]; then
+    echo "ERROR: --layer '$LAYER' is not in this blog's series_index.layers registry." >&2
+    echo "       Valid codes: ${LAYER_CODES// /, }" >&2
+    exit 2
+  fi
+elif [[ -n "$LAYER_CODES" ]]; then
+  LAYER="TODO"
+  echo "WARNING: no --layer given and this blog declares layers (${LAYER_CODES// /, })." >&2
+  echo "         Wrote 'layer: TODO' — grep it and set the real code." >&2
+fi
+
 # Read summary, trim whitespace, escape for safe insertion.
 SUMMARY=$(yaml_escape "$(tr -d '\n' < "$SUMMARY_FILE" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')")
 TITLE_ESC=$(yaml_escape "$TITLE")
+SERIES_ESC=$(yaml_escape "$SERIES")
+
+# tags (spec D5). With none supplied the list stays EMPTY and carries a TODO
+# comment — deliberately NOT the sibling scaffolders' `tags: ["TODO"]`:
+# scaffold-paper.sh:63 / scaffold-explainer.sh emit `draft: true` alongside it,
+# whereas this scaffolder emits `draft: false`, so a literal TODO tag would
+# publish a bogus taxonomy term on the next build. A comment cannot.
+TAGS_YAML=""
+for t in ${TAGS[@]+"${TAGS[@]}"}; do
+  TAGS_YAML+="${TAGS_YAML:+, }\"$(yaml_escape "$t")\""
+done
+if [[ -n "$TAGS_YAML" ]]; then
+  TAGS_LINE="tags: [$TAGS_YAML]"
+else
+  TAGS_LINE="tags: []  # TODO: add tags"
+fi
 
 WEIGHT=$((10#$NUMBER + 1))
 TODAY=$(date +%Y-%m-%d)
@@ -103,15 +164,36 @@ BUNDLE_DIR="$BLOG_ROOT/${SITE_PREFIX:+$SITE_PREFIX/}content/docs/$SERIES/$NUMBER
 PROMPTS_YAML="$BLOG_ROOT/$PROMPTS_REL"
 [[ -f "$PROMPTS_YAML" ]] || { echo "ERROR: prompts file $PROMPTS_YAML (image.prompts_file) not found" >&2; exit 2; }
 
-# 1. Page bundle: frontmatter + composed body. reader_goal/diataxis are emitted
-#    only when supplied (educational-writing methodology; see docs/CONFIG.md).
+# 1. Page bundle: frontmatter + composed body, in the blog's convention order:
+#    title, series, layer?, date, draft, tags, summary, weight, reader_goal?,
+#    diataxis? — an author reviews a scaffold by diffing it against a sibling
+#    post, so the order is part of the output, not an accident (#65 item 2).
+#    reader_goal/diataxis are emitted only when supplied (educational-writing
+#    methodology; see docs/CONFIG.md).
+#    `series` is ALWAYS emitted (spec D3): {{< series-index >}} is page-derived
+#    from it, so a post without it silently never appears in its own series
+#    overview — which is exactly what skills/blog-post/SKILL.md Step 8 promises
+#    happens automatically. Quoted, unlike the sibling scaffolders' bare
+#    `series: [key]`: equivalent after parsing, and safe for any key.
 mkdir -p "$BUNDLE_DIR"
 {
   echo '---'
   echo "title: \"$TITLE_ESC\""
+  echo "series: [\"$SERIES_ESC\"]"
+  if [[ -n "$LAYER" ]]; then
+    # Plain codes stay bare so `layer: TODO` and `layer: obs` stay greppable
+    # (scaffold-paper.sh:59); anything else is quoted+escaped, because "accepted
+    # verbatim" means not REJECTING an unregistered code, not emitting bytes the
+    # YAML parser chokes on.
+    if [[ "$LAYER" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]]; then
+      echo "layer: $LAYER"
+    else
+      echo "layer: \"$(yaml_escape "$LAYER")\""
+    fi
+  fi
   echo "date: $TODAY"
   echo "draft: false"
-  echo "tags: []"
+  echo "$TAGS_LINE"
   echo "summary: \"$SUMMARY\""
   echo "weight: $WEIGHT"
   if [[ -n "$READER_GOAL_FILE" && -f "$READER_GOAL_FILE" ]]; then
