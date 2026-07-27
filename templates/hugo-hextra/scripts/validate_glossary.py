@@ -36,10 +36,22 @@ _REQUIRED = ("name", "description")
 
 
 def validate_glossary(registry: dict,
-                      marked: list[tuple[str, str, int]]) -> tuple[list[str], list[str]]:
+                      marked: list[tuple[str, str, int]],
+                      misplaced: list[tuple[str, str, int]] = ()) -> tuple[list[str], list[str]]:
+    """`marked` is [(term, file, line)]; `misplaced` is [(shortcode, file, line)].
+
+    Placement lives here rather than in the CLI so every caller gets it: the key
+    can be perfectly valid and the marker still fatal, because it renders inside
+    a diagram. An existence-only check cannot see that.
+    """
     errors: list[str] = []
     warnings: list[str] = []
     registry = registry or {}
+
+    for shortcode, path, line in misplaced:
+        errors.append(
+            f"{path}:{line}: marker inside a {shortcode} body — that body is "
+            f"renderer source, not prose, and the expanded HTML will not parse")
 
     for term, path, line in marked:
         if term not in registry:
@@ -102,22 +114,14 @@ def _main(argv: list[str]) -> int:
 
     registry = load_registry(a.config)
     marked: list[tuple[str, str, int]] = []
-    misplaced: list[str] = []
+    misplaced: list[tuple[str, str, int]] = []
     for p in a.paths:
         with open(p) as f:
             text = f.read()
         marked.extend((term, p, line) for term, line in markers_in(text))
-        misplaced.extend(f"{p}:{line}  marker inside a {name} body — that body is "
-                         "renderer source, not prose, and the expanded HTML will "
-                         "not parse"
-                         for name, line in misplaced_markers(text))
+        misplaced.extend((name, p, line) for name, line in misplaced_markers(text))
 
-    errors, warnings = validate_glossary(registry, marked)
-    # Placement, not existence: the key may be perfectly valid and the marker
-    # still fatal, because it renders inside a diagram. Caught here rather than
-    # at build time, where the error names a mermaid lexer position and nothing
-    # connects it to a glossary sweep.
-    errors = misplaced + errors
+    errors, warnings = validate_glossary(registry, marked, misplaced)
     for w in warnings:
         print(f"  warning: {w}", file=sys.stderr)
     if errors:

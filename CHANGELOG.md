@@ -68,6 +68,15 @@ matching `vX.Y.Z` tag on merge (#18).
   config-root-relative by contract), and the Hugo build gets a
   `working-directory`. A blog with no `site_dir` renders byte-identically —
   pinned by a test against the pre-#61 template across all three deploy kinds.
+- **A renamed papers series validates.** `validate_paper` has taken a
+  `papers_key` since it was written, but the CLI never passed it — so the series
+  check always compared against the literal `"papers"`. On a blog with
+  `series: [{key: essays, content_type: papers}]`, `scaffold-paper.sh` writes
+  `series: [essays]` into every bundle it creates, and the validator then failed
+  each paper on the one field the tool itself had written. The CLI now derives
+  the key exactly as the scaffolder does. Caught in review: the first version of
+  the papers-glob fix below asserted only the rendered glob *string*, so the test
+  passed while the capability it named was false.
 - **The CI papers step no longer fails on every non-papers post.** It globbed
   `content/docs/*/*/index.md` and handed the lot to `validate_papers`, which
   validates each file it is given and ERRORS on a post whose `series` lacks the
@@ -101,6 +110,16 @@ matching `vX.Y.Z` tag on merge (#18).
   **placement error** in `validate_glossary` reports the ones an earlier sweep
   already wrote. The key can be perfectly valid and the marker still fatal, so
   existence checks alone cannot catch it.
+
+  Both body detection and the placement report subtract `code_spans`, so a post
+  that *documents* the shortcode inside a fence is not failed by its own example
+  — the invariant `markers_in` already honoured, and the one thing that must not
+  drift between the two marker views. The opening tag and the body are each
+  tempered against their own delimiters: without that, backtracking lets an
+  opener quoted in inline code reach the NEXT block's `>}}` and report that
+  block's body as its own, un-marking every paragraph in between — an
+  over-broad exclusion is the failure this feature must not have. The `{{% %}}`
+  form is covered too.
 
 ### Added
 - **A declared path-ROOT model (#61).** `templates/manifest.yaml` gains a

@@ -1,6 +1,7 @@
 """P5.T4.S1 — shipped blog CI template renders config-dependent steps."""
 import os
 import re
+import sys
 import subprocess
 
 import pytest
@@ -62,6 +63,52 @@ def test_papers_step_honours_a_custom_papers_series_key(tmp_path):
                  "ci": {"deploy": {"kind": "none"}}}, tmp_path)
     papers_step = next(l for l in y.splitlines() if "validate_papers.py" in l)
     assert "content/docs/essays/*/index.md" in papers_step
+
+
+def test_a_renamed_papers_series_actually_validates(tmp_path):
+    """Rendering the right glob is half the job — the validator must accept it.
+
+    Asserting only the rendered string passes while the capability is false:
+    `validate_paper` takes a papers_key, the CLI did not pass it, so a renamed
+    blog's papers were FOUND correctly and then failed on the very field
+    scaffold-paper.sh had written into them.
+    """
+    cfg = tmp_path / "cfg.yaml"
+    cfg.write_text(yaml.safe_dump({
+        "version": 5,
+        "series": [{"key": "essays", "title": "E", "content_type": "papers"}],
+        "content_types": {"papers": {"enabled": True}},
+    }))
+    paper = tmp_path / "index.md"
+    paper.write_text("---\n" + yaml.safe_dump({
+        "title": "X", "date": "2026-01-01", "draft": False, "weight": 2,
+        "series": ["essays"], "layer": "repo", "paper_number": 1,
+        "publish_order": 1, "status": "published", "tldr": "t",
+    }) + "---\n\nBody.\n")
+
+    r = subprocess.run([sys.executable, os.path.join(ROOT, "tools", "validate_papers.py"),
+                        "--config", str(cfg), str(paper)],
+                       capture_output=True, text=True)
+    assert r.returncode == 0, f"a renamed papers series must validate:\n{r.stdout}{r.stderr}"
+
+
+def test_the_default_papers_key_still_rejects_a_wrong_series(tmp_path):
+    # Path selection is only defensible while the series check still bites: a
+    # paper in the papers directory carrying the WRONG series must fail.
+    cfg = tmp_path / "cfg.yaml"
+    cfg.write_text(yaml.safe_dump({"version": 5, "content_types": {"papers": {"enabled": True}}}))
+    paper = tmp_path / "index.md"
+    paper.write_text("---\n" + yaml.safe_dump({
+        "title": "X", "date": "2026-01-01", "draft": False, "weight": 2,
+        "series": ["operating"], "layer": "repo", "paper_number": 1,
+        "publish_order": 1, "status": "published", "tldr": "t",
+    }) + "---\n\nBody.\n")
+
+    r = subprocess.run([sys.executable, os.path.join(ROOT, "tools", "validate_papers.py"),
+                        "--config", str(cfg), str(paper)],
+                       capture_output=True, text=True)
+    assert r.returncode == 1
+    assert "series must contain 'papers'" in (r.stdout + r.stderr)
 
 
 def test_papers_step_defaults_to_papers_without_a_series_list(tmp_path):

@@ -155,6 +155,23 @@ that documents `{{< abbr >}}` inside a fence must not be gated on its own
 example, while a marker in a heading really does execute and really must be
 validated.
 
+`excluded_spans()` also covers the **body** of any shortcode in
+`OPAQUE_BODY_SHORTCODES` — currently just `papers/landscape`, whose `.Inner`
+Hugo wraps in `<pre class="mermaid">`. That body is renderer source, not prose:
+a marker there expands to a `<button popovertarget>` tree inside a chart axis
+and the diagram fails to parse. The criterion is deliberately *the body is
+handed to a renderer*, not *the shortcode has a body* — `papers/pullquote` and
+`papers/scar` take prose bodies that must stay markable, and excluding every
+shortcode body would silently drop legitimate markers.
+
+`misplaced_markers()` is the fourth consumer. It reports markers an earlier
+sweep already wrote into such a body, which `excluded_spans()` alone cannot
+reach: the applier is idempotent, so it never removes what it would no longer
+add. It subtracts `code_spans()` for exactly the reason above — a post
+documenting the shortcode inside a fence must not be failed by its own example,
+and two functions disagreeing about what counts as a marker is precisely the
+drift this shared scanner exists to prevent.
+
 That import is why `glossary_scan.py` is mirrored into
 `templates/hugo-hextra/scripts/` alongside `validate_glossary.py`: a
 materialized blog runs its CI with plain python and no plugin on `sys.path`, so

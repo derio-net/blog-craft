@@ -84,6 +84,53 @@ def test_an_unclosed_landscape_cannot_swallow_the_document():
     assert "OSS" in [c["term"] for c in candidates(text)]
 
 
+def test_an_unclosed_opener_does_not_pair_with_a_later_blocks_closer():
+    # Regression: a `*?` body reached past the unclosed opener to the NEXT
+    # block's closer and swallowed every paragraph between them. The prose in
+    # the middle must stay markable; only the real block's body is excluded.
+    text = ("A {{< papers/landscape >}}\n\nSLO prose here.\n\n"
+            "{{< papers/landscape >}}\n    x-axis RAID --> C\n{{< /papers/landscape >}}\n")
+    terms = [c["term"] for c in candidates(text)]
+    assert "SLO" in terms, "prose between a stray opener and a real block was lost"
+    assert "RAID" not in terms, "the real diagram body must still be excluded"
+
+
+def test_an_opener_shown_in_inline_code_is_documentation_not_a_block():
+    # Regression, and the nastier half: backtracking EXTENDED the opening tag
+    # past its own `>}}` to the next block's, so an opener quoted in prose
+    # reported that block's body as its own and un-marked everything between.
+    text = ("Wrap it in `{{< papers/landscape >}}` first.\n\n"
+            "Then SLO and NUT and RAID matter.\n\n"
+            "{{< papers/landscape >}}\n    x-axis GPU --> C\n{{< /papers/landscape >}}\n")
+    terms = [c["term"] for c in candidates(text)]
+    assert {"SLO", "NUT", "RAID"} <= set(terms)
+    assert "GPU" not in terms
+
+
+def test_two_landscape_blocks_exclude_only_their_own_bodies():
+    text = (LANDSCAPE + "\nBetween them NUT matters.\n\n"
+            + LANDSCAPE.replace("OSS", "RAID"))
+    assert [c["term"] for c in candidates(text)] == ["NUT"]
+
+
+def test_the_percent_delimited_form_is_excluded_too():
+    # `{{% %}}` renders .Inner as markdown, which breaks a diagram just as
+    # thoroughly; an asymmetry between the two forms would be a trap.
+    text = "{{% papers/landscape %}}\n    x-axis OSS --> C\n{{% /papers/landscape %}}\n"
+    assert [c["term"] for c in candidates(text)] == []
+
+
+def test_a_documented_example_in_a_fence_is_not_reported_as_misplaced():
+    # A post explaining the shortcode must not fail its own blog's CI. This is
+    # the invariant markers_in already honours; the two must not disagree about
+    # the same text.
+    text = ('Docs:\n\n```markdown\n{{< papers/landscape >}}\n'
+            '    x-axis {{< abbr "OSS" >}} --> C\n{{< /papers/landscape >}}\n```\n')
+    from glossary_scan import markers_in
+    assert misplaced_markers(text) == []
+    assert markers_in(text) == [], "the two marker views must agree"
+
+
 def test_misplaced_markers_reports_a_pre_existing_marker():
     text = LANDSCAPE.replace("x-axis OSS", 'x-axis {{< abbr "OSS" >}}')
     found = misplaced_markers(text)

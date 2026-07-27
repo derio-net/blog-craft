@@ -748,3 +748,45 @@ rows:
       and dossier_dir do not (both are config-root-relative by contract), and hugo gets
       a working-directory. A parametrized guard renders against the pre-#61 template
       fixture for all three deploy kinds, so every already-synced blog is byte-identical.
+  - id: GL-10
+    capability: abbreviation-glossary
+    acceptance: A sweep never marks an abbreviation inside a shortcode body that is
+      handed to a renderer, and CI names any marker an earlier sweep left there
+    origin:
+    - blog-craft:CHANGELOG.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_glossary_opaque_bodies.py
+    status: ci
+    notes: 'Found in the field, not in a spec: a full-blog sweep put four markers inside
+      {{< papers/landscape >}} bodies, which Hugo wraps in <pre class="mermaid"> under
+      a quadrantChart header. The expansion is a <button popovertarget> tree inside
+      a chart axis and mermaid dies with a lexer error that names nothing connecting
+      it to a glossary sweep. Extends GL-4 (fences/headings/frontmatter) to a class
+      the exclusions missed — the shortcode TAG was excluded, its BODY was not. Criterion
+      is ''the body is renderer source'', NOT ''the shortcode has a body'': pullquote
+      and scar take prose bodies that must stay markable. Two halves because the applier
+      is idempotent and never removes what it would no longer add — excluded_spans stops
+      new markers, a validate_glossary PLACEMENT error reports existing ones (the key
+      can be valid and the marker still fatal).'
+  - id: UPD-R6
+    capability: update-path-roots
+    acceptance: The shipped CI validates papers against the papers section only, so
+      a blog with papers alongside another series passes
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-27-path-roots-and-subprocess-legibility-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_ci_template.py
+    status: ci
+    notes: 'blog-craft#61 — the template globbed content/docs/*/*/index.md and handed
+      the lot to validate_papers, which validates EVERY file it is given and errors
+      on a post whose series lacks the papers key; it does not skip. So the step could
+      only pass on a blog whose sole series was papers. Latent only because the file
+      never ran: materialized under site_dir, GitHub never loaded it — making it execute
+      is what turns this into a guaranteed red build on adoption. Now globs content/docs/<key>/
+      with the key from series[].content_type == ''papers'' (default papers), the same
+      derivation scaffold-paper.sh uses. Path selection, not a frontmatter skip: a paper
+      carrying the WRONG series is still in the papers directory, so it is still validated
+      and the series check catches it. The pre-#61 byte-identity guard normalises this
+      one line rather than editing the historical fixture.'
