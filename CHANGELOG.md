@@ -68,6 +68,27 @@ matching `vX.Y.Z` tag on merge (#18).
   config-root-relative by contract), and the Hugo build gets a
   `working-directory`. A blog with no `site_dir` renders byte-identically —
   pinned by a test against the pre-#61 template across all three deploy kinds.
+- **The glossary no longer marks abbreviations inside diagram source.**
+  `{{< papers/landscape >}}` wraps its `.Inner` in `<pre class="mermaid">` under
+  a `quadrantChart` header, but the scanner's exclusions covered the shortcode
+  TAG and not its BODY — so `x-axis OSS --> Commercial` read as prose. The
+  marker expanded to a `<button popovertarget>` tree inside a chart axis and
+  mermaid died with `Lexical error on line 4. Unrecognized text.`. On a real
+  blog a full sweep put four of these across four papers, and the only thing
+  that objected was a validator running over the RENDERED output, whose error
+  names a lexer position and nothing that points back at a glossary sweep.
+
+  The criterion is *the body is renderer source*, not *the shortcode has a
+  body*: `papers/pullquote` and `papers/scar` also take `.Inner` and it is
+  ordinary prose that must stay markable, so excluding every shortcode body
+  would silently drop legitimate markers. Audited across every shipped
+  shortcode — `landscape` is the only one that qualifies.
+
+  Two halves, because the applier is idempotent and so never removes what it
+  would no longer add: `excluded_spans` stops new markers, and a new
+  **placement error** in `validate_glossary` reports the ones an earlier sweep
+  already wrote. The key can be perfectly valid and the marker still fatal, so
+  existence checks alone cannot catch it.
 
 ### Added
 - **A declared path-ROOT model (#61).** `templates/manifest.yaml` gains a

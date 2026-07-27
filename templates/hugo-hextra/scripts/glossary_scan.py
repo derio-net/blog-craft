@@ -47,6 +47,30 @@ _FENCE_OPEN = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 _HEADING = re.compile(r"^ {0,3}#{1,6}(?:\s|$)")
 _INDENTED = re.compile(r"^(?: {4}|\t)")
 
+# Paired shortcodes whose BODY is not prose — it is source handed to a renderer.
+# `papers/landscape` wraps its `.Inner` in `<pre class="mermaid">` after a
+# `quadrantChart` header, so a marker there expands to a whole
+# `<button popovertarget>` + `<span popover>` tree inside a chart axis and
+# mermaid dies with `Lexical error on line 4. Unrecognized text.`
+#
+# The criterion is "the body is handed to a renderer", NOT "the shortcode has a
+# body": `papers/pullquote` and `papers/scar` also take `.Inner` and it is
+# ordinary prose that SHOULD be marked. Excluding every shortcode body would
+# silently drop legitimate markers. Audited against every shipped shortcode —
+# landscape is the only one that qualifies; capability-matrix, dossier-link and
+# references-index take no body at all.
+OPAQUE_BODY_SHORTCODES = frozenset({"papers/landscape"})
+
+_OPAQUE_BODY = tuple(
+    (name, re.compile(
+        r"\{\{<\s*" + re.escape(name) + r"\b.*?>\}\}"   # opening tag (may carry params)
+        r"(?P<body>.*?)"
+        r"(?=\{\{<\s*/\s*" + re.escape(name) + r"\s*>\}\})",  # up to, not incl., the closer
+        re.S,
+    ))
+    for name in sorted(OPAQUE_BODY_SHORTCODES)
+)
+
 # Inline constructs. Each requires a closing delimiter, so an unmatched opener in
 # prose can never swallow the rest of the document.
 _INLINE_PATTERNS = (
@@ -125,7 +149,40 @@ def excluded_spans(text: str) -> list[tuple[int, int]]:
     spans = _block_spans(text)
     for pat in _INLINE_PATTERNS:
         spans.extend((m.start(), m.end()) for m in pat.finditer(text))
+    spans.extend(opaque_body_spans(text))
     return sorted(spans)
+
+
+def opaque_body_spans(text: str) -> list[tuple[int, int]]:
+    """Bodies of shortcodes that hand their `.Inner` to a renderer, not to prose.
+
+    Separate from `_block_spans` because this is a construct question, not a
+    line one: the body is delimited by the shortcode's own tags and can hold
+    blank lines, indentation and anything else. An unclosed opener matches
+    nothing (the lookahead requires the closing tag), so a malformed shortcode
+    cannot swallow the rest of the document.
+    """
+    return [(m.start("body"), m.end("body"))
+            for _, pat in _OPAQUE_BODY for m in pat.finditer(text)]
+
+
+def misplaced_markers(text: str) -> list[tuple[str, int]]:
+    """Executed {{< abbr >}} markers sitting in an opaque body, as (shortcode, line).
+
+    `excluded_spans` stops NEW ones being proposed or inserted; this reports the
+    ones already in a post. Both are needed: a blog swept before the exclusion
+    existed carries markers the scanner will now never touch again — idempotent
+    means it also never removes them — so without this check they stay until a
+    build fails somewhere that names a mermaid lexer position and nothing points
+    back at the glossary.
+    """
+    out: list[tuple[str, int]] = []
+    for name, pat in _OPAQUE_BODY:
+        for body in pat.finditer(text):
+            for mark in MARKER_RE.finditer(body.group("body")):
+                pos = body.start("body") + mark.start()
+                out.append((name, text.count("\n", 0, pos) + 1))
+    return sorted(out, key=lambda t: t[1])
 
 
 def code_spans(text: str) -> list[tuple[int, int]]:

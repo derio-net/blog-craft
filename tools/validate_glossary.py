@@ -8,6 +8,7 @@ a build.
 | Check                                             | Severity |
 |---------------------------------------------------|----------|
 | a {{< abbr >}} marker with no registry entry       | error    |
+| a marker inside a renderer-source shortcode body   | error    |
 | an entry missing / blank `name` or `description`   | error    |
 | `url` present but not an absolute http(s) URL      | error    |
 | two keys differing only in case                    | error    |
@@ -29,7 +30,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from glossary_scan import load_registry, markers_in  # noqa: E402
+from glossary_scan import load_registry, markers_in, misplaced_markers  # noqa: E402
 
 _REQUIRED = ("name", "description")
 
@@ -101,12 +102,22 @@ def _main(argv: list[str]) -> int:
 
     registry = load_registry(a.config)
     marked: list[tuple[str, str, int]] = []
+    misplaced: list[str] = []
     for p in a.paths:
         with open(p) as f:
             text = f.read()
         marked.extend((term, p, line) for term, line in markers_in(text))
+        misplaced.extend(f"{p}:{line}  marker inside a {name} body — that body is "
+                         "renderer source, not prose, and the expanded HTML will "
+                         "not parse"
+                         for name, line in misplaced_markers(text))
 
     errors, warnings = validate_glossary(registry, marked)
+    # Placement, not existence: the key may be perfectly valid and the marker
+    # still fatal, because it renders inside a diagram. Caught here rather than
+    # at build time, where the error names a mermaid lexer position and nothing
+    # connects it to a glossary sweep.
+    errors = misplaced + errors
     for w in warnings:
         print(f"  warning: {w}", file=sys.stderr)
     if errors:
