@@ -134,6 +134,25 @@ rows:
       the next step read. post_process() had no test coverage at all, which is how
       the three steps drifted. Pins target/size on resize, the unchanged
       width/height-no-target default, and the end-to-end favicon fan-out.'
+  - id: CSP-1
+    capability: csp-safe-templates
+    acceptance: A blog serving `script-src 'self'` keeps every shipped behaviour —
+      no template relies on an inline <script>
+    origin:
+    - blog-craft:docs/superpowers/journals/debug/2026-07-26-csp-inline-script.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_templates_csp_safe.py
+    status: ci
+    notes: 'Regression guard for #56. A CSP drops inline <script> SILENTLY — no
+      build error, no console message an author looks for — so the read-tracker
+      "Clear read history" link cleared nothing and {{< asciinema >}} never started
+      a player, on any blog with one. Both now use external assets + data-*
+      attributes. Guarded at two levels: source (no inline <script> in any
+      HTML-emitting template, comments and .js/.css templates excluded) and output
+      (a Hugo build asserting the external scripts load, the data-* attributes are
+      present, and the built page carries zero inline blocks). A detector
+      self-test pins both match directions so the guard cannot go vacuous.'
   - id: diagram-gate-requires-diagram
     capability: educational-writing quality gate
     acceptance: A how-to or tutorial post with no Mermaid diagram fails the quality
