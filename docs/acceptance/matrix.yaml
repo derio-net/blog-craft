@@ -694,10 +694,17 @@ rows:
       agent (no session context) and revised before the operator sees it
     origin:
     - blog-craft:docs/superpowers/specs/2026-07-27-humanize-writing-design.md
-    levels: {}
-    status: not-implemented
-    notes: Skill-contract greps (agent file exists, dispatch sub-step present) + manual
-      run
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_cold_reader_contract.py
+    status: ci
+    notes: 'Mechanical envelope CI-pinned: agents/cold-reader.md exists with
+      read-only tools (Read, Grep, Glob only), the five critique sections, and
+      the verbatim blindness sentence; both drafting SKILL.md files load
+      reader-arc.md + ai-tells.md and carry the cold-reader dispatch sub-step
+      before the approval question. The blindness itself is a prompt-level
+      contract — that a live run actually withholds the session context stays
+      operator judgment in the manual live-run phase.'
   - id: HW-3
     capability: AI-tells lint in the gate
     acceptance: validate_educational.py fails on AI-vocabulary hits and warns on em-dash/parallelism/rule-of-three
@@ -722,8 +729,14 @@ rows:
       comments on first skill run, existing values untouched
     origin:
     - blog-craft:docs/superpowers/specs/2026-07-27-humanize-writing-design.md
-    levels: {}
-    status: not-implemented
-    notes: seed_config.py pattern, unit-testable. The lint layer itself shipped in
-      the validator-lint phase (HW-3); the skill-side seeding this row accepts
-      lands in the pipeline-wiring phase, which flips this status.
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_seed_config.py
+      - blog-craft:tests/unit/test_cold_reader_contract.py
+    status: ci
+    notes: 'seed_config.py gained dotted-key seeding (quality.lint.enabled
+      creates the real nested block the validator reads, boolean value, comment
+      included; existing values byte-for-byte untouched; partial quality blocks
+      extended in place) — test_seed_config.py. The /blog-post Step 0 invocation
+      is pinned by the seeding grep in test_cold_reader_contract.py. Live
+      seeding into a consumer blog is verified in the manual live-run phase.'

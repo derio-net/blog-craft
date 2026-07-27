@@ -49,8 +49,11 @@ Then load the educational-writing methodology.
 
 ### Step 1: Load the methodology
 
-Read `educational-writing/SKILL.md` and its three references
-(`diataxis.md`, `evidence.md`, `checklist.md`). Everything below applies them.
+Read `educational-writing/SKILL.md` and its references — `diataxis.md`,
+`evidence.md`, `checklist.md`, `reader-arc.md` (the rewrite is organized
+around the reader's arc, never the session's chronology), and `ai-tells.md`
+(the AI-writing patterns to self-revise against). Everything below applies
+them.
 
 ### Step 2: Find the blog and resolve the post
 
@@ -138,6 +141,17 @@ post), cover/image fields, and any cross-link fields. **Add** `reader_goal` and
 `last_updated` + `last_updated_commit` (date + commit URL of the source state you
 reconciled to) and a `{{< last-updated >}}` shortcode near the top. Do not change
 `weight` or the bundle path.
+
+**Cold-reader critique.** After the re-shape and before presenting, dispatch
+the `cold-reader` subagent (`<plugin_root>/agents/cold-reader.md`) with ONLY
+the draft file path and the three methodology paths
+(`educational-writing/SKILL.md`, `references/reader-arc.md`,
+`references/ai-tells.md`) — never the evidence brief, session notes, or the
+source-repo path. Revise the draft against its critique: fix the session
+residue and lost points, resize the lay-of-the-land per the arc assessment,
+and apply the ai-tells fixes. One critique round by default; the regen loop
+below re-dispatches naturally. When you show the draft below, include a
+one-paragraph summary of what the critique changed.
 
 Show the user the diagnosis recap and the new draft. Ask:
 

@@ -41,6 +41,15 @@ python3 <plugin_root>/tools/seed_config.py --config <blog_root>/.blog-craft.yaml
     --values "dry,balanced,rich"
 ```
 
+Likewise check `quality.lint.enabled` and seed it if absent:
+
+```
+python3 <plugin_root>/tools/seed_config.py --config <blog_root>/.blog-craft.yaml \
+    --key quality.lint.enabled --default true \
+    --comment "Warnings-first AI-tells lint; severities/thresholds in docs/CONFIG.md." \
+    --values "true,false"
+```
+
 ### Step 1: Find and validate the blog
 
 Walk up from CWD looking for `.blog-craft.yaml`. If not found anywhere up to root, refuse:
@@ -68,10 +77,13 @@ If `<blog-root>/<site_dir>/content/docs/<series>/<number>-<slug>/` already exist
 ### Step 4: Compose the post body and summary
 
 **Load the methodology first.** Read `<plugin_root>/skills/educational-writing/SKILL.md`
-and its `references/`. It is the standard this post is held to and the gate in
-Step 10 enforces it. In short: pick the Diátaxis mode before writing, ground
-every claim in a citable artifact, and keep the persona as a thin frame — never
-prose about the session that generated the post.
+and its `references/` — explicitly including `references/reader-arc.md` (the
+post is organized around the reader's arc, never the session's chronology) and
+`references/ai-tells.md` (the AI-writing patterns to self-revise against). It
+is the standard this post is held to and the gate in Step 10 enforces it. In
+short: pick the Diátaxis mode before writing, ground every claim in a citable
+artifact, and keep the persona as a thin frame — never prose about the session
+that generated the post.
 
 The body and summary are both written by the agent from available context, not by hand. Survey:
 
@@ -119,6 +131,18 @@ meaningfully advance the post, insert a
 `<!-- MEDIA: <type> | <description> | <capture instructions> -->` marker — see the
 blog's `MEDIA-GUIDE.md`. Reserve markers for media that genuinely deepens
 understanding; do not insert markers for decoration.
+
+**Cold-reader critique.** Dispatch the `cold-reader` subagent
+(`<plugin_root>/agents/cold-reader.md`) with ONLY the draft file path and the
+three methodology paths (`educational-writing/SKILL.md`,
+`references/reader-arc.md`, `references/ai-tells.md`) — never the evidence
+brief, session notes, or the source-repo path. The blindness is the point: it
+reads as a first-time reader, so whatever the draft fails to give it, no
+reader will have either. Revise the draft against its critique: fix the
+session residue and lost points, resize the lay-of-the-land per the arc
+assessment, and apply the ai-tells fixes. One critique round by default; the
+regen loop below re-dispatches naturally. When you show the draft below,
+include a one-paragraph summary of what the critique changed.
 
 **Summary.** Compose a one-sentence summary (≤25 words) for the frontmatter `summary:` field. The summary is what shows up in series indexes, RSS, and search results — it should state what the post is about, not tease at it. Match the blog's voice. Single line, no markdown, no trailing period if the voice avoids them; double-quotes inside the summary are fine (they'll be escaped on insertion).
 
