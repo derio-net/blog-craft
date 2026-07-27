@@ -24,8 +24,9 @@ arguments:
 
 ## Plugin internals
 
-- **Helper script:** `<plugin_root>/tools/blog-post-create.sh` — does the mechanical bits (page bundle, prompts entry, image-gen). Takes a scene-file and a body-file, plus `--entry-field k=v` selector pairs, `--output`, and `--no-generate`.
+- **Helper script:** `<plugin_root>/tools/blog-post-create.sh` — does the mechanical bits (page bundle, prompts entry, image-gen). Takes a scene-file and a body-file, plus `--entry-field k=v` selector pairs, `--key`, `--layer`, `--tag` (repeatable), `--output`, and `--no-generate`.
 - **Config reader:** `<plugin_root>/tools/blog_config.py` (dotted-path `get`, used by the helper for `site_dir`, `image.prompts_file`, `image.output_dir`).
+- **Prompts-file writer:** `<plugin_root>/tools/prompts_append.py` — the helper appends the entry through it rather than with `>>`. It detects the entries file's own `images:` sequence indentation, appends at that indentation, then re-parses the file to verify the entry landed; on any failure it restores the original bytes and exits non-zero, so a refused append never reaches image generation. It also answers `output-style` (bundle vs `output_dir`) from the entries the file already holds. This skill never calls it directly.
 
 ## Procedure
 
@@ -122,14 +123,35 @@ understanding; do not insert markers for decoration.
 
 **Summary.** Compose a one-sentence summary (≤25 words) for the frontmatter `summary:` field. The summary is what shows up in series indexes, RSS, and search results — it should state what the post is about, not tease at it. Match the blog's voice. Single line, no markdown, no trailing period if the voice avoids them; double-quotes inside the summary are fine (they'll be escaped on insertion).
 
-Show the draft body, the draft summary, and the proposed `reader_goal` + `diataxis` to the user and ask:
+**Tags.** Propose the post's `tags` alongside the summary — a short list (2–5) of
+lowercase taxonomy terms drawn from the post's actual subject, reusing terms
+that already appear in sibling posts' frontmatter rather than inventing near-
+duplicates. They become Step 8's repeatable `--tag` flags. Propose them; do not
+skip the question: with no `--tag` the scaffold emits `tags: []` carrying a
+`# TODO: add tags` comment, and the post publishes (`draft: false`) with no
+taxonomy at all.
 
-> Approve body, summary, reader_goal and mode? (y / regen / edit)
+**Layer.** Read `series_index.layers` from `.blog-craft.yaml`. If the blog
+declares a layer registry, **ask the operator which layer this post belongs to,
+listing the codes and names** — the layer colour-codes the post's card in the
+series index and its entry in `{{< roadmap >}}` (docs/CONFIG.md §5):
+
+> Which layer is this post? `obs` (Observability) / `bld` (Build) / … — or `skip`
+
+Take the answer to Step 8's `--layer <code>`. An unregistered code is an error
+that lists the valid ones. If the operator skips, the scaffold writes
+`layer: TODO` and warns on stderr — greppable, and inert in the rendered card,
+but owed. If the blog declares **no** `series_index.layers`, do not ask: the
+scaffold emits no `layer` key at all.
+
+Show the draft body, the draft summary, the proposed `tags`, and the proposed `reader_goal` + `diataxis` to the user and ask:
+
+> Approve body, summary, tags, reader_goal and mode? (y / regen / edit)
 > - **y** — proceed
 > - **regen** — re-survey context (or take user-provided notes) and recompose
 > - **edit** — let the user paste hand-edited versions
 
-Loop until approved. Save the final approved body to `/tmp/blog-post-body-<timestamp>.md`, the final approved summary to `/tmp/blog-post-summary-<timestamp>.txt`, and the final approved reader_goal to `/tmp/blog-post-readergoal-<timestamp>.txt` (each single line where noted, no surrounding quotes — the helper handles YAML escaping). Keep the approved `diataxis` mode(s) as a comma-separated string (e.g. `how-to,reference`) for Step 8.
+Loop until approved. Save the final approved body to `/tmp/blog-post-body-<timestamp>.md`, the final approved summary to `/tmp/blog-post-summary-<timestamp>.txt`, and the final approved reader_goal to `/tmp/blog-post-readergoal-<timestamp>.txt` (each single line where noted, no surrounding quotes — the helper handles YAML escaping). Keep the approved `diataxis` mode(s) as a comma-separated string (e.g. `how-to,reference`), and the approved tags and layer code, for Step 8.
 
 ### Step 5: Collect the scene brief + layer selectors
 
@@ -150,11 +172,15 @@ Now that the body is approved, read `image.composition_order` and `image.layers`
 
 ### Step 6: Create the entry and preview the composed prompt (no API spend)
 
-The single source of composed prompts is the generator — never hand-concatenate. Run the helper NOW with `--no-generate`: it creates the bundle and appends the scene-only entry but skips generation (Step 8's full invocation, plus `--no-generate`). Then preview:
+The single source of composed prompts is the generator — never hand-concatenate. Run the helper NOW with `--no-generate`: it creates the bundle and appends the scene-only entry but skips generation. Use **Step 8's full invocation** verbatim (including its key-convention check and the `--layer`/`--tag` flags from Step 4), plus `--no-generate`. Then preview:
 
 ```bash
-( cd <blog_root> && python <site_dir>/scripts/generate-images.py --config .blog-craft.yaml --print-prompt <series>-<number> )
+( cd <blog_root> && python <site_dir>/scripts/generate-images.py --config .blog-craft.yaml --print-prompt <key> )
 ```
+
+`<key>` is the entry key the helper resolved — `<series>-<number>` unless Step 8's
+`--key` overrode it. The helper prints this exact command with the resolved key
+substituted; copy it from there rather than re-deriving it.
 
 Show the output and ask:
 
@@ -177,7 +203,7 @@ Capture and `export <api_key_env>=<value>` for the helper invocation.
 The bundle + entry already exist (Step 6 ran the helper with `--no-generate`). Generate the approved cover:
 
 ```bash
-( cd <blog_root> && python <site_dir>/scripts/generate-images.py --config .blog-craft.yaml --only <series>-<number> )
+( cd <blog_root> && python <site_dir>/scripts/generate-images.py --config .blog-craft.yaml --only <key> )
 ```
 
 For reference, the full helper invocation Step 6 used:
@@ -185,6 +211,9 @@ For reference, the full helper invocation Step 6 used:
 ```bash
 bash <plugin_root>/tools/blog-post-create.sh --no-generate \
   --entry-field mood=cautious --entry-field torso_variant=1 \   # Step 5's selector pairs (omit if none)
+  --layer obs \                                                 # Step 4's layer code (omit if the blog declares none)
+  --tag operations --tag slo \                                  # Step 4's approved tags, repeatable
+  --key ops-30-silent-failure \                                 # ONLY if the blog's key convention differs (see below)
   <blog_root> <series> <number> <slug> <title> \
   /tmp/blog-post-scene-<timestamp>.txt \
   /tmp/blog-post-body-<timestamp>.md \
@@ -193,13 +222,27 @@ bash <plugin_root>/tools/blog-post-create.sh --no-generate \
   "<diataxis>"    # comma-separated modes from Step 4, e.g. how-to,reference
 ```
 
-Optional helper flag: `--output <path>` overrides the cover path when the blog's convention differs from `<image.output_dir>/<key>-cover.png` (check existing entries in `<image.prompts_file>` — some blogs keep covers inside page bundles).
+**Check the key convention before you run it.** The entry key defaults to
+`<series>-<number>`, and nothing in `.blog-craft.yaml` can tell you whether that
+is what this blog uses — `series[]` carries `{key, title, description,
+content_type}` and no abbreviation, so a blog keyed `ops-30-silent-failure` off a
+series named `operating` is undetectable. **Read an existing entry (or two) in
+`<image.prompts_file>`**, and if its `key:` is not `<series>-<number>`, pass
+`--key` matching the convention you see. Skip this and the blog silently grows
+one entry keyed unlike its other 88. An invalid key (spaces, quotes, slashes) is
+rejected.
+
+The cover path (`output:`) needs no flag in the normal case: the helper reads the
+same file and follows **its** convention — covers inside page bundles →
+`<site_dir>/content/docs/<series>/<NN>-<slug>/cover.png`, otherwise
+`<image.output_dir>/<key>-cover.png`, and `output_dir` when the file has no
+entries yet. Pass `--output <path>` only to override that detection.
 
 The helper (all paths resolved from `.blog-craft.yaml` — `site_dir`, `image.prompts_file`, `image.output_dir`):
-1. Creates the page bundle at `<blog_root>/<site_dir>/content/docs/<series>/<number>-<slug>/index.md` with weight `<number>+1`, the **approved summary**, **`reader_goal`**, and **`diataxis`** in the frontmatter, and the **approved body** (markers and all) below it.
-2. Appends a v5 `key: <series>-<number>` entry to `<image.prompts_file>`: a `composition:` block with `modifiers:` (`series:` + each `--entry-field` pair), the **scene only** under `scene: |`, and — when the config declares `image.reference_image` — an explicit `reference_images.primary` (v5 references are explicit; docs/CONFIG.md §4.1).
-3. Without `--no-generate`, runs `python <site_dir>/scripts/generate-images.py --only <series>-<number>` (with it, prints the preview command instead — this skill's flow). No reference image is required — the generator's own precedence (CLI override → `image.reference_image` → pool by series → generic pool → none) decides. Requires PyYAML + Pillow + google-genai installed (see the blog's `README.md` for venv setup). Generation honors the `<api_key_env>` from Step 7.
-4. Does **not** touch the series overview — its `{{< series-index >}}` shortcode lists the new post automatically on the next Hugo build (page-derived, always in sync).
+1. Creates the page bundle at `<blog_root>/<site_dir>/content/docs/<series>/<number>-<slug>/index.md` with frontmatter in convention order — `title`, **`series: ["<series>"]`** (always), **`layer`** (from `--layer`; `layer: TODO` + a stderr warning when the blog declares layers and none was given; omitted entirely when it declares none), `date`, `draft: false`, **`tags`** (from `--tag`; `tags: []  # TODO: add tags` when none), the **approved summary**, weight `<number>+1`, **`reader_goal`**, and **`diataxis`** — and the **approved body** (markers and all) below it.
+2. Appends a v5 `key: <key>` entry to `<image.prompts_file>` **at that file's own `images:` sequence indentation**, then re-parses the file to verify the entry landed (restoring the original bytes and failing loudly if it did not — `tools/prompts_append.py`). The entry carries a `composition:` block with `modifiers:` (`series:` + each `--entry-field` pair), the **scene only** under `scene: |`, an `output:` following the file's cover convention, and — when the config declares `image.reference_image` — an explicit `reference_images.primary` (v5 references are explicit; docs/CONFIG.md §4.1).
+3. Without `--no-generate`, runs `python <site_dir>/scripts/generate-images.py --only <key>` (with it, prints the preview command instead — this skill's flow). No reference image is required — the generator's own precedence (CLI override → `image.reference_image` → pool by series → generic pool → none) decides. Requires PyYAML + Pillow + google-genai installed (see the blog's `README.md` for venv setup). Generation honors the `<api_key_env>` from Step 7.
+4. Does **not** touch the series overview — and does not need to, **because the frontmatter it writes carries `series`**: the `{{< series-index >}}` shortcode derives its list from the pages that declare the series, so the new post appears on the next Hugo build. That is only true since 0.17.0; a scaffolded post used to omit `series` entirely and therefore never appeared in its own overview (#65 item 2).
 
 If the helper exits non-zero, surface the error and stop.
 
@@ -211,7 +254,7 @@ Display the generated cover at the entry's `output:` path. Ask:
 > - **y** — proceed to media fill
 > - **regen** — adjust the entry's scene/selector fields if desired, then re-run only image-gen:
 >   ```bash
->   ( cd <blog_root> && python <site_dir>/scripts/generate-images.py --only <series>-<number> )
+>   ( cd <blog_root> && python <site_dir>/scripts/generate-images.py --only <key> )
 >   ```
 
 ### Step 10: Run /media to fill any markers

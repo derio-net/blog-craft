@@ -158,6 +158,21 @@ data: `key`, `series` (also drives pool reference selection), `output`,
 `operator_generated`, `post_process`. Every **other** entry field exists to be
 selected on by some layer's `_select`.
 
+**`output` is config-root-relative, and `/blog-post`'s default for it is
+blog-dependent.** Both conventions are legitimate — a cover inside the post's
+page bundle, or one collected in `image.output_dir` — so the scaffolder follows
+the convention **your entries file already shows** rather than a fixed rule: if
+existing entries carrying `output` are mostly under `<site_dir>/content/`, a new
+entry gets `<site_dir>/content/docs/<series>/<NN>-<slug>/cover.png` (the bundle
+that run just created); otherwise, and when the file has no entries yet, it gets
+`<image.output_dir>/<key>-cover.png`. `blog-post-create.sh --output <path>`
+overrides the detection. Every blog in the field keeps the default it already had.
+
+**`key` is never detected.** It defaults to `<series>-<number>`. A blog keyed
+`ops-30-silent-failure` off a series named `operating` needs an abbreviation that
+lives in no config field, so `--key <key>` is an explicit override — read an
+existing entry and match it rather than hoping.
+
 A missing selector skips that layer. `scene` must appear in `composition_order`
 and must **not** be a key in `layers`. The generator hardcodes no layer
 vocabulary, order, or selection rule — frank and gondor ship entirely
@@ -182,6 +197,13 @@ the `roadmap` shortcode (a layer is the same colour in both). Regenerate the
 palette (`python tools/gen-layer-palette.py --config .blog-craft.yaml > data/layer_palette.yaml`)
 whenever the layer set changes. Without a palette, cards render neutral and the
 roadmap is uncoloured — no layer system is required.
+
+`series_index.layers` is also the registry `/blog-post` validates `--layer`
+against: an unregistered code is an error naming the valid ones, and a post
+scaffolded **without** `--layer` on a blog that declares layers gets a greppable
+`layer: TODO` plus a warning (an unmatched code renders exactly like no layer, so
+the placeholder is inert). Declare no layers and the scaffolder emits no `layer`
+key at all.
 
 ## §6 Image optimization (`image.optimize`)
 
@@ -366,14 +388,43 @@ SLO:
   description: >-
     The numeric reliability target a service commits to — the line an error
     budget is measured against.
+GC_GOATCOUNTER:
+  rendered_text: GC                     # optional; defaults to the key
+  name: GoatCounter
+  description: >-
+    The analytics tool behind the visitor numbers — the second sense of `GC` in
+    this blog.
 ```
 
 - Keyed by the literal token as it appears in prose. **Case-sensitive.**
 - `name` and `description` are required. `url` is optional, must be absolute
   `http(s)`, and renders as a "Read more" link inside the panel.
+- `rendered_text` is optional: a non-empty string containing no double quote
+  (it is copied into a shortcode argument, and a quote there emits an unparseable
+  shortcode). A wrong type, an empty or whitespace-only value, or an embedded
+  quote is an **error**; absent, it **defaults to the key**.
+- Two entries **may** share a `rendered_text` — that is the whole point of the
+  field, and the validator never reports it. It is how one abbreviation carries
+  two expansions: `GC` (Garbage Collection) and `GC_GOATCOUNTER`
+  (`rendered_text: GC`) both read `GC` on the page.
+- The **key stays the identifier.** The shortcode lookup, the panel `id` and the
+  CSS anchor name are all key-derived, so two senses on one page get two anchors
+  and no collision. `rendered_text` moves only what the reader sees — the
+  `<abbr>` body, the `aria-label`, and the index row.
+- Display text resolves by one precedence chain in both surfaces:
+  **call-site argument 1 › `rendered_text` › the key.**
+- `{{< glossary-index >}}` sorts on the **resolved display text**, with the key as
+  tiebreaker. A no-op for a registry with no `rendered_text`; with one, it keeps
+  the two senses of an abbreviation adjacent instead of ordering them by an
+  identifier the reader never sees.
+- **A second sense is marked by hand.** `/glossary` matches literal prose tokens
+  against keys, so it can only auto-mark the default sense — a bare `GC` in a post
+  becomes `{{< abbr "GC" >}}`. Write `{{< abbr "GC_GOATCOUNTER" >}}` yourself
+  where the other sense is meant.
 - Classified `content` by `templates/manifest.yaml` (`data/**`), so **`/update`
   never touches your definitions.**
-- Keep it alphabetically sorted; the validator warns (never fails) otherwise.
+- Keep it alphabetically sorted **by key**; the validator warns (never fails)
+  otherwise. Key order, not display order — the file is read as a keyed mapping.
 
 ### Marking terms — the `/glossary` skill
 
@@ -404,7 +455,9 @@ The {{< abbr "SLO" "SLOs" >}} we agreed on were generous.
 The optional second argument overrides the **displayed** text while the lookup
 still uses the first — that is how plurals and possessives work without forking
 a registry entry. It is positional rather than named because Hugo refuses to mix
-positional and named parameters in one shortcode call.
+positional and named parameters in one shortcode call. It also wins over the
+entry's own `rendered_text`, so a second-sense entry still pluralizes:
+`{{< abbr "GC_GOATCOUNTER" "GCs" >}}`.
 
 The rendered markup is a `<button popovertarget>` wrapping an `<abbr title>`,
 plus a `<span popover>` panel. **No JavaScript**: click/tap to open, Esc or
@@ -451,9 +504,11 @@ python <blog-craft>/tools/validate_glossary.py --config .blog-craft.yaml \
 | a marker with no registry entry | **error** |
 | an entry missing or blank `name` / `description` | **error** |
 | `url` present but not an absolute http(s) URL | **error** |
+| `rendered_text` that is not a string, or is blank, or contains a `"` | **error** |
 | two keys differing only in case | **error** |
+| two entries sharing a `rendered_text` | *never reported — that is the feature* |
 | an entry no post references | warning |
-| the registry is not alphabetically sorted | warning |
+| the registry is not alphabetically sorted by key | warning |
 
 Markers inside code fences are ignored, so a post that *documents* the shortcode
 is not gated on its own example.

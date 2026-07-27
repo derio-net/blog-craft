@@ -209,3 +209,55 @@ Phase 5 documented `rendered_text` only in the two template header comments and 
 - CHANGELOG 0.17.0 / tools/bump_version.py minor (spec D9) if phase 6 owns it: this phase touched tools/ and templates/, both under check_version_bump_needed.py:22's required prefixes.
 
 No migration is owed: templates/manifest.yaml classes `layouts/**` and `scripts/**` as framework (an /update ships the new templates) and `data/**` as content (the operator's registry is untouched), and the field is purely additive.
+
+<!-- fr:journal kind=discovery scope=plan id=p6-repro-end-to-end created=2026-07-27T22:50:49 phase=6 -->
+### p6-repro-end-to-end · discovery · The issue's exact reproduction now passes on a column-0 frank-shaped blog — all three checks, verbatim (phase 6)
+
+P6.T3.S2, run against a throwaway blog with `site_dir: blog`, `series_index.layers: [obs, bld]`, and the issue s own seed — an `images:` sequence at COLUMN 0 plus one real entry (`existing-01`, static-shaped `output`).
+
+The issue s literal command (`--no-generate operating 30 silent-failure`, no new flags) exits 0 and:
+
+(a) the file PARSES — `entries = 2`, keys `[existing-01, operating-30]`. The appended entry sits at column 0, matching the file s own sequence, and lines 1-6 (the seed) are byte-identical. Before the fix this same seed produced `expected <block end>, but found -`.
+(b) `generate-images.py --config .blog-craft.yaml --print-prompt operating-30` — the Step 6 preview the issue reports as impossible — RUNS, emitting the composed prompt (base_character + scene). The scaffolder prints that exact command with the resolved key substituted.
+(c) frontmatter carries `series: ["operating"]`, `layer: TODO` (with the two-line stderr WARNING naming `obs, bld`), and `tags: []  # TODO: add tags`.
+
+`output:` resolved to `blog/static/images/operating-30-cover.png` — output_dir, not the bundle, because the seed entry is static-shaped. That is D7 working as designed: the reporting blog keeps the default it already had.
+
+A second run with the flags this release adds (`--layer obs --tag operations --tag slo --key ops-31-noisy-alerts`) appends a THIRD entry to the same file (still parses; keys `[existing-01, operating-30, ops-31-noisy-alerts]`), `--print-prompt ops-31-noisy-alerts` runs, and the frontmatter is `series: ["operating"]` / `layer: obs` / `tags: ["operations", "slo"]`. The `--key` override reaches the entry key, the cover basename and both printed hints; the bundle directory is still `31-noisy-alerts` — the key does not leak into a per-post path.
+
+<!-- fr:journal kind=discovery scope=plan id=p6-docs-were-more-than-flag-lists created=2026-07-27T22:51:06 phase=6 -->
+### p6-docs-were-more-than-flag-lists · discovery · The doc debt was three false promises, not three missing flag lists (phase 6)
+
+Phases 3-5 each recorded "phase 6 owes docs". What the edits actually turned out to be:
+
+1. `skills/blog-post/SKILL.md` Step 8 item 4 PROMISED the series overview "lists the new post automatically" while the scaffolder emitted no `series` — the promise is the reason nobody checked. It now says the overview lists the post *because* the frontmatter carries `series`, and names 0.17.0 as the version that made it true. The stale `--output` sentence had the mirror-image problem: it told the agent to "check existing entries in <image.prompts_file>" by hand for something the helper now detects, so it read as the only lever when it is now an override.
+2. `--key` needed a SKILL STEP, not a flag mention (phase 4 was right about this). Step 8 now carries a "Check the key convention before you run it" paragraph that says why no config field can supply the abbreviation and what to read instead. Step 6 (which is the step that actually RUNS the helper) had to be re-pointed at Step 8s invocation verbatim, or the check would sit in a block the agent reads after the fact.
+3. Every `<series>-<number>` in the generate/preview/regen commands (Steps 6, 8, 9) was wrong the moment `--key` existed. They are now `<key>`, with one sentence saying the helper prints the resolved command to copy.
+4. `skills/glossary/SKILL.md`: the apply caveat went into Step 4 (where the entry is written) AND Step 6 (where the markers are inserted, and where the author has to re-point them by hand), not into Notes. In Notes it would be a footnote about a workflow the agent has already got wrong.
+
+Also added beyond the plan text: `docs/CONFIG.md` §5 now says `series_index.layers` is the registry `--layer` is validated against (it previously read as gen-layer-palette.py-only input), and §4.1 documents both the blog-dependent `output:` default and that `key` is never detected. The §9 CI-gate table gained the `rendered_text` error row plus an explicit "two entries sharing a rendered_text — never reported" row, because the absence of a rule is not visible in a table of rules.
+
+<!-- fr:journal kind=discovery scope=plan id=p6-acceptance-report-drift created=2026-07-27T22:51:18 phase=6 -->
+### p6-acceptance-report-drift · discovery · fr acceptance check exit 1 on report drift, not on the row flips — the report set is committed and must be regenerated (phase 6)
+
+Flipping BPC-1..5 + GL-10/11 to `ci` with real refs left `fr acceptance check` at EXIT 1 — but not for anything about the rows. The three failures were `report drift: docs/acceptance/report_{local.html,linked.html,linked.md} is missing or stale vs docs/acceptance/matrix.yaml`. This repo COMMITS the generated report set, so any matrix.yaml edit owes `fr acceptance report --deterministic` in the same commit. Not mentioned in the plan step, and easy to misread as a bad ref.
+
+After regenerating: exit 0, `57 rows OK ({not-implemented: 6, ci: 49, skipped: 2})`. None of BPC-1..5 / GL-10 / GL-11 appear as warnings; the 6 remaining not-implemented are the pre-existing manual/post-merge rows (OC-1, OC-2, OC-5, IMG-OPT-1, IMG-COMP-8, IMG-COMP-9) and the 2 skipped are GL-3/GL-9 (browser-walk evidence CI has no layout engine for).
+
+The `notes` rewrite was the substantive half. The placeholder notes said "Awaits X"; they now record which named tests pin what, and specifically which tests were DIAGNOSTIC versus which are regression guards — that distinction is in the phase 1-5 journal entries and would have been lost the moment those entries scrolled out of anyone s context. BPC-1 notes name the column-0 and no-trailing-newline seeds as the diagnostic ones and record that the pre-existing empty-sequence seed could see neither; GL-11 notes record that a malformed `rendered_text` validated CLEAN before the change because `_REQUIRED` is a required-field whitelist, not an allowlist.
+
+<!-- fr:journal kind=finding scope=plan id=p6-deferred-debt-paid created=2026-07-27T22:52:11 phase=6 state=fixed -->
+### p6-deferred-debt-paid · finding [fixed] · All five deferred phase 2-5 findings are paid; only p1-keep-chomp-seam remains open (phase 6)
+
+Closing entry for the debt phases 2-5 recorded against phase 6. `fr journal add` with an existing `--id` is a NO-OP (it does not rewrite `state=open`), so those five entries still RENDER as open — this entry is the authoritative state.
+
+PAID:
+- `p2-bpc12-backfill-deferred` (phase 2) — BPC-1 and BPC-2 flipped to `ci` with unit refs `tests/unit/test_prompts_append.py` + `tests/unit/test_blog_post_create.py` and int ref `tests/smoke-blog-post.sh`.
+- `d842482e5770` (phase 3) — `--layer` / `--tag` / `layer: TODO` / the tags-comment departure are now in `skills/blog-post/SKILL.md` (Step 4 asks for both; Step 8 shows the flags and the frontmatter order) and `docs/CONFIG.md` §5.
+- `dd2022e25525` (phase 3) — BPC-3 and BPC-4 flipped to `ci`, notes naming the 4 + 9 tests.
+- `b56820abcc36` (phase 4) — `--key` is a SKILL STEP in Step 8, the detected `output:` default is in `docs/CONFIG.md` §4.1, BPC-5 flipped to `ci`, and 0.17.0 + the CHANGELOG section shipped.
+- `c3ade469d220` (phase 5) — `rendered_text` is in `skills/glossary/SKILL.md` Step 4 (schema + precedence chain) and Step 6 (the by-hand marking of the second sense) and in `docs/CONFIG.md` §9; both OpenCode mirrors re-synced by `scripts/sync-opencode.py`; GL-10 and GL-11 flipped to `ci`.
+
+STILL OPEN, deliberately: `p1-keep-chomp-seam` (phase 1) — the seam normalisation (`rstrip(chr(10)) + chr(10)`) drops trailing BLANK lines, which a final entry ending in a `|+` KEPT block scalar would notice. No blog-craft template or tool emits `|+`, and the D2 verification checks the entry count and last key rather than scalar contents, so it would be silent. Left as a recorded edge; the fix, if it ever matters, is to strip only the trailing newlines beyond one when the file does not end inside a kept scalar. Not documented in CONFIG or the skill, because telling operators not to end a prompts file with a `|+` scalar is worse than the edge case.
+
+Also unchanged by design (phase 5, `f7c14c293257`): the validator sorted-registry warning still checks KEY order, not display order. `docs/CONFIG.md` §9 now says "alphabetically sorted **by key**" explicitly so the two are not confused.
