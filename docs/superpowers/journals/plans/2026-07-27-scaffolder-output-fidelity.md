@@ -106,3 +106,47 @@ Phase 4 owns `--key` (D6) and the detected `output:` default (D7). What phase 3 
 - BPC-4 ("layer and tags are set from the invocation, and their absence is visible in the file rather than silent"): status ci, levels.unit -> blog-craft:tests/unit/test_blog_post_create.py. Tests: test_layer_flag_emitted_when_code_is_registered, test_unknown_layer_code_is_an_error_naming_the_valid_ones, test_layer_omitted_with_registry_is_todo_and_warns, test_layer_omitted_without_registry_emits_no_layer_key, test_layer_without_registry_is_accepted_verbatim, test_layer_value_is_yaml_safe, test_tag_flag_is_repeatable_and_ordered, test_tag_values_yaml_safe, test_no_tags_emits_empty_list_with_a_todo_comment.
 
 BPC-5 (key/output defaults) stays not-implemented until phase 4.
+
+<!-- fr:journal kind=discovery scope=plan id=096cafcc3be3 created=2026-07-27T22:22:11 phase=4 -->
+### 096cafcc3be3 · discovery · --key is guarded with the script's own plain-token regex; only 1 of 3 key tests was diagnostic RED (phase 4)
+
+`--key` reuses the exact shape the `layer:` emitter established in this script — `^[A-Za-z0-9][A-Za-z0-9_.-]*$` — rather than the --entry-field identifier regex at :51-52 (`^[A-Za-z_][A-Za-z0-9_]*$`), which would reject `ops-30-silent-failure` itself. So the script now has ONE plain-token notion, used for the two values that are interpolated bare into output the parser reads. Rejected end-to-end: `ops 30`, `ops"30`, `ops/30`, `$(id)`, `-ops` (a leading dash is consumed as the flag's argument, not re-read as a flag, so it reaches the guard). `--key ""` is caught earlier by `${2:?}`.
+
+TDD note: of the three task-1 tests only test_key_override_names_entry_hint_and_cover went red (`ERROR: unknown flag --key`). test_key_defaults_to_series_number and test_bad_key_rejected passed against the unmodified script — the first BY DESIGN (D6's default is byte-compatible, so it is a regression guard on the thing that must not move), the second incidentally (an unknown flag already exits 2, and the guard is what keeps that true once the flag exists). Both are worth keeping and neither is evidence.
+
+The printed hints needed no change: step 3's `--print-prompt $KEY` / `--only $KEY` and the `Edit: $BUNDLE_DIR/index.md` line already interpolate the resolved variables, never a re-derived `$SERIES-$NUMBER`. Asserted anyway (`"operating-30" not in stdout` on an override run) because that is the failure the issue would produce next.
+
+<!-- fr:journal kind=discovery scope=plan id=65b702fe9c05 created=2026-07-27T22:22:38 phase=4 -->
+### 65b702fe9c05 · discovery · D7 wiring: OUTPUT_IMAGE had to move below the prompts-file guard, and output: is now conditionally quoted (phase 4)
+
+Four seam changes in tools/blog-post-create.sh, none of them visible from the plan text:
+
+1. `OUTPUT_IMAGE` could no longer sit beside `KEY` (:161 as phase 3 left it). It now needs `$PROMPTS_YAML` (validated) and `$SITE_PREFIX` (computed one line later), so the resolution moved BELOW the prompts-file existence guard. `KEY` stays where it was.
+2. `PROMPTS_APPEND` + its existence check were hoisted from step 2 (:229-230) to just after that guard — output-style is the first caller now. The later duplicate was removed, so there is still exactly one "helper is missing" error path.
+3. New `BUNDLE_REL` holds the config-root-relative bundle path and `BUNDLE_DIR="$BLOG_ROOT/$BUNDLE_REL"`. The entry's `output:` is config-root-relative (that is what generate-images.py:325 resolves against), the mkdir needs the absolute one, and deriving both from one string is what makes "the cover lands in the bundle this run just created" true by construction instead of by coincidence.
+4. `output:` is emitted BARE for a plain path (`^[A-Za-z0-9][A-Za-z0-9_./-]*$`) and quoted+escaped otherwise — the same conditional the `layer:` emitter uses, for the same reason. Bare keeps the byte shape of the 88 hand-written entries and of every previous run; the escape hatch exists because `--output` and the `<series>`/`<slug>` positional args the bundle path is built from are unguarded input.
+
+Resolved values, verbatim, for the three detection shapes (series=operating, number=30, slug=silent-failure, output_dir=static/images):
+
+- bundle-seeded, site_dir "." -> key `operating-30`, output `content/docs/operating/30-silent-failure/cover.png`; the 1x1 PNG lands at `<root>/content/docs/operating/30-silent-failure/cover.png` (asserted, not inferred: generate-images.py:350 mkdirs the parent).
+- bundle-seeded, site_dir "blog" -> output `blog/content/docs/operating/30-silent-failure/cover.png`, cover at `<root>/blog/content/.../cover.png`.
+- static-seeded -> `static/images/operating-30-cover.png` (unchanged from today).
+- bare `images:` (the bootstrap/no-entries shape) -> `static/images/operating-30-cover.png` (unchanged).
+- `--output static/images/chosen.png` wins in both shapes; with `--key ops-30-silent-failure` the bundle default is still `content/docs/operating/30-silent-failure/cover.png` — the key does not leak into a per-post directory name.
+
+Ties, entries without `output`, and an unparseable file are covered at the helper level (tests/unit/test_prompts_append.py) and deliberately not re-tested end to end.
+
+One stdout change: the entry line is now `prompts entry: key=<key> output=<path> appended to <file>`. Both halves are now variable per blog, so an operator would otherwise have to open the file to learn where the cover went. Nothing greps that line (tests/smoke-blog-post.sh asserts on the prompts file and the PNG, not the log).
+
+<!-- fr:journal kind=finding scope=plan id=b56820abcc36 created=2026-07-27T22:22:55 phase=4 state=open -->
+### b56820abcc36 · finding [open] · Phase 6 owes docs for --key and the detected output default; BPC-5 is satisfied but still not-implemented (phase 4)
+
+Phase 4 documented `--key` and the new `--output` default in tools/blog-post-create.sh's own usage header only (it deliberately touched no skill and not docs/acceptance/matrix.yaml). Still owed by phase 6:
+
+- skills/blog-post/SKILL.md — the invocation gains `--key`, and D6's honest half is a SKILL STEP: the agent must read an existing entry from the blog's prompts file and match its key convention, because nothing in the config can tell it that `operating` abbreviates to `ops`. Without that step `--key` exists and is never used.
+- .opencode/skills/blog-craft-blog-post/SKILL.md — the mirror (tests/unit/test_opencode_sync.py).
+- docs/CONFIG.md — the `output:` default is now blog-dependent; worth one line saying the scaffolder follows the file's existing convention and that `--output` overrides it.
+- CHANGELOG.md / version bump to 0.17.0 (spec D9) if phase 6 owns it.
+- docs/acceptance/matrix.yaml BPC-5 (key/output defaults): now verified in CI. status ci, levels.unit -> blog-craft:tests/unit/test_blog_post_create.py. Tests: test_key_override_names_entry_hint_and_cover, test_key_defaults_to_series_number, test_bad_key_rejected, test_output_default_is_the_bundle_when_the_file_says_so, test_output_default_is_the_bundle_under_site_dir, test_output_default_stays_output_dir_for_a_static_blog, test_output_default_stays_output_dir_with_no_entries, test_output_flag_beats_detection_in_both_shapes, test_bundle_default_and_key_override_compose (plus the output-style half in tests/unit/test_prompts_append.py).
+
+`fr plan edit --complete-phase 4` warns about BPC-5 accordingly. Same shape as the BPC-1..4 debt recorded in phases 2 and 3: phases share one branch and one PR, so the repo-wide same-PR backfill rule is met as long as phase 6 does this.

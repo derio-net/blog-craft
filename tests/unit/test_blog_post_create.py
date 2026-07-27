@@ -415,3 +415,149 @@ def test_frontmatter_field_order_full(tmp_path):
                      tail=[str(rg), "how-to,reference"])
     assert r.returncode == 0, r.stderr + r.stdout
     assert _front_keys(_front_text(idx)) == FRONT_ORDER
+
+
+# --- the entry key: an explicit override, never a detected convention (#65 item 3)
+#
+# The reporting blog's 88 entries are keyed `<abbrev>-NN-slug` (`ops-30-silent-
+# failure`), which needs an `operating` → `ops` map that exists in no config key —
+# `series[]` carries {key, title, description, content_type} and nothing else. So
+# detection is rejected (spec D6) and `--key` is the honest answer: the default
+# stays byte-compatible, and the value is guarded because it reaches a shortcode
+# and a `--only` CLI argument downstream (like --entry-field keys at :51-52).
+
+def _key_run(tmp_path, extra, seed="images:\n", cfg=DEFAULT_CFG, site_dir=".",
+             generate=False, series="operating", number="30", slug="silent-failure"):
+    blog = _mk_blog(tmp_path, cfg, site_dir=site_dir, prompts_seed=seed)
+    inp = _inputs(tmp_path)
+    r = _run(blog, ([] if generate else ["--no-generate"]) + list(extra),
+             [series, number, slug, "Silent Failure", str(inp / "scene.txt"),
+              str(inp / "body.md"), str(inp / "summary.txt")])
+    prompts = blog / (cfg.get("image") or {})["prompts_file"]
+    return blog, r, prompts
+
+
+def _last_entry(prompts):
+    return yaml.safe_load(prompts.read_text())["images"][-1]
+
+
+def test_key_override_names_entry_hint_and_cover(tmp_path):
+    blog, r, prompts = _key_run(tmp_path, ["--key", "ops-30-silent-failure"],
+                                seed=SEED_COL0)
+    assert r.returncode == 0, r.stderr + r.stdout
+    e = _last_entry(prompts)
+    assert e["key"] == "ops-30-silent-failure"
+    assert e["output"] == "static/images/ops-30-silent-failure-cover.png", \
+        "the default cover filename derives from the RESOLVED key"
+    assert "ops-30-silent-failure" in r.stdout, \
+        f"the --only/--print-prompt hint must name the resolved key: {r.stdout!r}"
+    assert "operating-30" not in r.stdout, \
+        f"nothing printed may re-derive <series>-<number>: {r.stdout!r}"
+
+
+def test_key_defaults_to_series_number(tmp_path):
+    # Byte-compatible default: no --key changes nothing about today's output.
+    blog, r, prompts = _key_run(tmp_path, [], seed=SEED_COL0)
+    assert r.returncode == 0, r.stderr + r.stdout
+    e = _last_entry(prompts)
+    assert e["key"] == "operating-30"
+    assert e["output"] == "static/images/operating-30-cover.png"
+
+
+def test_bad_key_rejected(tmp_path):
+    # The key is a shortcode and a `--only` argument downstream, so it is guarded
+    # exactly like an --entry-field key: plain slug or nothing.
+    for n, bad in enumerate(("ops 30", 'ops"30', "ops/30", "$(id)", "-ops")):
+        case = tmp_path / f"case{n}"
+        case.mkdir()
+        blog, r, prompts = _key_run(case, ["--key", bad], seed=SEED_COL0)
+        assert r.returncode != 0, f"--key {bad!r} must be rejected"
+        assert prompts.read_text() == SEED_COL0, \
+            f"--key {bad!r} must fail before the prompts file is touched"
+
+
+# --- the `output:` default follows the entries file's own convention (spec D7) ---
+#
+# Asymmetric with the key on purpose: here the FILE states the answer, so nothing
+# is guessed. The reporting blog keeps covers INSIDE the page bundle
+# (blog/content/docs/operating/30-silent-failure/cover.png); the bootstrap default
+# keeps them in image.output_dir. Both are legitimate, and a wrong default puts the
+# cover somewhere Hugo's page-resources lookup will never find it. Ties, no entries
+# and an unparseable file all answer output_dir (tests/unit/test_prompts_append.py),
+# so every blog in the field keeps today's behaviour.
+
+def _seed_with_outputs(*outputs: str) -> str:
+    """An entries file at column 0 whose entries establish an output convention."""
+    lines = ["images:"]
+    for n, out in enumerate(outputs, start=1):
+        lines += [f"- key: existing-{n:02d}", f"  output: {out}",
+                  "  composition:", "    scene: |", f"      scene {n}"]
+    return "\n".join(lines) + "\n"
+
+
+SEED_BUNDLE = _seed_with_outputs("content/docs/operating/28-a/cover.png",
+                                 "content/docs/operating/29-b/cover.png")
+SEED_BUNDLE_FRANK = _seed_with_outputs("blog/content/docs/operating/28-a/cover.png",
+                                       "blog/content/docs/operating/29-b/cover.png")
+SEED_STATIC = _seed_with_outputs("static/images/operating-28-cover.png",
+                                 "static/images/operating-29-cover.png")
+
+
+def test_output_default_is_the_bundle_when_the_file_says_so(tmp_path):
+    # Generation is NOT skipped: the resolved path must be somewhere the generator
+    # can actually write, not just a string in the YAML.
+    blog, r, prompts = _key_run(tmp_path, [], seed=SEED_BUNDLE, generate=True)
+    assert r.returncode == 0, r.stderr + r.stdout
+    assert _last_entry(prompts)["output"] == \
+        "content/docs/operating/30-silent-failure/cover.png"
+    cover = blog / "content" / "docs" / "operating" / "30-silent-failure" / "cover.png"
+    assert cover.is_file(), "the cover must LAND in the bundle this run just created"
+
+
+def test_output_default_is_the_bundle_under_site_dir(tmp_path):
+    # frank-shaped: the path the entry carries is config-root-relative, so it keeps
+    # the site_dir prefix. (This blog declares layers, hence a `layer: TODO` warning
+    # on stderr — not this test's business.)
+    blog, r, prompts = _key_run(tmp_path, [], cfg=FRANK_CFG, site_dir="blog",
+                                seed=SEED_BUNDLE_FRANK, generate=True)
+    assert r.returncode == 0, r.stderr + r.stdout
+    assert _last_entry(prompts)["output"] == \
+        "blog/content/docs/operating/30-silent-failure/cover.png"
+    cover = (blog / "blog" / "content" / "docs" / "operating" / "30-silent-failure"
+             / "cover.png")
+    assert cover.is_file(), "the cover must land inside the bundle under site_dir"
+
+
+def test_output_default_stays_output_dir_for_a_static_blog(tmp_path):
+    blog, r, prompts = _key_run(tmp_path, [], seed=SEED_STATIC, generate=True)
+    assert r.returncode == 0, r.stderr + r.stdout
+    assert _last_entry(prompts)["output"] == "static/images/operating-30-cover.png"
+    assert (blog / "static" / "images" / "operating-30-cover.png").is_file()
+
+
+def test_output_default_stays_output_dir_with_no_entries(tmp_path):
+    # The bootstrap shape: nothing to detect, so nothing changes.
+    blog, r, prompts = _key_run(tmp_path, [], seed="images:\n")
+    assert r.returncode == 0, r.stderr + r.stdout
+    assert _last_entry(prompts)["output"] == "static/images/operating-30-cover.png"
+
+
+def test_output_flag_beats_detection_in_both_shapes(tmp_path):
+    for n, seed in enumerate((SEED_BUNDLE, SEED_STATIC)):
+        case = tmp_path / f"shape{n}"
+        case.mkdir()
+        blog, r, prompts = _key_run(case, ["--output", "static/images/chosen.png"],
+                                    seed=seed)
+        assert r.returncode == 0, r.stderr + r.stdout
+        assert _last_entry(prompts)["output"] == "static/images/chosen.png"
+
+
+def test_bundle_default_and_key_override_compose(tmp_path):
+    # The bundle path is per-post, so a --key that no longer matches
+    # <series>-<number> must not leak back into it.
+    blog, r, prompts = _key_run(tmp_path, ["--key", "ops-30-silent-failure"],
+                                seed=SEED_BUNDLE)
+    assert r.returncode == 0, r.stderr + r.stdout
+    e = _last_entry(prompts)
+    assert e["key"] == "ops-30-silent-failure"
+    assert e["output"] == "content/docs/operating/30-silent-failure/cover.png"

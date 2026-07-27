@@ -16,8 +16,14 @@
 #
 # --entry-field k=v — selector field for the entry (e.g. mood=cautious,
 #                  torso_variant=1); repeatable. Integers stay integers.
-# --output <path>  — entry output path override (default
-#                  <image.output_dir>/<key>-cover.png), config-root-relative.
+# --key <key>      — entry key + cover basename (default <series>-<number>). A blog
+#                  keyed `<abbrev>-NN-slug` needs an abbreviation that lives in no
+#                  config field, so this is an explicit override, never detected
+#                  (#65 item 3, spec D6). Read an existing entry and match it.
+# --output <path>  — entry output path override, config-root-relative. The default
+#                  follows the prompts file's OWN convention (spec D7): covers
+#                  inside page bundles → <site_dir>/content/docs/<series>/<NN>-<slug>/
+#                  cover.png, otherwise <image.output_dir>/<key>-cover.png.
 # --layer <code>   — frontmatter `layer:`, validated against the blog's
 #                  series_index.layers registry. Omitted on a blog that declares
 #                  layers → `layer: TODO` + a warning; on one that declares none
@@ -42,12 +48,14 @@ set -euo pipefail
 
 ENTRY_FIELDS=()
 OUTPUT_OVERRIDE=""
+KEY_OVERRIDE=""
 LAYER=""
 TAGS=()
 NO_GENERATE=0
 while [[ $# -gt 0 && "$1" == --* ]]; do
   case "$1" in
     --entry-field) ENTRY_FIELDS+=("${2:?"--entry-field needs k=v"}"); shift 2 ;;
+    --key)         KEY_OVERRIDE=${2:?"--key needs a value"}; shift 2 ;;
     --output)      OUTPUT_OVERRIDE=${2:?"--output needs a path"}; shift 2 ;;
     --layer)       LAYER=${2:?"--layer needs a code"}; shift 2 ;;
     --tag)         TAGS+=("${2:?"--tag needs a value"}"); shift 2 ;;
@@ -68,6 +76,16 @@ for kv in ${ENTRY_FIELDS[@]+"${ENTRY_FIELDS[@]}"}; do
       echo "ERROR: --entry-field key '$k' is a standard entry field — set it via the dedicated argument" >&2; exit 2 ;;
   esac
 done
+
+# --key is guarded like an --entry-field key above, and for the same reason: it
+# becomes a `--only <key>` CLI argument, a cover filename and the {{< ... >}}-side
+# identifier the generator matches on. Same plain-token shape the `layer:` emitter
+# uses, so `ops-30-silent-failure` passes and a space/quote/slash never reaches a
+# downstream argument.
+if [[ -n "$KEY_OVERRIDE" && ! "$KEY_OVERRIDE" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]]; then
+  echo "ERROR: --key '$KEY_OVERRIDE' is not a plain slug (letters, digits, - _ .; must start alphanumeric)" >&2
+  exit 2
+fi
 
 BLOG_ROOT=${1:?"blog_root required"}
 SERIES=${2:?"series required"}
@@ -157,12 +175,39 @@ fi
 
 WEIGHT=$((10#$NUMBER + 1))
 TODAY=$(date +%Y-%m-%d)
-KEY="$SERIES-$NUMBER"
-OUTPUT_IMAGE=${OUTPUT_OVERRIDE:-"$OUTPUT_DIR/$KEY-cover.png"}
+# The key NAMES the entry, and its convention is not derivable: the reporting
+# blog's `ops-30-silent-failure` needs an `operating` → `ops` abbreviation that
+# appears in no config field (`series[]` is {key, title, description,
+# content_type}). So no detection here — an explicit --key or the historical
+# default, byte-for-byte (spec D6).
+KEY=${KEY_OVERRIDE:-"$SERIES-$NUMBER"}
 SITE_PREFIX=${SITE_DIR%/}; [[ "$SITE_PREFIX" == "." ]] && SITE_PREFIX=""
-BUNDLE_DIR="$BLOG_ROOT/${SITE_PREFIX:+$SITE_PREFIX/}content/docs/$SERIES/$NUMBER-$SLUG"
+BUNDLE_REL="${SITE_PREFIX:+$SITE_PREFIX/}content/docs/$SERIES/$NUMBER-$SLUG"
+BUNDLE_DIR="$BLOG_ROOT/$BUNDLE_REL"
 PROMPTS_YAML="$BLOG_ROOT/$PROMPTS_REL"
 [[ -f "$PROMPTS_YAML" ]] || { echo "ERROR: prompts file $PROMPTS_YAML (image.prompts_file) not found" >&2; exit 2; }
+PROMPTS_APPEND="$HERE/prompts_append.py"
+[[ -f "$PROMPTS_APPEND" ]] || { echo "ERROR: prompts_append.py not found beside blog-post-create.sh ($HERE)" >&2; exit 2; }
+
+# The entry's `output:` — where THIS blog keeps its covers, asked of the file that
+# knows (spec D7). Covers inside the page bundle and covers in image.output_dir are
+# both legitimate: the reporting blog's 88 entries put them in the bundle
+# (blog/content/docs/operating/30-silent-failure/cover.png, resolved by Hugo's page
+# resources), a bootstrapped blog puts them in static/images. Detection is honest
+# here, unlike for the key (D6): the answer is stated in the file, not abbreviated
+# out of it. output-style counts and never fails a scaffold — a tie, no entries or
+# an unparseable file all answer output_dir, i.e. today's behaviour, and the append
+# step below is where a broken file is reported.
+if [[ -n "$OUTPUT_OVERRIDE" ]]; then
+  OUTPUT_IMAGE=$OUTPUT_OVERRIDE
+else
+  OUTPUT_STYLE=$(python3 "$PROMPTS_APPEND" output-style --file "$PROMPTS_YAML" --site-prefix "$SITE_PREFIX")
+  if [[ "$OUTPUT_STYLE" == "bundle" ]]; then
+    OUTPUT_IMAGE="$BUNDLE_REL/cover.png"   # inside the bundle this run creates below
+  else
+    OUTPUT_IMAGE="$OUTPUT_DIR/$KEY-cover.png"
+  fi
+fi
 
 # 1. Page bundle: frontmatter + composed body, in the blog's convention order:
 #    title, series, layer?, date, draft, tags, summary, weight, reader_goal?,
@@ -226,13 +271,19 @@ echo "  page bundle: $BUNDLE_DIR/index.md (body from $BODY_FILE, summary from $S
 #    invokes it, so there is no mirrored copy to keep in step.
 INDENTED_SCENE=$(sed 's/^/        /' "$SCENE_FILE")
 PRIMARY_REF=$(cfg image.reference_image --default "")
-PROMPTS_APPEND="$HERE/prompts_append.py"
-[[ -f "$PROMPTS_APPEND" ]] || { echo "ERROR: prompts_append.py not found beside blog-post-create.sh ($HERE)" >&2; exit 2; }
 ENTRY_BLOCK=$(mktemp)
 trap 'rm -f "$ENTRY_BLOCK"' EXIT
 {
   echo "  - key: $KEY"
-  echo "    output: $OUTPUT_IMAGE"
+  # Plain paths stay bare — that is what the 88 hand-written entries look like and
+  # what every previous run of this scaffolder emitted. `--output` and the <slug>/
+  # <series> the bundle path is built from are unguarded input, so anything that is
+  # not a plain path goes out as a quoted, escaped scalar rather than broken YAML.
+  if [[ "$OUTPUT_IMAGE" =~ ^[A-Za-z0-9][A-Za-z0-9_./-]*$ ]]; then
+    echo "    output: $OUTPUT_IMAGE"
+  else
+    echo "    output: \"$(yaml_escape "$OUTPUT_IMAGE")\""
+  fi
   echo "    description: \"Cover for $SERIES post $NUMBER — $TITLE_ESC\""
   echo "    composition:"
   if [[ -n "$PRIMARY_REF" ]]; then
@@ -256,7 +307,10 @@ trap 'rm -f "$ENTRY_BLOCK"' EXIT
 # left as it was found; `set -e` propagates it rather than reporting a success
 # the operator would only discover was a lie at generate time.
 python3 "$PROMPTS_APPEND" append --file "$PROMPTS_YAML" --key "$KEY" --entry-file "$ENTRY_BLOCK"
-echo "  prompts entry: key=$KEY appended to $PROMPTS_YAML (v5 composition block)"
+# The output path is worth printing now that the default follows the blog (D7) and
+# the key can be overridden (D6): both are what the operator would otherwise have
+# to open the file to learn.
+echo "  prompts entry: key=$KEY output=$OUTPUT_IMAGE appended to $PROMPTS_YAML (v5 composition block)"
 
 # 3. Image generation from the config root — the generator resolves every path
 #    (prompts_file, output, reference pool) relative to the config, and its own
