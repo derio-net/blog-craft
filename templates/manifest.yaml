@@ -33,6 +33,12 @@ merged:
 
 content:
   - ".blog-craft.yaml"
+  - ".blog-craft.sync.yaml"   # the sync snapshot (tools/sync_state.py) — the config
+                              # as of the last sync, written explicitly by bootstrap
+                              # and update.py, never through the update plan. The row
+                              # is load-bearing: without it a staging tree containing
+                              # the file trips reproduce.structural_diff's
+                              # "unclassified materialized path" (spec §11).
   - "prompt_for_images.yaml"
   - "content/**"
   - "data/**"

@@ -51,26 +51,27 @@ tasks:
 state:
   steps:
     P3.T1.S1:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-07-27T15:29:32+00:00'
       note: null
     P3.T2.S1:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-07-27T15:29:32+00:00'
       note: null
     P3.T2.S2:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-07-27T15:29:32+00:00'
       note: null
     P3.T3.S1:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-07-27T15:29:32+00:00'
       note: null
     P3.T3.S2:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-07-27T15:29:32+00:00'
       note: null
   completion:
-    at: null
-    note: null
+    at: '2026-07-27T15:29:32+00:00'
+    note: smoke-update 19/19; smoke-bootstrap 6/6; unit+reproduction green. Negative
+      control (snapshot deleted) confirms the toggle assertion fails without the fix.
     observed_prs: []
