@@ -27,7 +27,7 @@ def test_manifest_loads_known_classes():
     # `roots` is the path-ROOT model (#61) — a sibling of the classes, namespaced
     # under its own key so classify_all() never sees it. See test_path_roots.py.
     m = load_manifest(MANIFEST)
-    assert set(m) <= {"framework", "content", "merged", "roots"}
+    assert set(m) <= {"framework", "content", "merged", "roots", "legacy_dests"}
 
 
 def test_every_materialized_path_classified_exactly_once():

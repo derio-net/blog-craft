@@ -77,6 +77,34 @@ def map_dest(path: str, cfg: dict | None, manifest: dict | None = None) -> str:
     return site_prefix(cfg) + path
 
 
+def legacy_dests(path: str, cfg: dict | None, manifest: dict | None = None) -> list[str]:
+    """Where earlier releases materialized `path`, per the manifest (#61).
+
+    Fixing `map_dest` alone does not settle #61: `plan_update` classifies an
+    absent managed path as `add`, so a blog carrying the file at the OLD
+    location ends up with two copies and no indication which one the tool
+    behind it honours — and the next `/update` re-adds the dead one.
+
+    `{site}/` expands to `<site_dir>/`, or to nothing when the Hugo site IS the
+    config root. Destinations that come out equal to the current one are dropped
+    (they are not relocations), which is what keeps this inert for the blogs
+    that never had the problem.
+    """
+    manifest = manifest if manifest is not None else default_manifest()
+    table = (manifest.get("legacy_dests") or {}).get(path) or []
+    if not table:
+        return []
+    prefix = site_prefix(cfg)
+    here = map_dest(path, cfg, manifest)
+    out = []
+    for tmpl in table:
+        # "{site}/x" -> "<site_dir>/x" with site_dir, or "x" without.
+        dest = tmpl.replace("{site}/", prefix) if prefix else tmpl.replace("{site}/", "")
+        if dest != here and dest not in out:
+            out.append(dest)
+    return out
+
+
 def three_way(base: Path, local: Path, incoming: Path) -> tuple[bytes, bool]:
     """git merge-file 3-way: returns (merged_bytes, conflict?)."""
     r = subprocess.run(["git", "merge-file", "-p", "--", str(local), str(base), str(incoming)],
@@ -95,37 +123,90 @@ def plan_update(blog: str | Path, staging: str | Path, base: str | Path | None, 
         # site-shaped); comparison + application use the mapped destination
         cls = classify(p, manifest)
         dest = map_dest(p, cfg, manifest)
-        inc, loc = staging / p, blog / dest
+        inc = staging / p
         if cls in (None, "content"):
             continue
         if only_res and not any(r.match(p) for r in only_res):
             continue
+
+        # A path this release moved (root change and/or rename) may still be
+        # sitting at its old destination. That file is the operator's — it is
+        # the `local` side, not something to ignore and re-add blank (#61).
+        legacy = next((d for d in legacy_dests(p, cfg, manifest) if (blog / d).exists()), None)
+        entry = {"path": p, "dest": dest, "class": cls}
+        if legacy:
+            entry["legacy"] = legacy
+            # Pruning the directories the old copy needed must stop at the site
+            # directory — never retire the operator's site dir itself.
+            site = site_prefix(cfg).rstrip("/")
+            if site and (legacy == site or legacy.startswith(site + "/")):
+                entry["legacy_floor"] = site
+
+        loc = blog / dest
         if not loc.exists():
-            plan.append({"path": p, "dest": dest, "action": "add", "class": cls})
+            if legacy is None:
+                plan.append({**entry, "action": "add"})
+                continue
+            loc = blog / legacy                        # move the operator's copy
+        elif legacy is not None and loc.read_bytes() == inc.read_bytes():
+            # Half-migrated: a correct file already sits at the new destination
+            # and the stale duplicate is still there. Only the duplicate goes.
+            plan.append({**entry, "action": "prune"})
             continue
+
         if loc.read_bytes() == inc.read_bytes():
-            continue                                   # already up to date
+            if legacy is None:
+                continue                               # already up to date
+            plan.append({**entry, "action": "relocate"})   # identical -> pure move
+            continue
         if cls == "framework":
-            plan.append({"path": p, "dest": dest, "action": "replace", "class": cls})
+            plan.append({**entry, "action": "replace"})
         else:  # merged -> 3-way
             b = base / p if base and (base / p).exists() else None
             if b is None:
-                plan.append({"path": p, "dest": dest, "action": "conflict", "class": cls,
+                plan.append({**entry, "action": "conflict",
                              "reason": "no base to merge from"})
             else:
                 merged, conflict = three_way(b, loc, inc)
-                plan.append({"path": p, "dest": dest,
-                             "action": "conflict" if conflict else "merge",
-                             "class": cls, "merged": merged})
+                plan.append({**entry, "action": "conflict" if conflict else "merge",
+                             "merged": merged})
     return plan
 
 
 def dry_run_diff(plan: list[dict]) -> str:
-    lines = [f"{e['action'].upper():8} {e.get('dest', e['path'])} [{e['class']}]"
-             + (f"  ({e['reason']})" if e.get("reason") else "") for e in plan]
-    if not lines:
-        return "no changes"
-    return "\n".join(lines)
+    """Render the plan. For a relocation the dry-run IS the migration notice —
+    it names both sides, so the operator sees where the file is coming from."""
+    lines = []
+    for e in plan:
+        dest, legacy = e.get("dest", e["path"]), e.get("legacy")
+        if e["action"] == "prune":
+            what = f"{legacy}  (stale — now at {dest})"
+        elif legacy:
+            what = f"{legacy} -> {dest}"
+        else:
+            what = dest
+        line = f"{e['action'].upper():8} {what} [{e['class']}]"
+        if e.get("reason"):
+            line += f"  ({e['reason']})"
+        lines.append(line)
+    return "\n".join(lines) if lines else "no changes"
+
+
+def _prune_empty_parents(floor: Path, path: Path) -> None:
+    """Remove directories left empty by a relocation, never at or above `floor`.
+
+    `floor` is the blog root, or the site directory when the stale copy lived
+    under it: a relocation retires the directories the OLD destination needed,
+    never the operator's site directory — even in the degenerate case where the
+    moved file was the only thing in it.
+    """
+    d = path.parent
+    while d != floor and floor in d.parents:
+        try:
+            d.rmdir()          # only succeeds while the directory is empty
+        except OSError:
+            return             # still holds operator files — stop here
+        d = d.parent
 
 
 def apply_plan(blog: str | Path, staging: str | Path, plan: list[dict]) -> list[str]:
@@ -133,15 +214,29 @@ def apply_plan(blog: str | Path, staging: str | Path, plan: list[dict]) -> list[
     conflicts: list[str] = []
     for e in plan:
         dest = blog / e.get("dest", e["path"])
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        if e["action"] in ("replace", "add"):
-            dest.write_bytes((staging / e["path"]).read_bytes())
-        elif e["action"] == "merge":
-            dest.write_bytes(e["merged"])
-        elif e["action"] == "conflict":
-            # report the on-disk destination (mapped) — that's the file the
-            # operator must resolve; never auto-resolve
+        legacy = blog / e["legacy"] if e.get("legacy") else None
+
+        if e["action"] == "conflict":
+            # Never auto-resolve — and on a relocation, never destroy the
+            # evidence either: BOTH copies stay, both are named, because the
+            # operator has to know there are two (#61).
             conflicts.append(e.get("dest", e["path"]))
+            if legacy is not None:
+                conflicts.append(e["legacy"])
+            continue
+
+        if e["action"] != "prune":
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            if e["action"] in ("replace", "add", "relocate"):
+                dest.write_bytes((staging / e["path"]).read_bytes())
+            elif e["action"] == "merge":
+                dest.write_bytes(e["merged"])
+
+        # The new copy is on disk (or was already correct) — retire the old one.
+        if legacy is not None and legacy.exists() and legacy != dest:
+            legacy.unlink()
+            floor = blog / e["legacy_floor"] if e.get("legacy_floor") else blog
+            _prune_empty_parents(floor, legacy)
     return conflicts
 
 

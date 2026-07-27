@@ -81,3 +81,25 @@ roots:
     - "README.md"                 # the SITE's readme; a repo README is the operator's
     - "MEDIA-GUIDE.md"            # documents the site's image workflow
     - ".gitignore"                # nested gitignores govern their own subtree
+
+# --- Where earlier releases put a path (#61) ----------------------------------
+# Fixing the destination is not enough on its own. `plan_update` classifies an
+# absent managed path as `add`, so a blog that already carries the file at the
+# OLD location ends up with two copies and no indication which one the tool
+# behind it honours — and the next /update re-adds the dead one.
+#
+# So: current materialized path -> the destinations earlier releases wrote it to.
+# `{site}/` expands to `<site_dir>/`, and to nothing when the Hugo site IS the
+# config root; a legacy destination that comes out equal to the current one is
+# simply not a relocation, which is what keeps this inert for blogs that never
+# had the problem.
+#
+# One table, because there are two migration axes and both need covering:
+#   - a ROOT change  — .github/** moved out from under site_dir;
+#   - a RENAME       — the hookify rule moved into .claude/ and gained the
+#                      `.local.md` suffix hookify's glob requires.
+legacy_dests:
+  ".github/workflows/blog-ci.yml":
+    - "{site}/.github/workflows/blog-ci.yml"
+  ".claude/hookify.warn-hextra-weight-zero.local.md":
+    - "{site}/.hookify.warn-hextra-weight-zero.md"

@@ -592,10 +592,18 @@ rows:
       and a re-run plans nothing
     origin:
     - blog-craft:docs/superpowers/specs/2026-07-27-path-roots-and-subprocess-legibility-design.md
-    levels: {}
-    status: not-implemented
-    notes: blog-craft#61 — without this the next /update re-adds the dead file. Flips
-      to ci when tests/unit/test_update_relocation.py lands.
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_update_relocation.py
+      int:
+      - blog-craft:tests/smoke-update.sh
+    status: ci
+    notes: blog-craft#61 — plan_update classifies an absent managed path as `add`, so
+      without this the next /update re-adds the dead file. templates/manifest.yaml
+      `legacy_dests:` declares where earlier releases put each moved path; the planner
+      treats the stale copy as the 3-way `local` so the operator's edits move with the
+      file. A conflict writes nothing and removes nothing, naming both paths. The smoke
+      leg proves the loop is closed end to end on a site_dir blog.
   - id: UPD-R5
     capability: update-path-roots
     acceptance: A site_dir blog's CI workflow renders repo-root-relative paths that

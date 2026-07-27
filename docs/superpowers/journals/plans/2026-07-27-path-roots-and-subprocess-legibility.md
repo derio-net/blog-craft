@@ -19,3 +19,13 @@ Ran the documented invocation from /home/claude/repos/frank (site_dir: blog, the
 ### p2-guard-caught-it · discovery · The completeness guard caught the flagged path on its first run (phase 2)
 
 test_path_roots.py's exactly-one-root assertion failed immediately on .hookify.warn-hextra-weight-zero.md — the undeclared path was the one #61 flagged. That is the evidence the guard is load-bearing rather than decorative: it forces the who-defines-this-location question at review time instead of leaving it to a future incident.
+
+<!-- fr:journal kind=finding scope=plan id=p4-prune-ate-site-dir created=2026-07-27T16:20:24 phase=4 state=fixed -->
+### p4-prune-ate-site-dir · finding [fixed] · The directory prune would have removed the operator's site directory (phase 4)
+
+First implementation of _prune_empty_parents walked up while each directory was empty, stopping only at the blog root. In the degenerate case where the relocated file was the only thing under <site_dir>/, that removed the site directory itself. Caught by test_directories_left_empty_by_the_move_are_removed, which asserts the floor explicitly. Fixed by recording a legacy_floor on the plan entry (the site dir when the stale copy lived under it) and never pruning at or above it — a relocation retires the directories the OLD destination needed, nothing else.
+
+<!-- fr:journal kind=finding scope=plan id=p4-replan-assertion created=2026-07-27T16:20:24 phase=4 state=fixed -->
+### p4-replan-assertion · finding [fixed] · The smoke re-plan assertion conflated two different things (phase 4)
+
+Asserted REPLAN=0 after applying a relocation. But the operator's surviving edit legitimately still differs from the shipped render, so an ordinary 3-way  remains — that is correct behaviour, not the #61 dead-file loop. Tightened to the actual invariant: the re-run must have zero entries carrying a  and must never target <site_dir>/.github again.

@@ -108,6 +108,44 @@ grep -q "STALE VENDORED COPY" "$FR/blog/scripts/generate-images.py" && fail "ven
 grep -q "operator content" "$SENTINEL_CONTENT" && pass "content untouched by scoped update" || fail "scoped update touched content"
 [[ -e "$FR/scripts/generate-images.py" ]] && fail "wrote outside site_dir" || pass "nothing written outside site_dir"
 
+echo "=== site_dir blog: repo-rooted CI relocates out from under site_dir (#61) ==="
+# A blog synced before the root model carries the CI workflow at
+# <site_dir>/.github/workflows/, where GitHub Actions never reads it. /update
+# must MOVE the operator's file to the repo root — carrying their edits — and
+# leave nothing behind for the next run to trip over.
+mkdir -p "$FR/blog/.github/workflows"
+STALE_CI="$FR/blog/.github/workflows/blog-ci.yml"
+sed '1s/.*/name: OPERATOR RENAMED CI/' "$STG/.github/workflows/blog-ci.yml" > "$STALE_CI"
+
+REL=$("$PY" - "$REPO_ROOT" "$FR" "$STG" "$BASE" <<'PY'
+import sys, yaml
+sys.path.insert(0, sys.argv[1] + "/tools")
+from update import plan_update, apply_plan, dry_run_diff, default_manifest
+fr, stg, base = sys.argv[2], sys.argv[3], sys.argv[4]
+cfg = yaml.safe_load(open(fr + "/.blog-craft.yaml"))
+m = default_manifest()
+plan = plan_update(fr, stg, base, m, cfg=cfg, only=[".github/**"])
+print(dry_run_diff(plan), file=sys.stderr)
+print("CONFLICTS", apply_plan(fr, stg, plan), file=sys.stderr)
+# Re-plan after applying. The loop #61 describes is closed when the re-run has
+# nothing left to RELOCATE and never targets the site-dir path again. (A plain
+# `merge` may legitimately remain: the operator's edit still differs from the
+# shipped render, which is ordinary 3-way behaviour, not the dead-file loop.)
+again = plan_update(fr, stg, base, m, cfg=cfg, only=[".github/**"])
+pending = [e for e in again if e.get("legacy")]
+stale = [e for e in again if e["dest"].startswith("blog/.github/")]
+print(";".join(f"{e['dest']}={e['action']}" for e in plan)
+      + f"|PENDING_RELOCATIONS={len(pending)}|STALE_TARGETS={len(stale)}")
+PY
+)
+echo "  actions: $REL"
+grep -q ".github/workflows/blog-ci.yml=" <<<"$REL" && pass "site_dir: workflow planned at the repo root" || fail "workflow not planned at repo root"
+grep -q "PENDING_RELOCATIONS=0" <<<"$REL" && pass "re-run has no relocation left to do" || fail "re-run still wants to relocate — the #61 loop is open"
+grep -q "STALE_TARGETS=0" <<<"$REL" && pass "re-run never targets the site_dir path again (dead file not re-added)" || fail "re-run targets <site_dir>/.github again"
+[[ -f "$FR/.github/workflows/blog-ci.yml" ]] && pass "workflow now at <repo>/.github/workflows/" || fail "workflow missing at the repo root"
+[[ -e "$STALE_CI" ]] && fail "stale copy under site_dir survived" || pass "stale copy under site_dir removed"
+grep -q "OPERATOR RENAMED CI" "$FR/.github/workflows/blog-ci.yml" && pass "operator's CI edit survived the relocation" || fail "operator's CI edit lost in the move"
+
 echo
 echo "=== Summary: $pass_n passed, $fail_n failed ==="
 [[ "$fail_n" -eq 0 ]] && echo "ALL OK" || { echo "FAILED"; exit 1; }

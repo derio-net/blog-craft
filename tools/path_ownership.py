@@ -35,11 +35,14 @@ def load_manifest(path: str) -> dict:
     with open(path) as f:
         m = yaml.safe_load(f) or {}
     out = {k: (m.get(k) or []) for k in CLASSES if k in m}
-    # `roots` is namespaced under its own key so it never collides with a class
-    # name — classify_all() only ever iterates CLASSES.
+    # `roots` and `legacy_dests` are namespaced under their own keys so they
+    # never collide with a class name — classify_all() only iterates CLASSES.
     roots = m.get("roots") or {}
     if roots:
         out["roots"] = {r: (roots.get(r) or []) for r in ROOTS if r in roots}
+    legacy = m.get("legacy_dests") or {}
+    if legacy:
+        out["legacy_dests"] = {k: list(v or []) for k, v in legacy.items()}
     return out
 
 
