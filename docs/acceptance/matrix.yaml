@@ -610,8 +610,13 @@ rows:
       resolve from the repository root
     origin:
     - blog-craft:docs/superpowers/specs/2026-07-27-path-roots-and-subprocess-legibility-design.md
-    levels: {}
-    status: not-implemented
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_ci_template.py
+    status: ci
     notes: blog-craft#61 — moving the file to the right place is not enough if its paths
-      assume cwd is the site root. Flips to ci when tests/unit/test_ci_template.py covers
-      site_dir.
+      assume cwd is the site root. CI's cwd is the repository root, which is also the
+      config root: scripts and content globs carry the site prefix, --config and
+      dossier_dir do not (both are config-root-relative by contract), and hugo gets a
+      working-directory. A parametrized guard renders against the pre-#61 template
+      fixture for all three deploy kinds, so every already-synced blog is byte-identical.
