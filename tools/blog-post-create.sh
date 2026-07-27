@@ -16,7 +16,10 @@
 #
 # --entry-field k=v — selector field for the entry (e.g. mood=cautious,
 #                  torso_variant=1); repeatable. Integers stay integers.
-# --key <key>      — entry key + cover basename (default <series>-<number>). A blog
+# --key <key>      — the entry's key (default <series>-<number>); also the
+#                  `--only` argument and, where covers live in image.output_dir,
+#                  the cover filename `<key>-cover.png` (under the bundle
+#                  convention the cover is always `cover.png`). A blog
 #                  keyed `<abbrev>-NN-slug` needs an abbreviation that lives in no
 #                  config field, so this is an explicit override, never detected
 #                  (#65 item 3, spec D6). Read an existing entry and match it.
@@ -82,9 +85,31 @@ done
 # identifier the generator matches on. Same plain-token shape the `layer:` emitter
 # uses, so `ops-30-silent-failure` passes and a space/quote/slash never reaches a
 # downstream argument.
-if [[ -n "$KEY_OVERRIDE" && ! "$KEY_OVERRIDE" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]]; then
-  echo "ERROR: --key '$KEY_OVERRIDE' is not a plain slug (letters, digits, - _ .; must start alphanumeric)" >&2
-  exit 2
+if [[ -n "$KEY_OVERRIDE" ]]; then
+  if [[ ! "$KEY_OVERRIDE" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]]; then
+    echo "ERROR: --key '$KEY_OVERRIDE' is not a plain slug (letters, digits, - _ .; must start alphanumeric)" >&2
+    exit 2
+  fi
+  # A plain slug is not yet a plain STRING: the key is emitted bare, so a value
+  # YAML retypes comes back as a float/int/bool/null and the append verification
+  # then fails with a message about the prompts file — blaming the file for the
+  # flag's value. So `1.5`, `123`, `0x1f`, `no`, `on`, `y` and friends are rejected
+  # HERE, naming the flag. Rule: at least one letter, and not one of the YAML 1.1
+  # boolean/null words. `ops-1.5-silent` still passes.
+  KEY_LC=$(printf '%s' "$KEY_OVERRIDE" | tr '[:upper:]' '[:lower:]')
+  KEY_RETYPED=""
+  [[ "$KEY_OVERRIDE" =~ [A-Za-z] ]] || KEY_RETYPED="a number to YAML"
+  case "$KEY_LC" in
+    y|yes|n|no|true|false|on|off) KEY_RETYPED="a boolean to YAML" ;;
+    null|nan|inf)                 KEY_RETYPED="null/not-a-number to YAML" ;;
+    0x*|0b*)                      KEY_RETYPED="a number to YAML" ;;
+  esac
+  if [[ -n "$KEY_RETYPED" ]]; then
+    echo "ERROR: --key '$KEY_OVERRIDE' is $KEY_RETYPED, not a string — it would not survive" >&2
+    echo "       a round-trip through the entries file. Use a key with at least one letter" >&2
+    echo "       that is not y/yes/n/no/on/off/true/false/null (e.g. 'ops-30-silent-failure')." >&2
+    exit 2
+  fi
 fi
 
 BLOG_ROOT=${1:?"blog_root required"}
@@ -188,6 +213,16 @@ PROMPTS_YAML="$BLOG_ROOT/$PROMPTS_REL"
 [[ -f "$PROMPTS_YAML" ]] || { echo "ERROR: prompts file $PROMPTS_YAML (image.prompts_file) not found" >&2; exit 2; }
 PROMPTS_APPEND="$HERE/prompts_append.py"
 [[ -f "$PROMPTS_APPEND" ]] || { echo "ERROR: prompts_append.py not found beside blog-post-create.sh ($HERE)" >&2; exit 2; }
+
+# Refuse a doomed append BEFORE creating anything, so the scaffold is
+# all-or-nothing. The append itself (step 2) is what writes and verifies, but it
+# runs after the page bundle exists, so a refusal there used to exit 2 with
+# content/docs/<series>/<NN>-<slug>/index.md already on disk and no matching entry
+# — an operator had to know to go and delete it. `check` re-answers exactly what
+# `append` would refuse (a file that does not parse; a top-level key after the
+# `images:` sequence, which an end-of-file append cannot be correct for) and never
+# writes. `set -e` carries its exit 2.
+python3 "$PROMPTS_APPEND" check --file "$PROMPTS_YAML"
 
 # The entry's `output:` — where THIS blog keeps its covers, asked of the file that
 # knows (spec D7). Covers inside the page bundle and covers in image.output_dir are

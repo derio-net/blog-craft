@@ -261,3 +261,113 @@ PAID:
 STILL OPEN, deliberately: `p1-keep-chomp-seam` (phase 1) — the seam normalisation (`rstrip(chr(10)) + chr(10)`) drops trailing BLANK lines, which a final entry ending in a `|+` KEPT block scalar would notice. No blog-craft template or tool emits `|+`, and the D2 verification checks the entry count and last key rather than scalar contents, so it would be silent. Left as a recorded edge; the fix, if it ever matters, is to strip only the trailing newlines beyond one when the file does not end inside a kept scalar. Not documented in CONFIG or the skill, because telling operators not to end a prompts file with a `|+` scalar is worse than the edge case.
 
 Also unchanged by design (phase 5, `f7c14c293257`): the validator sorted-registry warning still checks KEY order, not display order. `docs/CONFIG.md` §9 now says "alphabetically sorted **by key**" explicitly so the two are not confused.
+
+<!-- fr:journal kind=finding scope=plan id=r-f1-atomic-append created=2026-07-27T23:42:45 state=fixed -->
+### r-f1-atomic-append · finding [fixed] · F1: the append was truncate-then-write — a short write destroyed the operator's entries file
+
+tools/prompts_append.py:125 did `path.write_bytes(new.encode())`, which truncates and then writes. A write that could not complete (ENOSPC, disk quota, RLIMIT_FSIZE, SIGINT, OOM) left the operator's ~1900-line file as a truncated prefix of itself, `_restore` was unreachable from that branch, the caller got a raw traceback with exit 1 instead of the promised exit 2, and `_restore`'s own `write_bytes` was unguarded — a failed restore destroyed the only remaining copy, since the original bytes lived solely in the dying process's memory. `after = load_entries(new)` verified the IN-MEMORY string, so a short write was invisible to D2's verification. This falsified spec D2, the module docstring, and skills/blog-post/SKILL.md:29's "on **any** failure it restores the original bytes".
+
+Reproduction (a 4839-byte column-0 prompts file, 40 entries, RLIMIT_FSIZE 2048):
+
+    $ bash -c 'ulimit -f 2; python3 tools/prompts_append.py append --file big.yaml --key newkey --entry-file entry.txt'
+BEFORE: OSError: [Errno 27] File too large  (traceback through pathlib write_bytes), rc=1, big.yaml 4839 -> 2048 bytes, DIFFERENT.
+AFTER:  prompts_append: big.yaml: the append could not be written ([Errno 27] File too large) — the file is unchanged, nothing was written in place
+        rc=2, big.yaml 4839 bytes, md5 identical, no temp file left.
+
+Fix: `_write_atomically()` — mkstemp a sibling temp file in the SAME directory (os.replace is only atomic within one filesystem), raw `os.write` in a loop (a buffered writer defers the failure into a `close()` the caller cannot see), fsync, then `os.replace`. Three details worth keeping: (1) the mode is copied off the original with fchmod, because mkstemp creates 0600 and a prompts file in a git repo is 0644; (2) the replace goes through `os.path.realpath(path)`, so a symlinked prompts file keeps its link instead of being replaced by a regular file — verified by hand; (3) the temp file is unlinked in a `finally` on every path (ENOENT ignored on the success path). Verification now re-READS the bytes from disk, compares them to the payload BEFORE parsing (so a short write reports as a short write, not as "the append broke the file"), and `_restore` writes atomically too and reports clearly if the restore itself fails.
+
+Pinned by tests/unit/test_prompts_append.py::test_a_write_that_cannot_complete_leaves_the_file_byte_identical (the `ulimit -f 2` reproduction, skipped gracefully where `ulimit -f` is unavailable; the child runs with `-B` so bytecode caches cannot hit the same limit) plus test_a_healthy_append_leaves_no_temp_file_behind. The test asserts the file first and the returncode second — the file is the acceptance, the exit code is the message.
+
+<!-- fr:journal kind=finding scope=plan id=r-f2-locale-reads created=2026-07-27T23:43:09 state=fixed -->
+### r-f2-locale-reads · finding [fixed] · F2: locale-dependent read_text() — loud in append, SILENTLY WRONG in output-style
+
+The module used `read_bytes()` + `.decode()` for the target file but bare `Path.read_text()` (LOCALE encoding) for the entry block (:120) and for the output-style read (:158). blog-post-create.sh writes a literal em dash into every entry's `description:`, so the entry block is ALWAYS non-ASCII — this is every scaffold under a non-UTF-8 locale, not an edge case.
+
+- :120 raised an unhandled UnicodeDecodeError -> traceback, exit 1 (inconsistent with the sibling load_entries path, which catches it).
+- :158-160 was worse because it was SILENT: `except (OSError, yaml.YAMLError, ValueError)` swallows UnicodeDecodeError (a ValueError subclass) and printed `output_dir`, so a real bundle-style blog got the WRONG cover path — written where Hugo's page-resources lookup never looks — with no diagnostic. Exactly the silent-wrong-output class D7 exists to eliminate.
+
+Reproduced (em dash in `description:`, single entry under content/):
+  LC_ALL=C PYTHONUTF8=0 python3 tools/prompts_append.py output-style --file em.yaml --site-prefix ""
+  BEFORE: output_dir (rc 0) / with UTF-8: bundle.   AFTER: bundle either way.
+  append under the same env BEFORE: UnicodeDecodeError traceback, rc 1. AFTER: rc 0.
+
+Fix: `encoding="utf-8"` on both reads; the entry-block read is wrapped so a genuinely non-UTF-8 block fails with a message naming the file instead of a traceback.
+
+Environment note for anyone reproducing: `LC_ALL=C` alone is not enough on a system with C.UTF-8 — PEP 538 locale coercion would quietly make the read UTF-8 and hide the bug. The tests set PYTHONUTF8=0 (defeats PEP 540) AND PYTHONCOERCECLOCALE=0 (defeats PEP 538), which is what makes `LC_ALL=C` really mean ASCII.
+
+Pinned by tests/unit/test_prompts_append.py::test_a_non_ascii_entry_block_appends_under_a_c_locale and ::test_detection_is_not_locale_dependent (the silent half — asserts `bundle`, which is what a swallowed decode error turns into `output_dir`).
+
+<!-- fr:journal kind=finding scope=plan id=r-f3-all-or-nothing created=2026-07-27T23:43:09 state=fixed -->
+### r-f3-all-or-nothing · finding [fixed] · F3: a refused append left a half-scaffolded post; prompts_append.py gained a "check" subcommand
+
+The page bundle was written (blog-post-create.sh:223-255) BEFORE the append ran (:309), so any refusal exited 2 with content/docs/<series>/<NN>-<slug>/index.md already on disk and no matching entry — the operator had to know to go and delete it.
+
+Fix: a third subcommand, `prompts_append.py check --file <prompts.yaml>`, which answers "would an append be accepted?" and never writes. It shares one `_appendability_problem()` helper with `cmd_append`, so the two can never disagree about what is refusable — `append` still runs the same checks itself; `check` is an early look, not a substitute. The shell calls it immediately after the PROMPTS_YAML / PROMPTS_APPEND existence guards, i.e. before `mkdir -p`, and `set -euo pipefail` carries its exit 2. The scaffold is now all-or-nothing.
+
+Pinned by tests/unit/test_blog_post_create.py::test_a_refused_append_leaves_no_half_scaffolded_post (seeded with the corruption from #65: exit non-zero, prompts file byte-identical, AND the bundle directory does not exist) plus four `check` cases in tests/unit/test_prompts_append.py. Those `check` cases assert the file name appears in stderr, not merely returncode != 0 — an unknown subcommand also exits 2 via argparse, which is the same vacuity F6 was about.
+
+<!-- fr:journal kind=finding scope=plan id=r-f4-key-retyping created=2026-07-27T23:44:03 state=fixed -->
+### r-f4-key-retyping · finding [fixed] · F4: the --key guard admitted values YAML retypes (1.5, 123, 0x1f, no, on, y)
+
+blog-post-create.sh:85's shape guard `^[A-Za-z0-9][A-Za-z0-9_.-]*$` admits 1.5, 123, 0x1f, no, on, y, true, null. The key is emitted BARE at :277, so YAML reads it back as a float/int/bool/null and the D2 verification fails with a message that blames the prompts file for the flag's value. Verbatim before:
+
+    prompts_append: .../prompt_for_images.yaml: the last entry is not the appended key '1.5' (found 1.5) — restored the pre-append bytes
+
+Fix, at the flag, naming the flag: after the shape check, require at least one ASCII letter (kills 1.5, 123, 017, and any all-digit key) and reject the YAML 1.1 boolean/null words plus 0x/0b prefixes (which pass the letter test but retype). Implemented with `tr '[:upper:]' '[:lower:]'` + a `case`, deliberately NOT bash 4's ${var,,} — this script must keep running under macOS's bash 3.2. Requiring a letter slightly over-rejects (a key like `1-2` is a legal YAML string) and that is the intended trade: a key names an entry and every real convention in the field has letters.
+
+Pinned by tests/unit/test_blog_post_create.py::test_key_that_yaml_would_retype_is_rejected (all eight values: non-zero exit, stderr names --key, prompts file untouched) and ::test_a_key_with_digits_and_dots_is_still_accepted (ops-1.5-silent still scaffolds, so the guard costs no real key shape).
+
+<!-- fr:journal kind=finding scope=plan id=r-f5-sort-fixture created=2026-07-27T23:44:04 state=fixed -->
+### r-f5-sort-fixture · finding [fixed] · F5: the glossary display-sort test was unpinned and its justifying comment was false
+
+tests/unit/test_glossary_hugo.py::test_glossary_index_sorts_on_the_resolved_text_keeping_senses_adjacent passed under a KEY sort too, because GC < GC_GOATCOUNTER < NUT < SLO in both orders. The comment at :249 ("Sorting on the key would put GC_GOATCOUNTER after NUT") was factually wrong — nothing in REGISTRY sorts between GC and GC_GOATCOUNTER.
+
+Fix: a dedicated SORT_REGISTRY fixture (REGISTRY minus GC_GOATCOUNTER, plus key ZZZ_GC with rendered_text: GC), which genuinely separates the two orders — display sort -> [GC, GC(ZZZ_GC), NUT, SLO]; key sort -> [GC, NUT, SLO, ZZZ_GC]. Comment corrected to state what the fixture proves. REGISTRY itself is untouched, so the five other GL-10 tests keep asserting what they were written for (notably "GC_GOATCOUNTER" not in html).
+
+Verified as a mutation test, not by inspection: with glossary-index.html's sortkey temporarily reverted to `printf "%s\x1f%s" $k $k`, the test FAILS ("At index 1 diff: 'Network UPS Tools' != 'GoatCounter'"); restored, it passes. The shortcode's own comment was reworded in the same pass — it cited the same non-example.
+
+<!-- fr:journal kind=finding scope=plan id=r-f6-key-guard-assertion created=2026-07-27T23:44:04 state=fixed -->
+### r-f6-key-guard-assertion · finding [fixed] · F6: test_bad_key_rejected could not tell the guard from an unparsed flag
+
+The test asserted only `returncode != 0`, and every unknown flag also exits 2 ("ERROR: unknown flag"), so it passed against code that had no --key guard at all — while acceptance row BPC-5 cited it as pinning the guard. Fix: assert `"--key" in r.stderr` for every rejected value, which is only true of the guard's own message. The same discipline is now applied to the new `check` cases in tests/unit/test_prompts_append.py (they assert the file name appears in stderr, so an argparse "invalid choice" cannot satisfy them) and BPC-5's matrix notes record why returncode alone is not evidence.
+
+<!-- fr:journal kind=finding scope=plan id=r-f7-images-must-be-last created=2026-07-27T23:44:43 state=fixed -->
+### r-f7-images-must-be-last · finding [fixed] · F7: a top-level key after the images: sequence aborted every scaffold with a message that blamed the append
+
+The entry is placed at END OF FILE, so a prompts file with any top-level key after the `images:` sequence made every scaffold fail with `expected <block end>, but found '-'` — the append reported "the append broke the file" for what is actually the file's LAYOUT. Only `images:` is documented, so this is a hand-edited-file scenario, not a field default.
+
+Decision kept from the brief: do NOT move the insertion point. Placing an entry mid-file would put a byte-offset computation into the highest-stakes code path in the repo, to serve a shape no documented file has. Instead the condition is DETECTED and refused up front, with an accurate message.
+
+Detection is textual (`trailing_top_level_key()`), because the parsed document has no column information — same reason `sequence_indent()` is textual (p1-indent-detection-shape). After the `images:` line, a line is offending only if it is non-blank, starts at column 0, is not a comment, and is not a `- ` sequence item. Column-0 content cannot be nested inside the sequence (a block scalar's content must be indented past its key, which is itself indented past a column-0 `- `), so this cannot false-positive on entry bodies. It reports the line number and the key name. `---` / `...` at column 0 would also be refused, which is right: an end-of-file append into a multi-document file is not correct either.
+
+Message: "`settings` is a top-level key at line N, after the `images:` sequence. The entry is placed at end of file, so `images:` must be the last top-level key in the file — move the trailing key(s) above `images:` (or add this entry by hand)."
+
+Because the check lives in `_appendability_problem()`, `check` refuses it too — so the scaffold refuses BEFORE the page bundle is created (see r-f3-all-or-nothing). Pinned by tests/unit/test_prompts_append.py::test_a_top_level_key_after_the_sequence_is_refused_with_an_accurate_message (asserts the offending key name AND that the stderr does NOT say "broke the file"), ::test_a_top_level_key_before_the_sequence_is_fine, ::test_a_comment_after_the_sequence_is_fine, and end to end by tests/unit/test_blog_post_create.py::test_a_trailing_top_level_key_is_refused_up_front_with_an_accurate_message. Documented in docs/CONFIG.md §4.1 ("Keep images: last") and skills/blog-post/SKILL.md Step 8.
+
+<!-- fr:journal kind=finding scope=plan id=r-p1-keep-chomp-seam-paid created=2026-07-27T23:44:43 state=fixed -->
+### r-p1-keep-chomp-seam-paid · finding [fixed] · p1-keep-chomp-seam is now PAID: the seam ensures a trailing newline instead of collapsing them
+
+Authoritative closing state for the phase-1 finding `p1-keep-chomp-seam`, which still RENDERS as open because `fr journal add` with an existing --id is a no-op (same mechanism p6-deferred-debt-paid describes).
+
+The seam was `text.rstrip("\n") + "\n"`, which drops trailing BLANK lines. That is value-preserving for `|` and `|-`, but a final entry ending in a `|+` KEPT block scalar loses content, and D2's verification (entry count + last key) does not look at scalar contents, so it would be silent. Measured, before the fix: seeded scene value `an existing scene\n\n` came back as `an existing scene\n` after an append.
+
+Fix, exactly the simplest correct one: only ENSURE a trailing newline — `text if text.endswith("\n") else text + "\n"`. Blank lines between sequence items are legal YAML, so nothing needs collapsing; the newline-less case (the original reason for the normalisation) is still handled.
+
+Two consequences worth recording: (1) the existing no-regression test was renamed from test_trailing_blank_lines_are_normalised to test_trailing_blank_lines_do_not_break_the_append, because "normalised" is no longer what happens — it is a guard that blank lines at the seam still parse; (2) with the collapse gone, `new.startswith(orig)` is now true for a file with trailing blank lines as well, i.e. D1's "every byte above the insertion point stays as the operator wrote it" is now literally true for every shape rather than nearly every shape.
+
+New test: tests/unit/test_prompts_append.py::test_a_kept_block_scalar_keeps_its_trailing_blank_line — seeds `scene: |+` with a trailing blank line and asserts the scalar's value is unchanged after the append (plus the entry count and the byte-prefix).
+
+<!-- fr:journal kind=discovery scope=plan id=r-doc-nits-and-promises created=2026-07-27T23:45:02 -->
+### r-doc-nits-and-promises · discovery · Doc corrections shipped with the review fixes, and the one promise that is now true
+
+Three doc surfaces were corrected in the same pass, because each stated something the code did not do:
+
+- tools/blog-post-create.sh:19 called --key the "cover basename". Untrue under the bundle convention (D7), where the cover is always `cover.png`. Reworded: --key is the entry key, the `--only` argument, and the cover filename `<key>-cover.png` ONLY where covers live in image.output_dir.
+- skills/blog-post/SKILL.md:29 promised "on **any** failure it restores the original bytes and exits non-zero". Re-checked after F1: it is now TRUE (a write that cannot complete leaves the file byte-identical, and the restore is itself atomic and reports if it fails), so the wording stands — it gained the atomicity, the from-disk verification, the check-before-scaffold ordering and the images:-must-be-last requirement rather than being softened. Step 8's item 2 and the --key paragraph were updated for the same reasons; .opencode/skills/blog-craft-blog-post/SKILL.md re-synced via scripts/sync-opencode.py (tests/unit/test_opencode_sync.py fails on drift).
+- docs/CONFIG.md §4.1 gained "Keep images: last" — the entries-file layout requirement F7 introduced, stated where the entries-file schema is documented.
+
+CHANGELOG: no version bump (0.17.0 is unreleased and these fix code shipping in the same release). The 0.17.0 "Fixed" section's own claim — "restores the pre-append bytes and exits non-zero, so a refused append leaves the file byte-identical" — was the promise F1 falsified, so that bullet now describes the temp-file + os.replace swap and the from-disk verification explicitly, and two new bullets cover the all-or-nothing scaffold and the --key retyping guard.
+
+Acceptance matrix: no new rows or status changes (BPC-1/2/5 and GL-10 are already `ci` and already cite these files). The `notes` for BPC-2, BPC-5 and GL-10 were rewritten to record what the new tests pin and, for GL-10, that the sort test was previously unpinned — the registry is only useful if its notes say which tests are diagnostic. Reports regenerated with `fr acceptance report --deterministic`.
+
+Pre-existing and NOT touched: `ruff check tools/ tests/` reports 52 errors (E702/E402/F401/E741/E731) at this commit and reported the same 52 on the parent commit; none are in the four files this work changed (they pass clean). Fixing them is unrelated churn for a review-fix commit, and ruff is not wired into any workflow in .github/workflows.

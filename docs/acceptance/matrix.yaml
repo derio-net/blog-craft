@@ -717,7 +717,26 @@ rows:
       images: key all exit 2 with the parser error and leave the file unchanged.
       test_blog_post_create.py::test_broken_entries_file_fails_loudly_and_is_left_alone
       carries the consequence that matters — a refused append propagates through
-      `set -euo pipefail`, so generate-images.py never runs over a corrupt file.'
+      `set -euo pipefail`, so generate-images.py never runs over a corrupt file.
+      Strengthened after the #65 code review, which found "byte-identical" was only
+      true for a write that COMPLETED: the write is now a sibling temp file plus
+      os.replace and the verification re-reads the bytes from disk, pinned by
+      test_a_write_that_cannot_complete_leaves_the_file_byte_identical (a real short
+      write under `ulimit -f 2` — exit 2 with a message, no traceback, no temp file
+      left, file byte-identical). Two more refusals joined the same set: a top-level
+      key AFTER the images: sequence (an end-of-file append cannot be correct for it)
+      and the check-before-scaffold ordering, so a refusal leaves no half-written page
+      bundle — test_a_top_level_key_after_the_sequence_is_refused_with_an_accurate_message,
+      test_a_refused_append_leaves_no_half_scaffolded_post,
+      test_a_trailing_top_level_key_is_refused_up_front_with_an_accurate_message and the
+      `check` subcommand cases. Both file reads are explicit UTF-8
+      (test_a_non_ascii_entry_block_appends_under_a_c_locale,
+      test_detection_is_not_locale_dependent): every composed entry carries an em dash,
+      so the locale-dependent read failed the append under LC_ALL=C and — worse, because
+      the except swallowed it — silently answered output_dir for a bundle-style blog.
+      test_a_kept_block_scalar_keeps_its_trailing_blank_line closes the recorded
+      p1-keep-chomp-seam edge: the seam ensures a final newline instead of collapsing
+      the ones already there.'
   - id: BPC-3
     capability: post-scaffold-fidelity
     acceptance: A scaffolded post appears in its series overview — frontmatter carries
@@ -775,7 +794,14 @@ rows:
       key, the cover basename and the printed --print-prompt/--only hints, and that the
       old derived key appears nowhere in stdout; test_key_defaults_to_series_number pins
       the unchanged default; test_bad_key_rejected pins the plain-token guard (a space,
-      quote or slash never reaches a downstream argument). Output half (D7 — the file
+      quote or slash never reaches a downstream argument) and, after the #65 code review,
+      asserts the error NAMES `--key` — returncode alone cannot tell the guard from an
+      unparsed flag, since any unknown flag also exits 2. test_key_that_yaml_would_retype_is_rejected
+      covers the values the shape guard admitted and YAML then retyped (1.5, 123, 0x1f,
+      no, on, y, true, null — emitted bare, read back as float/int/bool, so the append
+      verification failed with a message blaming the prompts file for the flag''s value);
+      test_a_key_with_digits_and_dots_is_still_accepted pins that the new rule costs no
+      real key shape. Output half (D7 — the file
       states the answer): test_output_default_is_the_bundle_when_the_file_says_so,
       test_output_default_is_the_bundle_under_site_dir (site_dir: blog, the reporting
       blog''s shape), test_output_default_stays_output_dir_for_a_static_blog,
@@ -801,7 +827,11 @@ rows:
       test_call_site_argument_still_beats_rendered_text (precedence: arg 1 >
       rendered_text > key, so plurals still work), test_glossary_index_shows_rendered_text_never_the_key
       (the index rendered {{ $k }}, leaking any disambiguating suffix onto the page) and
-      test_glossary_index_sorts_on_the_resolved_text_keeping_senses_adjacent. The guard
+      test_glossary_index_sorts_on_the_resolved_text_keeping_senses_adjacent — which the
+      #65 code review found unpinned: GC < GC_GOATCOUNTER < NUT < SLO holds under a KEY
+      sort too, so it passed either way. It now runs against SORT_REGISTRY, whose second
+      sense is keyed ZZZ_GC (display sort keeps it beside GC; key sort puts it last), and
+      it was verified to FAIL against a key-based sortkey. The guard
       that matters most is test_rendered_text_does_not_move_the_id_or_the_anchor: id and
       anchor-name stay anchorize $key, so two senses on one page get two anchors and
       #49''s panel-placement fix cannot be reintroduced by a shared display text.'

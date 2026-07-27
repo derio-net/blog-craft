@@ -104,6 +104,12 @@ entries carry a `composition:` block:
       ...
 ```
 
+**Keep `images:` last.** `images:` is the only top-level key the entries file
+needs, and `/blog-post` appends new entries at end of file (it never re-dumps the
+document, so hand-written formatting survives). A hand-added top-level key *after*
+the sequence is therefore refused up front, naming the key — move it above
+`images:`.
+
 A dict-layer **modifier** value may be a bracket path (`papers[white_lab_coat]`
 descends a nested table directly), a plain name (single-level lookup,
 free-form passthrough on miss), or absent (layer skipped). A plain value that

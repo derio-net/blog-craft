@@ -36,6 +36,15 @@ REGISTRY = {
                        "description": "The analytics tool behind the numbers."},
 }
 
+# The index sort needs a registry where display order and KEY order genuinely
+# differ; REGISTRY is not one (GC < GC_GOATCOUNTER < NUT < SLO holds both ways).
+# A second sense keyed ZZZ_GC sorts LAST by key and adjacent to GC by display.
+SORT_REGISTRY = dict(REGISTRY)
+del SORT_REGISTRY["GC_GOATCOUNTER"]
+SORT_REGISTRY["ZZZ_GC"] = {"rendered_text": "GC",
+                           "name": "GoatCounter",
+                           "description": "The analytics tool behind the numbers."}
+
 _DT_RE = re.compile(r'<dt class="glossary-term"><abbr title="([^"]*)">([^<]*)</abbr>')
 
 POST = """---
@@ -246,10 +255,12 @@ def test_glossary_index_shows_rendered_text_never_the_key(tmp_path):
 
 
 def test_glossary_index_sorts_on_the_resolved_text_keeping_senses_adjacent(tmp_path):
-    # Sorting on the key would put GC_GOATCOUNTER after NUT for a reader who can
-    # only see "GC". Display text with the key as tiebreaker keeps both senses
-    # together and is a no-op for every entry without rendered_text.
-    blog = _blog(tmp_path, 'Terms:\n\n{{< glossary-index >}}\n')
+    # The REGISTRY above cannot pin this: GC < GC_GOATCOUNTER < NUT < SLO under a
+    # KEY sort too, so the assertion held either way. SORT_REGISTRY is the fixture
+    # that distinguishes them — `ZZZ_GC` renders as "GC", so:
+    #   display sort → GC, GC(ZZZ_GC), NUT, SLO   (both senses adjacent)
+    #   key sort     → GC, NUT, SLO, ZZZ_GC       (separated by everything between)
+    blog = _blog(tmp_path, 'Terms:\n\n{{< glossary-index >}}\n', registry=SORT_REGISTRY)
     _build(blog)
     terms = _DT_RE.findall(_post_html(blog))
     assert [name for name, _ in terms] == [

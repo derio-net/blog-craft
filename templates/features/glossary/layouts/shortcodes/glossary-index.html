@@ -17,8 +17,9 @@
 {{- with site.Data.glossary -}}
 {{- $reg := . -}}
 {{- /* Sorted by display text with the key as tiebreaker, so the reader's
-       alphabet is the one on the page and the two senses of "GC" stay adjacent
-       instead of being separated by everything between GC and GC_GOATCOUNTER.
+       alphabet is the one on the page: two senses of "GC" stay adjacent instead
+       of being ordered by an identifier the reader cannot see — a second sense
+       keyed `ZZZ_GC` would otherwise sort after everything else on the page.
        Both parts live in ONE composite sort string rather than two nested sorts,
        because Hugo's sort is not documented as stable. The separator is US
        (0x1f): it has to sort below every printable character, or a longer

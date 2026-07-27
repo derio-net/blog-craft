@@ -29,17 +29,45 @@ matching `vX.Y.Z` tag on merge (#18).
   for the wrong key with nothing anywhere to say so. The append now goes through
   the new `tools/prompts_append.py`, which detects the file's own sequence
   indentation, re-indents the entry block (shifting continuation lines by the
-  same delta, so block scalars survive), normalises the seam to exactly one
-  trailing newline — and then **re-parses the file to verify**: it must load,
-  `images` must still be a list, it must have grown by exactly one entry, and
-  that entry's `key` must be the new key. Any failure restores the pre-append
-  bytes and exits non-zero, so a refused append leaves the file byte-identical
-  and image generation never runs on it. That verification is what turns this
-  whole class of bug from silent into loud, independently of the indentation fix.
-  Detecting the indentation was chosen over the issue's own suggested
-  load-append-dump: `yaml.safe_dump` over a real entries file reflows every block
-  scalar, re-quotes every string and reorders keys, so the scaffolder would have
-  stopped corrupting the file and started rewriting it.
+  same delta, so block scalars survive), ensures a newline at the seam (leaving
+  trailing blank lines alone — in a `|+` kept block scalar they are content),
+  writes the result to a sibling temp file and **`os.replace`s it into place**, and
+  then **re-reads the bytes from disk to verify**: the file must load, `images`
+  must still be a list, it must have grown by exactly one entry, and that entry's
+  `key` must be the new key. The swap is what makes "leaves the file
+  byte-identical" true rather than aspirational — a plain truncate-then-write turns
+  a short write (ENOSPC, disk quota, `RLIMIT_FSIZE`, SIGINT) into a truncated
+  ~1900-line file whose original bytes existed only in the dying process's memory.
+  Any failure — including a failed write, which now reports instead of
+  tracebacking — restores the pre-append bytes (atomically too) and exits 2, so a
+  refused append leaves the file byte-identical and image generation never runs on
+  it. That verification is what turns this whole class of bug from silent into
+  loud, independently of the indentation fix. Every file the helper reads is read
+  as explicit UTF-8: the composed `description:` always carries an em dash, so a
+  locale-dependent read failed the append under `LC_ALL=C` — and, in the
+  `output-style` path, silently answered `output_dir` for a bundle-style blog,
+  putting the cover where Hugo's page resources never look. Detecting the
+  indentation was chosen over the issue's own suggested load-append-dump:
+  `yaml.safe_dump` over a real entries file reflows every block scalar, re-quotes
+  every string and reorders keys, so the scaffolder would have stopped corrupting
+  the file and started rewriting it.
+- **A refused append no longer leaves a half-scaffolded post behind.** The page
+  bundle is written before the entry is appended, so any refusal exited 2 with
+  `content/docs/<series>/<NN>-<slug>/index.md` already on disk and no matching
+  entry — an operator had to know to go and delete it. `prompts_append.py check
+  --file` now answers "would an append be accepted?" without writing anything, and
+  the scaffolder asks it before it creates the bundle: the scaffold is
+  all-or-nothing. `check` also refuses a file with a **top-level key after the
+  `images:` sequence** with a message that says so, instead of letting the
+  end-of-file append fail with `expected <block end>, but found '-'` — an error
+  that blamed the append for the file's layout. `images:` must be the last
+  top-level key in the entries file (it is the only documented one).
+- **`--key` rejects values YAML would retype.** The guard admitted `1.5`, `123`,
+  `0x1f`, `no`, `on`, `y` — all plain slugs, all emitted bare, all read back as a
+  float/int/bool rather than the key that was asked for. The append verification
+  then failed with a message about the *prompts file*, blaming the file for the
+  flag's value. A key now needs at least one letter and must not be one of the YAML
+  1.1 boolean/null words, and the error names `--key`.
 - **A scaffolded post now actually appears in its own series overview (#65
   item 2).** `{{< series-index >}}` is page-derived from frontmatter `series`, and
   the scaffolder emitted a fixed field list that never included it — while Step 8

@@ -26,7 +26,7 @@ arguments:
 
 - **Helper script:** `<plugin_root>/tools/blog-post-create.sh` — does the mechanical bits (page bundle, prompts entry, image-gen). Takes a scene-file and a body-file, plus `--entry-field k=v` selector pairs, `--key`, `--layer`, `--tag` (repeatable), `--output`, and `--no-generate`.
 - **Config reader:** `<plugin_root>/tools/blog_config.py` (dotted-path `get`, used by the helper for `site_dir`, `image.prompts_file`, `image.output_dir`).
-- **Prompts-file writer:** `<plugin_root>/tools/prompts_append.py` — the helper appends the entry through it rather than with `>>`. It detects the entries file's own `images:` sequence indentation, appends at that indentation, then re-parses the file to verify the entry landed; on any failure it restores the original bytes and exits non-zero, so a refused append never reaches image generation. It also answers `output-style` (bundle vs `output_dir`) from the entries the file already holds. This skill never calls it directly.
+- **Prompts-file writer:** `<plugin_root>/tools/prompts_append.py` — the helper appends the entry through it rather than with `>>`. It detects the entries file's own `images:` sequence indentation, appends at that indentation via an atomic replace (a write that cannot complete leaves the file byte-identical, not truncated), then re-reads the bytes from disk to verify the entry landed; on **any** failure it restores the original bytes and exits non-zero, so a refused append never reaches image generation. The helper is also asked `check` *before* the page bundle is created, so a refusal leaves nothing half-built — which requires `images:` to be the **last top-level key** in the entries file, because the entry is placed at end of file. It also answers `output-style` (bundle vs `output_dir`) from the entries the file already holds. This skill never calls it directly.
 
 ## Procedure
 
@@ -229,8 +229,10 @@ content_type}` and no abbreviation, so a blog keyed `ops-30-silent-failure` off 
 series named `operating` is undetectable. **Read an existing entry (or two) in
 `<image.prompts_file>`**, and if its `key:` is not `<series>-<number>`, pass
 `--key` matching the convention you see. Skip this and the blog silently grows
-one entry keyed unlike its other 88. An invalid key (spaces, quotes, slashes) is
-rejected.
+one entry keyed unlike its other 88. An invalid key is rejected naming the flag:
+spaces, quotes and slashes, and also anything YAML would read back as a number or
+a boolean rather than a string (`1.5`, `123`, `0x1f`, `no`, `on`, `y`) — a key
+needs at least one letter.
 
 The cover path (`output:`) needs no flag in the normal case: the helper reads the
 same file and follows **its** convention — covers inside page bundles →
@@ -240,7 +242,7 @@ entries yet. Pass `--output <path>` only to override that detection.
 
 The helper (all paths resolved from `.blog-craft.yaml` — `site_dir`, `image.prompts_file`, `image.output_dir`):
 1. Creates the page bundle at `<blog_root>/<site_dir>/content/docs/<series>/<number>-<slug>/index.md` with frontmatter in convention order — `title`, **`series: ["<series>"]`** (always), **`layer`** (from `--layer`; `layer: TODO` + a stderr warning when the blog declares layers and none was given; omitted entirely when it declares none), `date`, `draft: false`, **`tags`** (from `--tag`; `tags: []  # TODO: add tags` when none), the **approved summary**, weight `<number>+1`, **`reader_goal`**, and **`diataxis`** — and the **approved body** (markers and all) below it.
-2. Appends a v5 `key: <key>` entry to `<image.prompts_file>` **at that file's own `images:` sequence indentation**, then re-parses the file to verify the entry landed (restoring the original bytes and failing loudly if it did not — `tools/prompts_append.py`). The entry carries a `composition:` block with `modifiers:` (`series:` + each `--entry-field` pair), the **scene only** under `scene: |`, an `output:` following the file's cover convention, and — when the config declares `image.reference_image` — an explicit `reference_images.primary` (v5 references are explicit; docs/CONFIG.md §4.1).
+2. Appends a v5 `key: <key>` entry to `<image.prompts_file>` **at that file's own `images:` sequence indentation** (atomically), then re-reads the file from disk to verify the entry landed (restoring the original bytes and failing loudly if it did not — `tools/prompts_append.py`). Whether the append is possible at all is checked **before** step 1 creates anything, so a refusal leaves no half-scaffolded post: the entry goes at end of file, so `images:` must be the **last top-level key** in the entries file. The entry carries a `composition:` block with `modifiers:` (`series:` + each `--entry-field` pair), the **scene only** under `scene: |`, an `output:` following the file's cover convention, and — when the config declares `image.reference_image` — an explicit `reference_images.primary` (v5 references are explicit; docs/CONFIG.md §4.1).
 3. Without `--no-generate`, runs `python <site_dir>/scripts/generate-images.py --only <key>` (with it, prints the preview command instead — this skill's flow). No reference image is required — the generator's own precedence (CLI override → `image.reference_image` → pool by series → generic pool → none) decides. Requires PyYAML + Pillow + google-genai installed (see the blog's `README.md` for venv setup). Generation honors the `<api_key_env>` from Step 7.
 4. Does **not** touch the series overview — and does not need to, **because the frontmatter it writes carries `series`**: the `{{< series-index >}}` shortcode derives its list from the pages that declare the series, so the new post appears on the next Hugo build. That is only true since 0.17.0; a scaffolded post used to omit `series` entirely and therefore never appeared in its own overview (#65 item 2).
 

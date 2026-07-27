@@ -259,6 +259,36 @@ def test_broken_entries_file_fails_loudly_and_is_left_alone(tmp_path):
     assert "building-10" not in (blog / "prompt_for_images.yaml").read_text()
 
 
+# A refused append must leave NOTHING behind (F3). The page bundle used to be
+# written first, so a refusal exited 2 with content/docs/<series>/<NN>-<slug>/
+# index.md already on disk and no matching entry — an operator had to know to go
+# and delete it. The prompts file is checked for appendability BEFORE anything is
+# created, which makes the scaffold all-or-nothing.
+
+def test_a_refused_append_leaves_no_half_scaffolded_post(tmp_path):
+    broken = SEED_COL0 + "  - key: already-broken\n    output: x.png\n"
+    blog, r = _scaffold(tmp_path, broken, number="11", slug="all-or-nothing")
+    assert r.returncode != 0
+    assert (blog / "prompt_for_images.yaml").read_text() == broken, "bytes must be untouched"
+    bundle = blog / "content" / "docs" / "building" / "11-all-or-nothing"
+    assert not bundle.exists(), \
+        "a refused append must not leave a page bundle behind — the scaffold is all-or-nothing"
+
+
+def test_a_trailing_top_level_key_is_refused_up_front_with_an_accurate_message(tmp_path):
+    # `images:` must be the LAST top-level key, because the entry is placed at end
+    # of file. A hand-edited file with anything after it used to abort every
+    # scaffold with `expected <block end>, but found '-'` — blaming the append for
+    # the file's layout, after the bundle was already written (F7).
+    seed = SEED_COL0 + "settings:\n  quality: high\n"
+    blog, r = _scaffold(tmp_path, seed, number="12", slug="trailing-key")
+    assert r.returncode != 0
+    assert (blog / "prompt_for_images.yaml").read_text() == seed, "bytes must be untouched"
+    assert not (blog / "content" / "docs" / "building" / "12-trailing-key").exists()
+    assert "settings" in r.stderr, f"stderr must name the offending key: {r.stderr!r}"
+    assert "last" in r.stderr, f"stderr must explain the layout rule: {r.stderr!r}"
+
+
 # --- frontmatter fidelity: series always, layer + tags visible (#65 item 2) ----
 #
 # The frontmatter the reporting blog got was `title/date/draft/tags: []/summary/
@@ -472,8 +502,37 @@ def test_bad_key_rejected(tmp_path):
         case.mkdir()
         blog, r, prompts = _key_run(case, ["--key", bad], seed=SEED_COL0)
         assert r.returncode != 0, f"--key {bad!r} must be rejected"
+        # returncode alone cannot tell the GUARD from an unparsed flag (any unknown
+        # flag also exits 2) — the message has to name the flag it is about (F6).
+        assert "--key" in r.stderr, \
+            f"--key {bad!r} must be rejected by a message naming the flag: {r.stderr!r}"
         assert prompts.read_text() == SEED_COL0, \
             f"--key {bad!r} must fail before the prompts file is touched"
+
+
+def test_key_that_yaml_would_retype_is_rejected(tmp_path):
+    # These all pass the plain-slug shape and are then emitted BARE, so YAML reads
+    # them back as a float / int / bool / null rather than the key the caller asked
+    # for. The verification then fails with a message about the prompts file, which
+    # blames the file for the flag's value — so the flag is where they are rejected
+    # (F4). A key needs at least one letter and must not be YAML 1.1 boolean-ish.
+    for n, bad in enumerate(("1.5", "123", "no", "on", "y", "true", "0x1f", "null")):
+        case = tmp_path / f"retype{n}"
+        case.mkdir()
+        blog, r, prompts = _key_run(case, ["--key", bad], seed=SEED_COL0)
+        assert r.returncode != 0, f"--key {bad!r} must be rejected"
+        assert "--key" in r.stderr, \
+            f"--key {bad!r} must be rejected by a message naming the flag: {r.stderr!r}"
+        assert prompts.read_text() == SEED_COL0, \
+            f"--key {bad!r} must fail before the prompts file is touched"
+
+
+def test_a_key_with_digits_and_dots_is_still_accepted(tmp_path):
+    # The retyping guard must not cost the shapes real blogs use: a version-ish
+    # segment is fine as long as the key is not itself a number.
+    blog, r, prompts = _key_run(tmp_path, ["--key", "ops-1.5-silent"], seed=SEED_COL0)
+    assert r.returncode == 0, r.stderr + r.stdout
+    assert _last_entry(prompts)["key"] == "ops-1.5-silent"
 
 
 # --- the `output:` default follows the entries file's own convention (spec D7) ---
