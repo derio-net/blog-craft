@@ -34,3 +34,8 @@ Asserted REPLAN=0 after applying a relocation. But the operator's surviving edit
 ### r1-claude-glob-too-broad · finding [fixed] · Review: the .claude framework glob claimed files blog-craft does not own (phase 3)
 
 Classifying .claude/** as framework was broader than the one file blog-craft ships there. reproduce.structural_diff walks the REFERENCE tree too and reports any framework/merged path missing from the generated tree as drift — so a blog with its own .claude/settings.json, commands/ or agents/ would have had them reported as drift, and /update would treat them as blog-craft(s) to overwrite. Narrowed to .claude/hookify.*.local.md, with a test pinning that an operator .claude/ file classifies as None. The roots glob stays broad on purpose: root_of is only consulted for paths blog-craft materializes, and any .claude/ path is repo-rooted.
+
+<!-- fr:journal kind=review scope=plan id=v1-real-blog created=2026-07-27T16:40:24 -->
+### v1-real-blog · review · Verified against the blog the issues were filed from
+
+Dry-run of the documented invocation against /home/claude/repos/frank (site_dir: blog) plans both relocations — REPLACE blog/.hookify.warn-hextra-weight-zero.md -> .claude/hookify.warn-hextra-weight-zero.local.md, and MERGE blog/.github/workflows/blog-ci.yml -> .github/workflows/blog-ci.yml — with every other line identical to the pre-fix plan. The staged hookify rule renders pattern blog/content/.*\.md$ — byte-matching what that blog operator hand-wrote independently, which confirms the site-prefix logic rather than merely asserting it. The staged CI invokes blog/scripts/... and blog/content/..., keeps --config .blog-craft.yaml unprefixed, and carries working-directory blog.
