@@ -1,34 +1,3 @@
-{{- /*
-  This workflow is REPO-ROOTED: GitHub Actions loads workflows from
-  <repo>/.github/workflows/ and nowhere else (blog-craft#61). So CI's working
-  directory is the REPOSITORY root — which is also the directory holding
-  .blog-craft.yaml — not the Hugo site root.
-
-  For a blog whose site lives under `site_dir`, that means:
-    - scripts and content globs are site-relative  -> prefixed with {{ $site }}
-    - --config .blog-craft.yaml is repo-rooted     -> never prefixed
-    - dossier_dir is config-root-relative by contract (sync_dossier_to_data.py
-      resolves it against the config file's own directory) -> never prefixed
-    - hugo needs the site root (and its go.mod)    -> working-directory
-
-  `with` guards the absent key, so a blog with no site_dir renders exactly as
-  it did before — byte-identical, no empty working-directory.
-*/ -}}
-{{- $site := "" }}{{- with .site_dir }}{{- if ne . "." }}{{- $site = printf "%s/" . }}{{- end }}{{- end -}}
-{{- /*
-  The papers series key — from `series[].content_type == "papers"`, default
-  "papers" — the same derivation scaffold-paper.sh uses to place a bundle at
-  content/docs/<key>/.
-
-  `validate_papers` validates EVERY file it is handed and errors on a post whose
-  `series` lacks the papers key; it does not skip. So this step must be given
-  the papers SECTION, not the whole blog — a content/docs wildcard fails on the
-  first ordinary post in any blog that has papers alongside another series.
-  Selecting by path rather than skipping by frontmatter also keeps the gate
-  honest: a paper carrying the WRONG series still sits in the papers directory,
-  so it is still validated, and the series check is exactly what catches it.
-*/ -}}
-{{- $papers := "papers" }}{{- with .series }}{{- range . }}{{- $ct := "" }}{{- with .content_type }}{{- $ct = . }}{{- end }}{{- if eq $ct "papers" }}{{- $papers = .key }}{{- end }}{{- end }}{{- end -}}
 name: blog
 on:
   push:
@@ -52,11 +21,11 @@ jobs:
       # so a plain-python CI runs them without the plugin.
       - name: Validate papers
         run: |
-          python3 {{ $site }}scripts/sync_dossier_to_data.py --config .blog-craft.yaml --check
+          python3 scripts/sync_dossier_to_data.py --config .blog-craft.yaml --check
           for d in {{ .dossier_dir }}/*/dossier.md; do
-            python3 {{ $site }}scripts/validate_dossier.py --config .blog-craft.yaml "$d"
+            python3 scripts/validate_dossier.py --config .blog-craft.yaml "$d"
           done
-          python3 {{ $site }}scripts/validate_papers.py --config .blog-craft.yaml {{ $site }}content/docs/{{ $papers }}/*/index.md
+          python3 scripts/validate_papers.py --config .blog-craft.yaml content/docs/*/*/index.md
 {{- end }}{{- end }}
 {{- with .quality }}{{- if .enabled }}
       # Educational-writing gate: every `content_type: posts` post must carry the
@@ -65,7 +34,7 @@ jobs:
       # are skipped — they have their own validators. Ships at scripts/ so a
       # plain-python CI runs it without the plugin.
       - name: Validate post quality (educational-writing)
-        run: python3 {{ $site }}scripts/validate_educational.py --config .blog-craft.yaml {{ $site }}content/docs/*/*/index.md
+        run: python3 scripts/validate_educational.py --config .blog-craft.yaml content/docs/*/*/index.md
 {{- end }}{{- end }}
 {{- with .features }}{{- with .glossary }}{{- if .enabled }}
       # Abbreviation glossary gate: every abbr marker must have an entry in
@@ -75,24 +44,21 @@ jobs:
       # scripts/ (mirrored from blog-craft tools/, alongside its glossary_scan.py
       # companion) for plugin-free CI.
       - name: Validate glossary
-        run: python3 {{ $site }}scripts/validate_glossary.py --config .blog-craft.yaml {{ $site }}content/docs/*/*/index.md
+        run: python3 scripts/validate_glossary.py --config .blog-craft.yaml content/docs/*/*/index.md
 {{- end }}{{- end }}{{- end }}
       # Mermaid syntax gate: lint every ```mermaid fence (posts, explainers,
       # papers) before render so a broken diagram fails CI instead of shipping
       # dead. On by default; opt out with `quality.mermaid_syntax: false`. Ships
       # at scripts/ (mirrored from blog-craft tools/) for plugin-free CI.
       - name: Validate mermaid syntax
-        run: python3 {{ $site }}scripts/validate_mermaid.py --config .blog-craft.yaml {{ $site }}content/docs/*/*/index.md
+        run: python3 scripts/validate_mermaid.py --config .blog-craft.yaml content/docs/*/*/index.md
       # Image-entry gate: prompt_for_images.yaml entries stay generable — no
       # duplicate keys, no dead references: paths, no selector that silently
       # resolves to nothing (an out-of-range torso_variant would drop that
       # layer from every future regen). Ships at scripts/ for plugin-free CI.
       - name: Validate image entries
-        run: python3 {{ $site }}scripts/validate_images.py --config .blog-craft.yaml
+        run: python3 scripts/validate_images.py --config .blog-craft.yaml
       - name: Hugo build
-{{- if $site }}
-        working-directory: {{ .site_dir }}
-{{- end }}
         run: hugo --minify
 {{- with .ci }}
 {{- if eq .deploy.kind "pages" }}

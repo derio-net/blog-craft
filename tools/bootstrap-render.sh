@@ -17,13 +17,29 @@ PLUGIN_ROOT=$(cd "$(dirname "$0")/.." && pwd)
 RENDERER_DIR="$PLUGIN_ROOT/tools/render-template"
 export PATH="/usr/local/bin:$PATH"   # ensure brew Go (≥1.22) wins over /usr/local/go
 
-# Preflight
+# Absolutize BOTH arguments before anything cds (blog-craft#59).
+#
+# Every renderer invocation below runs inside `( cd "$RENDERER_DIR" && … )`, so
+# a RELATIVE --answers or --dst would be resolved against tools/render-template/
+# rather than the caller's directory. That is why the documented
+# `--config .blog-craft.yaml` always failed while `--config "$PWD/…"` worked.
+# Fixing it here — at the `cd` — fixes every caller at once, including a human
+# running this script by hand to diagnose a render.
+if [[ ! -f "$ANSWERS" ]]; then
+  echo "ERROR: answers YAML not found: $ANSWERS" >&2
+  echo "       (resolved from $PWD)" >&2
+  exit 2
+fi
+ANSWERS=$(cd "$(dirname "$ANSWERS")" && pwd)/$(basename "$ANSWERS")
+
+# Preflight — runs against the same location, before TARGET exists.
 if [[ -f "$TARGET/.blog-craft.yaml" ]]; then
   echo "ERROR: $TARGET/.blog-craft.yaml already exists." >&2
   echo "       Refusing to overwrite. Remove the file manually if you really want to re-bootstrap." >&2
   exit 2
 fi
 mkdir -p "$TARGET"
+TARGET=$(cd "$TARGET" && pwd)   # now that it exists, absolutize it too
 
 # Stamp blog_craft_version = the current release tag (#18) so tools/update.py
 # can always resolve a real git ref (`git archive <ref>`). Skip if the operator
