@@ -13,7 +13,6 @@ Library:
 from __future__ import annotations
 
 import os
-import subprocess
 import sys
 from pathlib import Path
 
@@ -38,9 +37,8 @@ def apply(config_path: str, scratch_dir: str) -> Path:
     """
     config_path = Path(config_path).resolve()
     target = Path(scratch_dir).resolve()
-    run_checked(
-        ["bash", str(_PLUGIN_ROOT / "tools" / "bootstrap-render.sh"), str(config_path), str(target)],
-    )
+    render = _PLUGIN_ROOT / "tools" / "bootstrap-render.sh"
+    run_checked(["bash", str(render), str(config_path), str(target)])
     return target
 
 

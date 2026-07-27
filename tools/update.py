@@ -264,8 +264,9 @@ def base_by_rerender(config: str, blog_craft_version: str, base_dir: str) -> Pat
         run_checked(["git", "-C", str(_PLUGIN_ROOT), "archive", "--output", str(arch),
                      blog_craft_version])
         old = Path(td) / "old"; old.mkdir()
-        subprocess.run(["tar", "-xf", str(arch), "-C", str(old)], check=True)  # output already visible
-        run_checked(["bash", str(old / "tools" / "bootstrap-render.sh"), str(config), str(base_dir)])
+        subprocess.run(["tar", "-xf", str(arch), "-C", str(old)], check=True)  # output visible
+        run_checked(["bash", str(old / "tools" / "bootstrap-render.sh"),
+                     str(config), str(base_dir)])
     return Path(base_dir)
 
 

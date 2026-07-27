@@ -10,6 +10,86 @@ matching `vX.Y.Z` tag on merge (#18).
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-07-27
+
+> **`site_dir` blogs: two files move on your next `/update`.** The CI workflow
+> relocates from `<site_dir>/.github/workflows/blog-ci.yml` to
+> `.github/workflows/blog-ci.yml`, and the hookify guard from
+> `<site_dir>/.hookify.warn-hextra-weight-zero.md` to
+> `.claude/hookify.warn-hextra-weight-zero.local.md`. Your edits move with them —
+> the stale copy is the `local` side of the merge, so a `MERGE` line on a
+> relocated path means your changes are being carried across. The dry-run names
+> both sides; read it before applying. **Blogs whose site is the repo root** only
+> see the hookify relocation. **After applying, expect gates that never ran to
+> start running** — a workflow GitHub was never loading may have a backlog behind
+> it.
+
+### Fixed
+- **`/update`'s documented invocation always failed (#59).** `python
+  tools/update.py --config .blog-craft.yaml --blog .` — the form in the skill —
+  raised a bare `CalledProcessError`. `bootstrap-render.sh` runs the Go renderer
+  inside ten `( cd "$RENDERER_DIR" && … )` subshells, so a relative `--answers`
+  or `--dst` was resolved against `tools/render-template/` rather than the
+  caller's directory. Absolute paths worked, which is why it stayed latent: every
+  successful run used one. Fixed where the `cd` is — the shell script absolutizes
+  both arguments before anything cds, so every caller is fixed at once, including
+  a human running the renderer by hand to diagnose it. The audit found four sites
+  with this shape, not one: `reproduce.py`'s own `--config` and `--scratch` carry
+  the identical break and were unreported. All are resolved at the library
+  boundary as well as in argparse.
+- **Renderer failures now say why (#59).** `reproduce.py` ran the renderer with
+  `check=True, capture_output=True` and never surfaced the streams, so the
+  operator got a stdlib traceback pointing at `subprocess.run` while the actual
+  cause was one line the renderer had already printed. New `tools/proc.py` keeps
+  the capture and attaches it to the exception; `CommandFailed` subclasses
+  `CalledProcessError`, so existing handlers are unaffected. All four swallowing
+  sites route through it — including `git archive <blog_craft_version>`, whose
+  failure is precisely what the "keep `blog_craft_version` accurate" guardrail
+  warns about.
+- **`.github/**` was materialized under `site_dir`, where GitHub never reads it
+  (#61).** For any blog whose Hugo site is not the repo root, the shipped CI file
+  landed at `<site_dir>/.github/workflows/blog-ci.yml`. GitHub Actions loads
+  workflows from `<repo>/.github/workflows/` and nowhere else, so that file was
+  not a workflow — it was an inert YAML document that looked exactly like one.
+  No error, no skipped run, no empty check, no entry in the Actions tab.
+- **The hookify weight-zero guard had never loaded for *any* blog (#61).** It
+  shipped as `.hookify.warn-hextra-weight-zero.md`; hookify globs
+  `.claude/hookify.*.local.md` from the project root, so it matched neither the
+  directory nor the filename — inert everywhere, not just on `site_dir` blogs.
+  It now ships at `.claude/hookify.warn-hextra-weight-zero.local.md`, and its own
+  `file_path` pattern carries the site prefix (hookify reports paths from the
+  project root, so on a `site_dir` blog the pattern must be
+  `<site_dir>/content/…`).
+- **A relocated workflow could not have run even in the right place (#61).** The
+  template invoked `--config .blog-craft.yaml` and `scripts/…` relative to the
+  site root, while the config lives at the repo root. CI's working directory is
+  the repository root, which is also the config root, so scripts and content
+  globs now carry the site prefix; `--config` and `dossier_dir` do not (both are
+  config-root-relative by contract), and the Hugo build gets a
+  `working-directory`. A blog with no `site_dir` renders byte-identically —
+  pinned by a test against the pre-#61 template across all three deploy kinds.
+
+### Added
+- **A declared path-ROOT model (#61).** `templates/manifest.yaml` gains a
+  `roots:` section answering, per path, *who defines this path's location — the
+  Hugo site, or a tool that reads it from the repository root?* The distinction
+  is not "is it a dotfile": `.gitignore` is site-rooted (nested gitignores govern
+  their own subtree), `.github/**` and `.claude/**` are not.
+  `tests/unit/test_path_roots.py` requires exactly one root per materialized path
+  across every `--src` root `bootstrap-render.sh` renders, so a new template file
+  cannot merge without a reviewer answering the question. An undeclared path
+  falls back to `site` at runtime — the pre-#61 behaviour — so a missed
+  declaration is a failing test, never a broken blog.
+- **`/update` relocates instead of re-adding dead files (#61).**
+  `templates/manifest.yaml`'s `legacy_dests:` records where earlier releases put
+  a path that has since moved; one table covers both migration axes (a root
+  change *and* a rename). Without it, `plan_update` reads an absent managed path
+  as `add` and re-creates the dead file on every run. New plan actions:
+  `RELOCATE` (a move) and `PRUNE` (a stale duplicate under an already-correct
+  destination). A conflict writes nothing and removes nothing — both copies stay
+  and both are named, keeping the never-auto-resolve contract intact through a
+  relocation.
+
 ## [0.13.1] - 2026-07-26
 
 ### Fixed

@@ -157,7 +157,8 @@ def test_site_dir_less_render_matches_the_pre_site_dir_template(tmp_path, deploy
     dst = tmp_path / "olddst"; dst.mkdir()
     ans = tmp_path / "old.yaml"; ans.write_text(yaml.safe_dump(cfg))
     subprocess.run(["go", "run", ".", "--src", str(tmp_path / "old"), "--dst", str(dst),
-                    "--answers", str(ans)], cwd=RENDERER, check=True, capture_output=True, text=True)
+                    "--answers", str(ans)],
+                   cwd=RENDERER, check=True, capture_output=True, text=True)
     old = (dst / ".github" / "workflows" / "blog-ci.yml").read_text()
 
     assert new == old, f"a site_dir-less blog's CI changed ({deploy} deploy)"

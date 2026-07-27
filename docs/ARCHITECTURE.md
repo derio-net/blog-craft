@@ -39,6 +39,36 @@ Inside `templates/hugo-hextra/`:
 
 The renderer at `tools/render-template/main.go` enforces this convention.
 
+## The path manifest answers two different questions
+
+`templates/manifest.yaml` is consulted by the reproduction harness and `/update`.
+It carries two independent classifications of every materialized path, and they
+are easy to conflate:
+
+- **Class** — *who owns this file?* `framework` (shipped, overwritten),
+  `merged` (config-templated, 3-way merged), `content` (operator's, never
+  touched). Guard: `tests/unit/test_path_manifest.py`.
+- **Root** — *who defines this path's location?* `site` (Hugo's layout — lands
+  under `site_dir`) or `repo` (a contract outside Hugo — never prefixed).
+  Guard: `tests/unit/test_path_roots.py`.
+
+The root model exists because getting it wrong is **silent**. A workflow at
+`<site_dir>/.github/workflows/` is not an error and not a skipped run — it is an
+inert YAML document that looks exactly like a workflow, and blog-craft shipped
+one to every `site_dir` blog until #61. The deciding question is never "is this a
+dotfile": `.gitignore` is site-rooted (nested gitignores govern their own
+subtree) while `.github/**` is not.
+
+Both guards require **exactly one** match per materialized path, so a new
+template file cannot merge without a reviewer answering both questions. At
+runtime an undeclared root falls back to `site`, so a missed declaration is a
+failing test, never a broken blog.
+
+A third section, `legacy_dests:`, records where earlier releases put a path that
+has since moved. `/update` uses it to relocate the operator's copy instead of
+adding a fresh one beside it — without it, `plan_update` reads an absent managed
+path as `add` and re-creates the dead file on every run.
+
 ## Wizard → config → skill data flow
 
 ```
