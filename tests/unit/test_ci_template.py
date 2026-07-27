@@ -1,5 +1,6 @@
 """P5.T4.S1 — shipped blog CI template renders config-dependent steps."""
 import os
+import re
 import subprocess
 
 import pytest
@@ -34,6 +35,42 @@ def test_papers_blog_gets_dossier_step_and_container_deploy(tmp_path):
     assert "Validate papers" in y
     assert "docs/papers-dossiers" in y
     assert "container image" in y   # deploy tail selected by ci.deploy.kind
+
+
+def test_papers_step_globs_the_papers_section_not_the_whole_blog(tmp_path):
+    # `validate_papers` errors on a post whose `series` lacks the papers key —
+    # it does not skip. Handed content/docs/*/*, it fails on the first ordinary
+    # post of any blog that has papers alongside another series.
+    y = _render({"content_types": {"papers": {"dossier_dir": "docs/papers-dossiers"}},
+                 "series": [{"key": "posts", "content_type": "posts"},
+                            {"key": "papers", "content_type": "papers"}],
+                 "ci": {"deploy": {"kind": "none"}}}, tmp_path)
+    papers_step = next(l for l in y.splitlines() if "validate_papers.py" in l)
+    assert "content/docs/papers/*/index.md" in papers_step
+    assert "content/docs/*/*/index.md" not in papers_step
+    # ...while the validators that DO take the whole blog keep doing so.
+    assert any("validate_mermaid.py" in l and "content/docs/*/*/index.md" in l
+               for l in y.splitlines())
+
+
+def test_papers_step_honours_a_custom_papers_series_key(tmp_path):
+    # The section is content/docs/<key>/, and the key comes from config — the
+    # same derivation scaffold-paper.sh uses to place a bundle. Hardcoding
+    # "papers" would silently validate nothing on a blog that renamed it.
+    y = _render({"content_types": {"papers": {"dossier_dir": "docs/papers-dossiers"}},
+                 "series": [{"key": "essays", "content_type": "papers"}],
+                 "ci": {"deploy": {"kind": "none"}}}, tmp_path)
+    papers_step = next(l for l in y.splitlines() if "validate_papers.py" in l)
+    assert "content/docs/essays/*/index.md" in papers_step
+
+
+def test_papers_step_defaults_to_papers_without_a_series_list(tmp_path):
+    # `series` is optional; an absent list must not render an empty section path
+    # (content/docs//*/index.md matches nothing and would gate silently).
+    y = _render({"content_types": {"papers": {"dossier_dir": "docs/papers-dossiers"}},
+                 "ci": {"deploy": {"kind": "none"}}}, tmp_path)
+    papers_step = next(l for l in y.splitlines() if "validate_papers.py" in l)
+    assert "content/docs/papers/*/index.md" in papers_step
 
 
 def test_non_papers_none_deploy_prunes_steps(tmp_path):
@@ -160,5 +197,15 @@ def test_site_dir_less_render_matches_the_pre_site_dir_template(tmp_path, deploy
                     "--answers", str(ans)],
                    cwd=RENDERER, check=True, capture_output=True, text=True)
     old = (dst / ".github" / "workflows" / "blog-ci.yml").read_text()
+
+    # Exactly one line is intentionally NOT identical: the papers step's glob.
+    # The old template fed EVERY series to `validate_papers`, which validates
+    # each file it is handed and errors on a post whose `series` lacks the papers
+    # key — so that step failed on any blog with papers alongside another series.
+    # Normalise that one line, narrowly (the other validators still legitimately
+    # take content/docs/*/*), so this keeps testing what it exists for: that the
+    # SITE-PREFIX machinery is inert without site_dir.
+    old = re.sub(r"(validate_papers\.py[^\n]*?)content/docs/\*/\*/index\.md",
+                 r"\1content/docs/papers/*/index.md", old)
 
     assert new == old, f"a site_dir-less blog's CI changed ({deploy} deploy)"

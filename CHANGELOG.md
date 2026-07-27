@@ -68,6 +68,18 @@ matching `vX.Y.Z` tag on merge (#18).
   config-root-relative by contract), and the Hugo build gets a
   `working-directory`. A blog with no `site_dir` renders byte-identically —
   pinned by a test against the pre-#61 template across all three deploy kinds.
+- **The CI papers step no longer fails on every non-papers post.** It globbed
+  `content/docs/*/*/index.md` and handed the lot to `validate_papers`, which
+  validates each file it is given and ERRORS on a post whose `series` lacks the
+  papers key — it does not skip. So the step could only pass on a blog whose
+  *only* series was papers. It now globs the papers SECTION,
+  `content/docs/<key>/`, with the key read from `series[].content_type ==
+  "papers"` (default `papers`) — the same derivation `scaffold-paper.sh` uses to
+  place a bundle, so a blog that renamed the series is still gated. Selecting by
+  path rather than skipping by frontmatter is deliberate: a paper carrying the
+  WRONG series still sits in the papers directory, so it is still validated, and
+  the series check is exactly what catches it. Latent until now — #61 is what
+  makes this file execute for the first time on a `site_dir` blog.
 - **The glossary no longer marks abbreviations inside diagram source.**
   `{{< papers/landscape >}}` wraps its `.Inner` in `<pre class="mermaid">` under
   a `quadrantChart` header, but the scanner's exclusions covered the shortcode
