@@ -81,6 +81,12 @@ python <blog-craft>/tools/update.py --config .blog-craft.yaml --blog . \
     --only 'scripts/**' --apply
 ```
 
+A scoped apply deliberately **does not** update `.blog-craft.sync.yaml`: some
+paths were synced and some were not, so recording the config as this blog's sync
+state would overstate what landed and give every out-of-scope path a base built
+from a config it was never rendered with. Run an unscoped `--apply` to record a
+sync.
+
 ## 2b. Adopting a blog that was never bootstrapped
 
 A blog that predates blog-craft (or vendored its scripts by hand) has no

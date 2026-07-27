@@ -149,10 +149,13 @@ def plan_summary(plan: list[dict]) -> str:
     """One-line tally — `2 replace, 1 merge, 1 noop` — so a long plan is readable."""
     if not plan:
         return "no changes"
-    counts = {a: 0 for a in _ACTIONS}
+    counts: dict[str, int] = {}
     for e in plan:
         counts[e["action"]] = counts.get(e["action"], 0) + 1
-    return ", ".join(f"{counts[a]} {a}" for a in _ACTIONS if counts[a])
+    # _ACTIONS first, for a stable reading order; anything unknown still appears,
+    # because a tally that silently drops entries is the bug this fix is about.
+    order = list(_ACTIONS) + sorted(k for k in counts if k not in _ACTIONS)
+    return ", ".join(f"{counts[a]} {a}" for a in order if counts.get(a))
 
 
 def apply_plan(blog: str | Path, staging: str | Path, plan: list[dict]) -> list[str]:
@@ -279,7 +282,22 @@ def _main(argv):
             # but honest base beats a fresh but false one.
             print("CONFLICTS (resolve manually):", *conflicts, sep="\n  ", file=sys.stderr)
             return 1
-        print(f"recorded sync snapshot: {write_snapshot(a.config, a.blog)}")
+        if a.only:
+            # A scoped run syncs SOME paths. Recording the config as this blog's
+            # sync state would then overstate what landed, and every path outside
+            # the scope would be diffed against a base built from a config it was
+            # never rendered with — #60 again, by another door.
+            _warn(f"--only was scoped, so {SNAPSHOT_NAME} is left as it was: a partial\n"
+                  "         apply is not a sync. Run an unscoped --apply to record one.")
+        else:
+            try:
+                print(f"recorded sync snapshot: {write_snapshot(a.config, a.blog)}")
+            except OSError as e:
+                # The files landed; only the bookkeeping failed. Don't fail the
+                # run over it — but the operator has to know the next update
+                # will fall back to the current config.
+                _warn(f"applied, but could not write {SNAPSHOT_NAME} ({e}) — the next\n"
+                      "         update will render its base from the current config (#60).")
         print("update applied")
         return 0
 

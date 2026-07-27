@@ -15,6 +15,7 @@ will not render degrades to the live config instead of killing the run.
 import pytest
 
 import sync_state
+import update
 from update import base_config, default_manifest, plan_update, render_base
 
 M = default_manifest()
@@ -154,6 +155,59 @@ def test_render_base_retries_with_the_live_config_when_the_snapshot_will_not_ren
     assert seen == [str(snap), str(live)]
     assert out == str(tmp_path / "b")
     assert any("template error" in w for w in warned)
+
+
+def test_a_scoped_apply_does_not_claim_a_sync(tmp_path, monkeypatch, capsys):
+    # `--only 'scripts/**'` syncs SOME paths. Recording the config as this blog's
+    # sync state would overstate what landed, and every path outside the scope
+    # would later be diffed against a base built from a config it was never
+    # rendered with — #60 again, by another door.
+    blog = _tree(tmp_path / "blog", {"scripts/x.py": "old\n"})
+    stg = _tree(tmp_path / "stg", {"scripts/x.py": "new\n"})
+    (tmp_path / "cfg.yaml").write_text("version: 5\n")
+    before = sync_state.write_snapshot(_config(tmp_path, "old.yaml", "version: 5\nfeatures: {}\n"),
+                                       blog).read_bytes()
+
+    monkeypatch.setattr(update, "render_staging", lambda cfg, dest: stg)
+    rc = update._main(["--config", str(tmp_path / "cfg.yaml"), "--blog", str(blog),
+                       "--only", "scripts/**", "--apply"])
+
+    assert rc == 0
+    assert (blog / "scripts" / "x.py").read_text() == "new\n"          # the scoped work landed
+    assert sync_state.snapshot_path(blog).read_bytes() == before       # ...but the sync state did not move
+    assert "--only was scoped" in capsys.readouterr().err
+
+
+def test_an_unscoped_apply_records_the_snapshot(tmp_path, monkeypatch, capsys):
+    blog = _tree(tmp_path / "blog", {"scripts/x.py": "old\n"})
+    stg = _tree(tmp_path / "stg", {"scripts/x.py": "new\n"})
+    cfg = tmp_path / "cfg.yaml"
+    cfg.write_text("version: 5\nfeatures: {glossary: {enabled: true}}\n")
+
+    monkeypatch.setattr(update, "render_staging", lambda c, dest: stg)
+    assert update._main(["--config", str(cfg), "--blog", str(blog), "--apply"]) == 0
+    assert "enabled: true" in sync_state.snapshot_path(blog).read_text()
+    assert "recorded sync snapshot" in capsys.readouterr().out
+
+
+def test_a_snapshot_write_failure_does_not_undo_a_successful_apply(tmp_path, monkeypatch, capsys):
+    # The files landed; only the bookkeeping failed. Failing the run would tell
+    # the operator nothing was applied, which is false.
+    blog = _tree(tmp_path / "blog", {"scripts/x.py": "old\n"})
+    stg = _tree(tmp_path / "stg", {"scripts/x.py": "new\n"})
+    cfg = tmp_path / "cfg.yaml"
+    cfg.write_text("version: 5\n")
+
+    monkeypatch.setattr(update, "render_staging", lambda c, dest: stg)
+    monkeypatch.setattr(update, "write_snapshot",
+                        lambda c, b: (_ for _ in ()).throw(OSError("read-only file system")))
+    rc = update._main(["--config", str(cfg), "--blog", str(blog), "--apply"])
+
+    assert rc == 0
+    assert (blog / "scripts" / "x.py").read_text() == "new\n"
+    out = capsys.readouterr()
+    assert "update applied" in out.out
+    assert "could not write" in out.err and "#60" in out.err
 
 
 def test_render_base_propagates_when_the_live_config_will_not_render_either(tmp_path):
