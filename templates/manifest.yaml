@@ -11,6 +11,10 @@ framework:
                    # (generate-images, compose, blog_config, validate_images,
                    # gen-character-sheet, extract-subject); no per-file rows needed
   - "assets/js/**"
+  - "assets/vendor/**"   # vendored third-party assets (asciinema-player) — upstream
+                         # artifacts, never blog-edited; see each dir's PROVENANCE.md.
+                         # Deliberately NOT under assets/css/**, which is `merged`:
+                         # 3-way-merging a minified upstream bundle is meaningless.
   - ".gitignore"
   - "MEDIA-GUIDE.md"
   - ".claude/hookify.*.local.md"   # the weight-zero guard, at the ONLY shape hookify

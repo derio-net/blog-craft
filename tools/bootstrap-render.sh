@@ -123,6 +123,18 @@ else
   echo "[3f] glossary: SKIPPED (features.glossary.enabled != true)"
 fi
 
+# Mermaid initialiser for CSP-hardened sites. The theme's own init is an inline
+# <script> that `script-src 'self'` drops, leaving diagrams stuck in the light
+# theme. OPT-IN on purpose: without a CSP the theme's block still runs, and
+# materializing this too would race two MutationObservers. See the asset header.
+mm_value=$(cd "$RENDERER_DIR" && go run . --answers "$ANSWERS" --get-bool features.mermaid_csp_init 2>/dev/null || echo "false")
+if [[ "$mm_value" == "true" ]]; then
+  echo "[3g] mermaid-csp-init"
+  ( cd "$RENDERER_DIR" && go run . --src "$PLUGIN_ROOT/templates/features/mermaid-csp" --dst "$TARGET" --answers "$ANSWERS" )
+else
+  echo "[3g] mermaid-csp-init: SKIPPED (features.mermaid_csp_init != true)"
+fi
+
 # Opt-in layer palette: when the config declares series_index.layers, generate
 # data/layer_palette.yaml (colours the series-index cards + roadmap). Non-fatal —
 # a machine without PyYAML gets a warning; the author runs the generator manually.

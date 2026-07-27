@@ -17,35 +17,56 @@ like the class model it sits beside, and this module is the completeness guard:
 a new template file cannot merge without a reviewer answering the question.
 """
 import os
+import re
 
 from path_ownership import load_manifest, root_of  # tools/ on sys.path
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 MANIFEST = os.path.join(ROOT, "templates", "manifest.yaml")
 
-# The --src roots bootstrap-render.sh renders. Wider than the class guard in
-# test_path_manifest.py (hugo-hextra only), because the opt-in content types and
-# feature bundles materialize paths too.
-SRC_ROOTS = (
-    "templates/hugo-hextra",
-    "templates/content-type-papers/shared",
-    "templates/content-type-explainers/shared",
-    "templates/features/read-tracker",
-    "templates/features/analytics",
-    "templates/features/glossary",
-)
+RENDER_SH = os.path.join(ROOT, "tools", "bootstrap-render.sh")
+
+# Wider than the class guard in test_path_manifest.py (hugo-hextra only): the
+# opt-in content types and feature bundles materialize paths too. Each render
+# pass is a (source tree, destination under $TARGET) pair — most land at the
+# blog root, the per-series passes at content/docs/.
+_RENDER_RE = re.compile(
+    r'--src\s+"\$PLUGIN_ROOT/(templates/[^"]+)"\s+--dst\s+"\$TARGET(?:/([^"]*))?"')
+
+
+def _render_passes():
+    """Every (src, dst-prefix) pass bootstrap-render.sh runs, read from the script.
+
+    Derived rather than listed: a new bundle is added by giving
+    bootstrap-render.sh another `--src`, and a hand-maintained list here would
+    silently stop covering it — which is exactly the class of drift this module
+    exists to catch.
+    """
+    passes = sorted(set(_RENDER_RE.findall(open(RENDER_SH).read())))
+    assert passes, "no render passes found in bootstrap-render.sh — has the call shape changed?"
+    return [(src, dst or "") for src, dst in passes]
+
+
+def _src_roots():
+    return sorted({src for src, _ in _render_passes()})
+
 
 M = load_manifest(MANIFEST)
 
 
 def _materialized_paths():
     out = []
-    for src in SRC_ROOTS:
+    for src, dst in _render_passes():
         base = os.path.join(ROOT, src)
         for dp, _, fs in os.walk(base):
             for f in fs:
                 rel = os.path.relpath(os.path.join(dp, f), base)
-                out.append(rel[:-len(".tmpl")] if rel.endswith(".tmpl") else rel)
+                if rel.endswith(".tmpl"):
+                    rel = rel[:-len(".tmpl")]
+                # A --per-series pass adds a <series.key>/ level under dst; any
+                # deeper path still sits under the same declared root, so the
+                # prefix alone is enough to place it.
+                out.append(f"{dst}/{rel}" if dst else rel)
     return sorted(set(out))
 
 
@@ -100,5 +121,16 @@ def test_the_guard_actually_covers_the_paths_that_regressed():
     """A guard that walks the wrong tree proves nothing."""
     paths = _materialized_paths()
     assert ".github/workflows/blog-ci.yml" in paths
+    assert ".claude/hookify.warn-hextra-weight-zero.local.md" in paths
     assert any(p.startswith("scripts/") for p in paths)
     assert any(p.startswith("layouts/") for p in paths)
+
+
+def test_the_src_roots_track_bootstrap_render():
+    """Every opt-in bundle is covered, not just the always-on template."""
+    roots = _src_roots()
+    assert "templates/hugo-hextra" in roots
+    # the opt-in bundles — the ones a hand-maintained list would have missed
+    assert any("content-type-papers" in r for r in roots)
+    assert any("content-type-explainers" in r for r in roots)
+    assert sum(1 for r in roots if r.startswith("templates/features/")) >= 3

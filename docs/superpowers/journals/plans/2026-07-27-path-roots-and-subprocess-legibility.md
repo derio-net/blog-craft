@@ -39,3 +39,8 @@ Classifying .claude/** as framework was broader than the one file blog-craft shi
 ### v1-real-blog · review · Verified against the blog the issues were filed from
 
 Dry-run of the documented invocation against /home/claude/repos/frank (site_dir: blog) plans both relocations — REPLACE blog/.hookify.warn-hextra-weight-zero.md -> .claude/hookify.warn-hextra-weight-zero.local.md, and MERGE blog/.github/workflows/blog-ci.yml -> .github/workflows/blog-ci.yml — with every other line identical to the pre-fix plan. The staged hookify rule renders pattern blog/content/.*\.md$ — byte-matching what that blog operator hand-wrote independently, which confirms the site-prefix logic rather than merely asserting it. The staged CI invokes blog/scripts/... and blog/content/..., keeps --config .blog-craft.yaml unprefixed, and carries working-directory blog.
+
+<!-- fr:journal kind=finding scope=plan id=r2-src-roots-drift created=2026-07-27T16:48:33 state=fixed -->
+### r2-src-roots-drift · finding [fixed] · The roots guard listed its own coverage by hand, and main proved that drifts
+
+Merging origin/main (which added templates/features/mermaid-csp as a new render pass) showed the completeness guard silently not covering it — the SRC_ROOTS list was hand-maintained, which is the same class of drift the guard exists to catch. Now derived from bootstrap-render.sh by parsing its --src/--dst pairs, so a new bundle is covered the moment it is rendered. Parsing --dst as well as --src also brought the two --per-series passes into coverage (they render to $TARGET/content/docs, not $TARGET). Nine passes covered, up from six listed.

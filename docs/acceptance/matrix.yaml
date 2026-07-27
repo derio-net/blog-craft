@@ -101,6 +101,58 @@ rows:
     status: not-implemented
     notes: 'Post-merge, operator-driven on frank''s blog: DevTools network check + visual
       spot-check + PNG masters untouched'
+  - id: IMG-OPT-2
+    capability: image-optimization
+    acceptance: Every rendered image path goes through opt-image — including the post
+      cover, the largest image on the page
+    origin:
+    - blog-craft:docs/superpowers/implemented/specs/2026-07-04--image-optimization--webp-pipeline-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_image_optimize.py
+    status: ci
+    notes: 'Regression guard for #53. docs/single.html shipped a raw <img> for the
+      cover while list.html/render-image.html/screenshot.html/site-banner.html all
+      used the partial, so the biggest asset on the page skipped WebP, maxWidth
+      capping and srcset. The pre-existing test could not see it: its fixture leaves
+      content_types.papers off, so the layout carrying the cover was never
+      materialized. test_post_cover_is_optimized enables papers, drops a 2400px
+      cover.png, and asserts capped WebP + srcset over a real Hugo build.'
+  - id: IMG-GEN-POSTPROCESS
+    capability: image-generation
+    acceptance: post_process derivative steps share one contract — every step writes
+      to an optional target, so one master can fan out to many derivatives in a pass
+    origin:
+    - blog-craft:docs/superpowers/implemented/specs/2026-07-04--image-optimization--webp-pipeline-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_post_process_steps.py
+    status: ci
+    notes: 'Regression guard for #53. crop_resize and ico already honoured target
+      (and ico took size as a square shorthand); resize alone always clobbered the
+      source, making a favicon set inexpressible — each resize destroyed the source
+      the next step read. post_process() had no test coverage at all, which is how
+      the three steps drifted. Pins target/size on resize, the unchanged
+      width/height-no-target default, and the end-to-end favicon fan-out.'
+  - id: CSP-1
+    capability: csp-safe-templates
+    acceptance: A blog serving `script-src 'self'` keeps every shipped behaviour —
+      no template relies on an inline <script>
+    origin:
+    - blog-craft:docs/superpowers/journals/debug/2026-07-26-csp-inline-script.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_templates_csp_safe.py
+    status: ci
+    notes: 'Regression guard for #56. A CSP drops inline <script> SILENTLY — no
+      build error, no console message an author looks for — so the read-tracker
+      "Clear read history" link cleared nothing and {{< asciinema >}} never started
+      a player, on any blog with one. Both now use external assets + data-*
+      attributes. Guarded at two levels: source (no inline <script> in any
+      HTML-emitting template, comments and .js/.css templates excluded) and output
+      (a Hugo build asserting the external scripts load, the data-* attributes are
+      present, and the built page carries zero inline blocks). A detector
+      self-test pins both match directions so the guard cannot go vacuous.'
   - id: diagram-gate-requires-diagram
     capability: educational-writing quality gate
     acceptance: A how-to or tutorial post with no Mermaid diagram fails the quality

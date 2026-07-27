@@ -10,7 +10,7 @@ matching `vX.Y.Z` tag on merge (#18).
 
 ## [Unreleased]
 
-## [0.14.0] - 2026-07-27
+## [0.17.0] - 2026-07-27
 
 > **`site_dir` blogs: two files move on your next `/update`.** The CI workflow
 > relocates from `<site_dir>/.github/workflows/blog-ci.yml` to
@@ -89,6 +89,159 @@ matching `vX.Y.Z` tag on merge (#18).
   destination). A conflict writes nothing and removes nothing — both copies stay
   and both are named, keeping the never-auto-resolve contract intact through a
   relocation.
+## [0.16.0] - 2026-07-27
+
+### Added
+- **`features.mermaid_csp_init` — mermaid survives a strict CSP (#58).** The
+  third instance of the failure class 0.15.0 fixed twice, and the one that got
+  away: the Hextra theme initialises mermaid from an inline `<script>`, which
+  `script-src 'self'` drops. `mermaid.js` self-starts, so diagrams still
+  *appear* — always in the light theme, no longer following the dark/light
+  toggle, with no build error and nothing in the console. Enabling the feature
+  materializes `assets/js/mermaid-init.js`, which re-implements the theme's two
+  behaviours (source capture + `MutationObserver` re-render) from an external
+  asset; the theme's block stays in the markup, inert.
+
+  **Opt-in, unlike the 0.15.0 fixes, and the asymmetry is the point.** Those
+  replaced inline scripts blog-craft *itself* emitted, so nothing was left to
+  collide with. This one supersedes a script inside the **pinned theme**, which
+  blog-craft cannot remove — on a site with no CSP that block still runs, and
+  shipping ours unconditionally would give every such site two
+  `mermaid.initialize()` calls and two MutationObservers racing the same nodes.
+  The flag therefore tracks a fact about the deployment, not a preference.
+  Documented as `docs/CONFIG.md` §10.
+
+- **`tests/unit/test_mermaid_csp_init.py`** — the guard, and the reason this bug
+  outlived #56. `test_templates_csp_safe.py` asserts a *built* page carries no
+  inline `<script>`, but its fixture post contains no diagram, so the theme never
+  loads its mermaid partial and that assertion passed **vacuously** against this
+  failure. The new guard builds a page that actually uses mermaid and pins both
+  directions (flag on ⇒ external, deferred, same-origin `mermaid-init` in the
+  output; flag off ⇒ asset never materialized, nothing referenced). It also
+  asserts the theme *still* emits the inline init being superseded — keyed on
+  `dataset.original`, a load-bearing substring rather than a cosmetic one — so a
+  theme bump that fixes this upstream fails loudly and says to retire the flag,
+  instead of silently leaving two initialisers behind. Deliberately does **not**
+  assert "no inline script" on a mermaid page: there is one, blog-craft does not
+  own it, and the guarantee that matters is that a working external superseder
+  ships alongside it.
+
+## [0.15.0] - 2026-07-26
+
+### Fixed
+- **Two templates emitted an inline `<script>`, which a CSP silently drops
+  (#56).** `script-src 'self'` without `'unsafe-inline'` is the ordinary
+  hardening posture for a public blog, and it drops inline blocks with no build
+  error and nothing in the console an author would think to look for — the
+  feature simply renders and does nothing. The read-tracker's "Clear read
+  history" link cleared nothing, and `{{< asciinema >}}` never started a player.
+  Both now behave through external assets, with per-instance configuration
+  travelling as `data-*` attributes. The read-tracker feature already shipped its
+  main logic as an external asset, so these were the two call sites that missed
+  an established pattern — structurally the same as `resize` vs
+  `crop_resize`/`ico` in #53.
+
+### Added
+- **`assets/js/asciinema-init.js`** — reads the shortcode's `data-*` attributes
+  and bootstraps the player. Loaded (deferred, after the player library) only on
+  pages that use the shortcode, matching how `read-tracker.js` is wired.
+- **`.clear-read-history` in `custom.css`** — replaces the inline `style`
+  attribute on the footer link, so that partial emits no inline markup at all.
+- **`tests/unit/test_templates_csp_safe.py`** — the guard. Fails on any inline
+  `<script>` in an HTML-emitting template, ignoring prose inside Go-template and
+  HTML comments (a note explaining why a handler moved out of a `<script>` is not
+  an offence — this fired on its own first draft) and skipping `.js.tmpl` /
+  `.css.tmpl`, which are not markup. Carries a detector self-test pinning both
+  match directions so the guard cannot go vacuous, plus a Hugo build asserting
+  the wiring survives in the OUTPUT — external scripts loaded, `data-*` present,
+  zero inline blocks. Inline `style=` is deliberately out of scope: `abbr.html`
+  needs a unique `anchor-name` per trigger and `screenshot.html` a per-invocation
+  `max-width`, and `style-src` is commonly left permissive where `script-src` is
+  not.
+
+- **asciinema-player is vendored and served same-origin (#56).** `head-end.html`
+  loaded both the player script and its stylesheet from `unpkg.com`, which was
+  wrong three ways at once: a `script-src 'self'` CSP blocks it outright (so
+  fixing the inline `<script>` above would have left the feature broken anyway),
+  the tags carried no Subresource Integrity so a substituted CDN response would
+  have executed unchecked, and a CDN outage took the feature down with it.
+  Serving from the blog's own origin resolves all three — which is why there is
+  still no `integrity=` attribute: pinning a hash to a URL the CSP rejects would
+  have been motion without progress. Apache-2.0, with `LICENSE` and a
+  `PROVENANCE.md` recording version, sha256s and the update procedure. Hugo
+  publishes an `assets/` resource only when a template retrieves it and both are
+  gated behind `.HasShortcode "asciinema"`, so a blog that never uses the
+  shortcode carries the files in its repo and ships **zero bytes** of them to
+  readers. New `assets/vendor/**` manifest rule (framework) — deliberately not
+  under `assets/css/**`, which is `merged`, because 3-way-merging a minified
+  upstream bundle is meaningless.
+- **`0.14.1` had no CHANGELOG entry** — added retroactively above, and
+  `tests/unit/test_changelog.py` now makes the omission impossible: the version
+  in `pyproject.toml` must have a matching section, released sections must be
+  ordered newest-first, and `[Unreleased]` must survive. Two gates already gate
+  the version (`bump_version.py --check`, `check_version_bump_needed.py`) and
+  nothing gated the record of what changed.
+
+## [0.14.1] - 2026-07-26
+
+### Fixed
+- **`srcset` could make the full-resolution image unreachable (#55).**
+  `opt-image.html` built its candidate list from `slice 480 960 $maxW` and then
+  clamped each candidate with `le $w $srcW` — comparing the cap against itself
+  rather than against the primary actually emitted. Whenever the source was
+  **narrower than the cap**, that top candidate failed the clamp and was dropped,
+  leaving nothing in the srcset matching the primary. That is not a missing size:
+  per the HTML spec, once a `srcset` carries `w` descriptors the `src` attribute
+  stops being a selection candidate, so the full-resolution derivative
+  `opt-image` had just generated became **unreachable** and the browser upscaled
+  the largest survivor. With no `sizes` attribute it also assumes `100vw`, which
+  makes the upscale deterministic rather than occasional, and every derivative
+  still returns 200 so nothing fails server-side. Measured downstream on frank
+  (derio-net/frank#710): banners at 2169w under a 2560 cap and covers at 1424w
+  under a 1600 cap both emitted `480w, 960w` only — 179 affected images, a 2.0×
+  upscale on a DPR-2 viewport. The top candidate now comes from `$primary.Width`
+  and reuses the primary resource rather than re-`Resize`-ing to its own width
+  (which would emit a byte-identical second file under a different hash). The
+  existing tests all fed a source *larger* than the cap, where the cap and the
+  primary width coincide and the defect cannot appear.
+
+  *(Entry added retroactively in #57 — 0.14.1 shipped without one. Nothing
+  enforced a CHANGELOG section at the time; `tests/unit/test_changelog.py` now
+  does.)*
+
+## [0.14.0] - 2026-07-26
+
+### Fixed
+- **Post covers went out unoptimized (#53).** `docs/single.html` rendered the
+  cover as a raw `<img>` while every other image path — `list.html` (the cover
+  *thumbnail*), `render-image.html`, `screenshot.html`, `site-banner.html` —
+  went through `opt-image.html`. So the largest image on the page was the one
+  image skipping WebP conversion, `maxWidth` capping and `srcset`: a retina
+  display got no high-DPI variant and a phone downloaded the full-size asset.
+  The partial and `[params.imageOptimize]` were both already shipped and
+  enabled; only this call site was missed. `test_image_optimize.py` never caught
+  it because its fixture leaves the papers content-type off, so the layout
+  carrying the cover was never materialized in the test blog — the test now
+  enables it, drops a `cover.png`, and asserts the cover is capped WebP with a
+  srcset.
+- **`.reference-pool/README.md` documented the v4 chain v5 removed (#53).** It
+  described reference selection as a three-tier precedence chain that "stacks",
+  which `docs/CONFIG.md` has said does not run for a v5 entry since 0.10.0. A
+  blog bootstrapped today got a README contradicting its own engine. Rewritten
+  to the v5 contract (exactly one `primary`, `clothing:` anchors, order is
+  load-bearing), with the v4 chain kept as an explicit legacy note.
+
+### Added
+- **`resize` accepts `target` and `size` (#53).** Of `post_process()`'s three
+  steps, `crop_resize` and `ico` already wrote to a `target` and `ico` already
+  took `size` as a square shorthand — `resize` alone always clobbered the source
+  image. That made a one-master-to-many-derivatives pass inexpressible, because
+  each `resize` destroyed the source the next step had to read; the canonical
+  favicon set (crop square, then fan out to apple-touch/32/16/ico) could not be
+  written. `resize` now honours both, strictly backwards compatibly: with
+  `width`/`height` and no `target`, behaviour is unchanged. `post_process()` had
+  no test coverage at all, which is how the three steps drifted apart —
+  `tests/unit/test_post_process_steps.py` now pins the shared contract.
 
 ## [0.13.1] - 2026-07-26
 
