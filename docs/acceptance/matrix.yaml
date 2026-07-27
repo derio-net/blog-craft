@@ -670,3 +670,41 @@ rows:
       lists them on the one run that can still tell. Pinned in both directions: fires
       on a fallback-base run with NOOPs, silent on a snapshot-backed run and on a fallback
       run with none, and reports mapped destinations (site_dir-aware).'
+  - id: HW-1
+    capability: Reader-arc post structure
+    acceptance: Building/tutorial posts open with a conceptual landscape section sized
+      to the material and close with a what-transfers section
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-27-humanize-writing-design.md
+    levels: {}
+    status: not-implemented
+    notes: Prose methodology (reader-arc.md) + lint warn for missing what-transfers
+      section; prose quality itself stays operator judgment
+  - id: HW-2
+    capability: Cold-reader editor pass
+    acceptance: Every /blog-post and /post-rewrite draft is critiqued by a blind cold-reader
+      agent (no session context) and revised before the operator sees it
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-27-humanize-writing-design.md
+    levels: {}
+    status: not-implemented
+    notes: Skill-contract greps (agent file exists, dispatch sub-step present) + manual
+      run
+  - id: HW-3
+    capability: AI-tells lint in the gate
+    acceptance: validate_educational.py fails on AI-vocabulary hits and warns on em-dash/parallelism/rule-of-three
+      density and cliche conclusions, thresholds configurable via quality.lint
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-27-humanize-writing-design.md
+    levels: {}
+    status: not-implemented
+    notes: Unit-testable against clean and tell-laden fixtures
+  - id: HW-4
+    capability: quality.lint config seeding
+    acceptance: A consumer blog missing quality.lint gets it seeded with defaults and
+      comments on first skill run, existing values untouched
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-27-humanize-writing-design.md
+    levels: {}
+    status: not-implemented
+    notes: seed_config.py pattern, unit-testable
