@@ -5,10 +5,16 @@ materialized path as framework | content | merged.
 Consumed by the reproduction harness (P5, which paths to diff) and the updater
 (P6, which paths to overwrite vs 3-way-merge vs leave).
 
+It also carries the manifest's path-ROOT model (#61) — a different question from
+ownership: not "who owns this file?" but "who DEFINES its location — the Hugo
+site, or a tool that reads it from the repository root?". `/update` needs the
+answer to place a path in a blog whose site is not the repo root.
+
 Library:
-  load_manifest(path) -> {class: [globs]}
+  load_manifest(path) -> {class: [globs], "roots": {root: [globs]}}
   classify_all(relpath, manifest) -> [class, ...]   (all matching classes)
   classify(relpath, manifest) -> class | None       (the single class, else None)
+  root_of(relpath, manifest) -> "repo" | "site"     (undeclared -> "site")
 
 CLI:
   path_ownership.py --manifest <m> --classify <relpath>
@@ -20,13 +26,21 @@ import re
 import sys
 
 CLASSES = ("framework", "merged", "content")
+ROOTS = ("repo", "site")
+DEFAULT_ROOT = "site"
 
 
 def load_manifest(path: str) -> dict:
     import yaml
     with open(path) as f:
         m = yaml.safe_load(f) or {}
-    return {k: (m.get(k) or []) for k in CLASSES if k in m}
+    out = {k: (m.get(k) or []) for k in CLASSES if k in m}
+    # `roots` is namespaced under its own key so it never collides with a class
+    # name — classify_all() only ever iterates CLASSES.
+    roots = m.get("roots") or {}
+    if roots:
+        out["roots"] = {r: (roots.get(r) or []) for r in ROOTS if r in roots}
+    return out
 
 
 def _glob_to_regex(glob: str) -> re.Pattern:
@@ -64,6 +78,21 @@ def classify_all(relpath: str, manifest: dict) -> list[str]:
 def classify(relpath: str, manifest: dict):
     hits = set(classify_all(relpath, manifest))
     return hits.pop() if len(hits) == 1 else None
+
+
+def root_of(relpath: str, manifest: dict) -> str:
+    """Which root defines this path's location — "repo" or "site" (#61).
+
+    An UNDECLARED path resolves to "site", which is byte-identical to the
+    pre-#61 behaviour: a template file someone forgets to declare can never
+    break a blog at runtime. The enforcement that every materialized path IS
+    declared lives in tests/unit/test_path_roots.py.
+    """
+    for root in ROOTS:
+        for glob in (manifest.get("roots") or {}).get(root, []):
+            if _matches(glob, relpath):
+                return root
+    return DEFAULT_ROOT
 
 
 def _main(argv: list[str]) -> int:

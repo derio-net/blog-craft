@@ -19,12 +19,13 @@ Library:
 """
 from __future__ import annotations
 
+import functools
 import subprocess
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from path_ownership import _glob_to_regex, classify, load_manifest  # noqa: E402
+from path_ownership import _glob_to_regex, classify, load_manifest, root_of  # noqa: E402
 from proc import run_checked                         # noqa: E402
 from reproduce import apply, materialized_paths      # noqa: E402
 
@@ -36,28 +37,44 @@ def render_staging(config: str, staging: str) -> Path:
     return apply(config, staging)
 
 
-def map_dest(path: str, cfg: dict | None) -> str:
+def site_prefix(cfg: dict | None) -> str:
+    """`<site_dir>/`, or "" when the Hugo site IS the config root."""
+    site_dir = ((cfg or {}).get("site_dir") or ".").rstrip("/")
+    return "" if site_dir in ("", ".") else f"{site_dir}/"
+
+
+def map_dest(path: str, cfg: dict | None, manifest: dict | None = None) -> str:
     """Map a STAGING-relative materialized path to its blog-relative destination.
 
-    Config-rooted paths (the config itself, the reference pool, the prompts
-    file) stay at / relocate to their config-declared locations; everything
-    else — the Hugo site — lands under `site_dir` (spec D6). Identity when
-    site_dir is absent and the defaults hold, so existing blogs' plans are
-    byte-identical.
+    The manifest's `roots:` section decides, per path, WHO DEFINES ITS
+    LOCATION (#61):
+
+      repo  the location is fixed by a contract outside Hugo — GitHub Actions
+            reads workflows from <repo>/.github/workflows/, hookify globs
+            .claude/hookify.*.local.md from the project root. Never prefixed.
+      site  Hugo's own layout defines it. Lands under `site_dir`.
+
+    Two repo-rooted paths are additionally RENAMEABLE by the config, so their
+    destination is read from it rather than from the manifest: the prompts file
+    (`image.prompts_file`) and the reference pool (`image.reference_pool`).
+
+    Identity when `site_dir` is absent and the defaults hold, so existing blogs'
+    plans are byte-identical. An undeclared path falls back to `site`, which is
+    the pre-#61 behaviour — see `path_ownership.root_of`.
     """
     cfg = cfg or {}
     image = cfg.get("image") or {}
-    if path == ".blog-craft.yaml":
-        return path
+
+    # Config-DECLARED destinations (repo-rooted and renameable).
     if path == "prompt_for_images.yaml":
         return image.get("prompts_file") or path
-    pool = image.get("reference_pool") or ".reference-pool"
     if path == ".reference-pool" or path.startswith(".reference-pool/"):
+        pool = image.get("reference_pool") or ".reference-pool"
         return pool + path[len(".reference-pool"):]
-    site_dir = (cfg.get("site_dir") or ".").rstrip("/")
-    if site_dir in ("", "."):
+
+    if root_of(path, manifest if manifest is not None else default_manifest()) == "repo":
         return path
-    return f"{site_dir}/{path}"
+    return site_prefix(cfg) + path
 
 
 def three_way(base: Path, local: Path, incoming: Path) -> tuple[bytes, bool]:
@@ -77,7 +94,7 @@ def plan_update(blog: str | Path, staging: str | Path, base: str | Path | None, 
         # classification runs on the STAGING-relative path (manifest is
         # site-shaped); comparison + application use the mapped destination
         cls = classify(p, manifest)
-        dest = map_dest(p, cfg)
+        dest = map_dest(p, cfg, manifest)
         inc, loc = staging / p, blog / dest
         if cls in (None, "content"):
             continue
@@ -128,7 +145,9 @@ def apply_plan(blog: str | Path, staging: str | Path, plan: list[dict]) -> list[
     return conflicts
 
 
+@functools.lru_cache(maxsize=1)
 def default_manifest() -> dict:
+    # Cached: map_dest() falls back to it per path when a caller passes none.
     return load_manifest(str(_PLUGIN_ROOT / "templates" / "manifest.yaml"))
 
 

@@ -13,7 +13,7 @@ framework:
   - "assets/js/**"
   - ".gitignore"
   - "MEDIA-GUIDE.md"
-  - ".hookify.warn-hextra-weight-zero.md"
+  - ".claude/**"   # the hookify weight-zero guard, at the ONLY path hookify globs
   - "static/images/.gitkeep"
   - "assets/images/.gitkeep"
   - ".reference-pool/README.md"
@@ -34,3 +34,50 @@ content:
   - "data/**"
   - "static/images/*.png"
   - "assets/images/*.png"   # per-blog banners (opt-image reads them from assets/); never overwrite
+
+# --- Path ROOT (spec §3, #61) -------------------------------------------------
+# Where a materialized path lands in a blog whose Hugo site is NOT the repo root
+# (`site_dir: blog`). The class above answers "who OWNS this file?"; this answers
+# a different question, and it is the one /update used to get wrong:
+#
+#     Who DEFINES this path's location — the Hugo site, or a tool that reads it
+#     from the REPOSITORY root?
+#
+#   repo : an external contract fixes the location. Never prefixed by site_dir.
+#   site : Hugo's own layout defines it. Lands under `site_dir`.
+#
+# The distinction is not "dotfile" — `.gitignore` is site-rooted (a nested
+# gitignore governs its own subtree) while `.github/**` is repo-rooted (GitHub
+# Actions loads workflows from <repo>/.github/workflows/ and nowhere else).
+# Getting this wrong is silent: a workflow in the wrong directory is not an
+# error, it is an inert YAML document that looks exactly like a workflow.
+#
+# An UNDECLARED path resolves to `site` — identical to the pre-#61 behaviour, so
+# a forgotten declaration can never break a blog at runtime. The enforcement is
+# tests/unit/test_path_roots.py, which requires exactly one match for every
+# materialized path: a new template file cannot merge without a reviewer
+# answering the question above.
+roots:
+  repo:
+    - ".blog-craft.yaml"          # the config root, by definition
+    - "prompt_for_images.yaml"    # relocated by image.prompts_file (config-declared)
+    - ".reference-pool/**"        # relocated by image.reference_pool (config-declared)
+    - ".github/**"                # GitHub Actions: <repo>/.github/workflows/ only
+    - ".claude/**"                # Claude Code: hookify globs .claude/hookify.*.local.md
+                                  # from the project root (verified against its loader)
+  site:
+    - "layouts/**"                # Hugo's directory contract
+    - "assets/**"
+    - "content/**"
+    - "static/**"
+    - "data/**"
+    - "fonts/**"                  # consumed by assets/css
+    - "scripts/**"                # invoked as <site_dir>/scripts/…; they resolve their
+                                  # own config-declared paths against the config root,
+                                  # so they run correctly from anywhere
+    - "hugo.toml"                 # Hugo / Hugo Modules, read from the site root
+    - "go.mod"
+    - "go.sum"
+    - "README.md"                 # the SITE's readme; a repo README is the operator's
+    - "MEDIA-GUIDE.md"            # documents the site's image workflow
+    - ".gitignore"                # nested gitignores govern their own subtree

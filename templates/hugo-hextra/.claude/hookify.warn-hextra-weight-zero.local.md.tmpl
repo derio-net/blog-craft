@@ -1,12 +1,16 @@
+{{- $site := "" }}{{- with .site_dir }}{{- if ne . "." }}{{- $site = printf "%s/" . }}{{- end }}{{- end -}}
 ---
 name: warn-hextra-weight-zero
 enabled: true
 event: file
 action: warn
 conditions:
+  # hookify matches file_path as the tool reports it — from the PROJECT root —
+  # so this pattern is repo-relative, not site-relative. On a blog whose Hugo
+  # site lives under site_dir the posts are at <site_dir>/content/ (#61).
   - field: file_path
     operator: regex_match
-    pattern: content/.*\.md$
+    pattern: {{ $site }}content/.*\.md$
   - field: content
     operator: regex_match
     pattern: weight:\s*0(?!\d)
