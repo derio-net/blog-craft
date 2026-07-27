@@ -24,3 +24,8 @@ write_snapshot was called unguarded at the end of a successful --apply, so an OS
 ### f3-tally-drops-unknown · finding [fixed] · plan_summary silently dropped any action outside its hardcoded list (phase 4)
 
 The tally iterated a fixed _ACTIONS tuple, so an action added later would be counted and then never printed — a silent undercount in the very reporting fix meant to end silent outcomes. Fixed: known actions first for stable order, then anything unrecognised, so nothing vanishes.
+
+<!-- fr:journal kind=discovery scope=plan id=p4-rebase-016 created=2026-07-27T16:01:36 phase=4 -->
+### p4-rebase-016 · discovery · Rebased onto main at 0.16.0; version lands at 0.16.1, CONFIG section renumbered to §11 (phase 4)
+
+main moved four commits during the run (through #53, #55, #56, #58), which made the PR CONFLICTING — and GitHub cannot build a merge ref for a conflicting PR, so ci.yml never triggered at all; only the push-driven acceptance-report ran. Rebased: version files re-bumped from 0.16.0 to 0.16.1, CHANGELOG entry re-headed and placed above 0.16.0, and docs/CONFIG.md renumbered from §10 to §11 because main's mermaid_csp_init took §10. Full gate re-run green afterwards (554 unit+reproduction, all six smokes), and the issue's reproduction re-confirmed against the v0.16.0 tag — the exact release it was filed from: 0 -> 5 glossary hits.
