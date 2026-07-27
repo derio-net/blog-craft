@@ -167,6 +167,12 @@ edits.
   landscape section, and whose lint output is clean. Prose quality itself is
   operator judgment; the matrix rows pin the mechanical envelope around it.
 
+## Implementation Plans
+
+| Plan | Repo | File | Depends on |
+|------|------|------|------------|
+| 2026-07-27-humanize-writing | `derio-net/blog-craft` | `2026-07-27-humanize-writing` | — |
+
 ## Out of scope
 
 - Batch retrofit of frank's back catalog (~30 posts) — an operator-initiated

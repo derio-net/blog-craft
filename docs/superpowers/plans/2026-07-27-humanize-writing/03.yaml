@@ -1,0 +1,57 @@
+schema_version: 2
+phase:
+  number: 3
+  title: Reader-arc methodology — new reference + SKILL.md amendments
+  tag: agentic
+  depends_on: []
+  tracking_issue: null
+  acceptance:
+  - HW-1
+tasks:
+- number: 1
+  title: reader-arc.md + educational-writing amendments, contract-tested
+  steps:
+  - id: P3.T1.S1
+    text: |
+      [RED] Create tests/unit/test_reader_arc_contract.py (grep-style, mirroring existing contract tests):
+        - skills/educational-writing/references/reader-arc.md exists and contains: "reader's arc", "lay of the land", "What transfers", "session's chronology", "raw material", a mode-conditional statement naming tutorial/explanation vs how-to/reference, and a proportional-sizing statement ("sized" + "idiosyncratic").
+        - skills/educational-writing/SKILL.md references "reader-arc.md" and its section 4 list contains "Session-skeleton".
+        - skills/educational-writing/references/checklist.md contains a landscape item ("lay of the land") and a what-transfers item.
+      Run: bash tests/run-unit.sh -k reader_arc
+      EXPECT: RED.
+  - id: P3.T1.S2
+    text: |
+      [GREEN] Author the prose:
+      (a) references/reader-arc.md — the organizing rule as a blockquote ("A post is organized around the reader's arc — beginning, middle, end — never the session's chronology. The chronology is raw material; the arc is the outline."), then three sections:
+        Beginning — the lay of the land: conceptual landscape from general knowledge (problem space, standard shapes and names, where the topic sits); sized proportionally to how idiosyncratic/deep the meat is; mode-conditional — building/tutorial/explanation posts carry a real labelled landscape section, operating how-to/reference posts keep the tight three-beat orientation of SKILL.md section 2a (steps-first absolute). Include the worked example: a metrics-API post opens with "Kubernetes has two parallel metrics worlds" before any cluster-specific fork.
+        Middle — the meat: evidence discipline unchanged; steps lead within their sections; decisions presented as the space of options a reader would face, the session's choice as the worked instance — never a timeline event ("the fork I hit that afternoon" is the anti-pattern).
+        End — what transfers: a closing section stating what the reader keeps beyond this repo (general rule, portable heuristic, generalizing gotcha); explicitly NOT a recap. Note the lint backstop: tutorial/explanation posts without one draw a warning.
+      (b) SKILL.md: in section 2a add the mode-conditional carve-out paragraph (landscape replaces the three-beat cap for tutorial/explanation posts; reference reader-arc.md); in section 4 add the "Session-skeleton" failure signature (headings that are events in the work's timeline rather than stops in the reader's arc); extend "How the other skills use this" to mention reader-arc.md.
+      (c) checklist.md: under Orientation add "A building/tutorial post opens with a lay-of-the-land section sized to the material"; add a what-transfers judgment item ("the post closes with what the reader keeps beyond this repo — not a recap").
+      Run: bash tests/run-unit.sh -k reader_arc
+      EXPECT: GREEN.
+- number: 2
+  title: Verify (phase 3)
+  steps:
+  - id: P3.T2.S1
+    text: |
+      [VERIFY] bash tests/run-unit.sh
+      EXPECT: full suite green.
+state:
+  steps:
+    P3.T1.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P3.T1.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P3.T2.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+  completion:
+    at: null
+    note: null
+    observed_prs: []

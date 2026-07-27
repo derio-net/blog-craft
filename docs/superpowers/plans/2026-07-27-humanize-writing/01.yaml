@@ -1,0 +1,110 @@
+schema_version: 2
+phase:
+  number: 1
+  title: AI-tells catalog — vendored reference with machine-readable lint data
+  tag: agentic
+  depends_on: []
+  tracking_issue: null
+  acceptance:
+  - HW-3
+tasks:
+- number: 1
+  title: ai-tells.md exists and its lint data block loads
+  steps:
+  - id: P1.T1.S1
+    text: |
+      [RED] Create tests/unit/test_ai_tells.py (import style: mirror how existing tests import from tools/ — see tests/conftest.py). Cases against a new `load_lint_data()` in tools/validate_educational.py:
+        - returns a dict with keys: vocabulary, conclusion_openers, patterns, thresholds, transfer_headings
+        - vocabulary: list[str], >= 12 entries, all lowercase
+        - conclusion_openers: list[str], >= 4 entries, all lowercase
+        - patterns: mapping with at least keys negative_parallelism and triad; every value compiles via re.compile()
+        - thresholds: mapping with numeric em_dash_per_1000, negative_parallelisms_per_1000, triads_per_1000
+        - transfer_headings: list[str], >= 2 entries
+      Run: bash tests/run-unit.sh -k ai_tells
+      EXPECT: RED — load_lint_data does not exist.
+  - id: P1.T1.S2
+    text: |
+      [GREEN] Two artifacts.
+      (a) Create skills/educational-writing/references/ai-tells.md. Structure:
+        - Title + credit line: adapted from @blader's humanizer skill (https://github.com/blader/humanizer) and Wikipedia's WikiProject AI Cleanup "Signs of AI writing".
+        - One prose section per pattern family, each with a one-line description, a bad->good example pair, and the fix rule: AI vocabulary; rule-of-three (triads); negative parallelisms ("not X, but Y" / "isn't about X, it's about Y"); em-dash overuse; inflated symbolism; promotional language; superficial "-ing" analyses; vague attributions ("industry experts say"); conjunctive-phrase excess (Furthermore/Moreover chains); cliche conclusions.
+        - A closing "Machine-readable lint data" section containing EXACTLY ONE fenced yaml code block with this content verbatim:
+          vocabulary:
+            - delve
+            - delves
+            - delving
+            - delved
+            - tapestry
+            - a testament to
+            - seamless
+            - seamlessly
+            - game-changer
+            - game-changing
+            - ever-evolving
+            - in today's fast-paced
+            - treasure trove
+            - supercharge
+            - revolutionize
+            - harness the power
+            - embark
+            - realm
+            - myriad
+            - plethora
+            - boasts
+          conclusion_openers:
+            - in conclusion
+            - ultimately
+            - in the end
+            - at the end of the day
+            - all in all
+            - in summary
+          patterns:
+            negative_parallelism: "\\bnot (?:just |only |merely |simply )?[^.;:]{3,40}[,;] but\\b|\\bisn'?t about [^.;:]{3,40}[,;.] it'?s about\\b"
+            triad: "\\b\\w+, \\w+, and \\w+\\b"
+          thresholds:
+            em_dash_per_1000: 8
+            negative_parallelisms_per_1000: 2
+            triads_per_1000: 3
+          transfer_headings:
+            - what transfers
+            - what you keep
+            - takeaway
+            - takeaways
+        - A short note in prose below the block: deliberately EXCLUDED from the fail list because they have legitimate technical uses: underscore (the character), landscape (this methodology's own term), deep dive (the repo's explainer vocabulary), robust/crucial/leverage (common legit tech usage).
+      (b) In tools/validate_educational.py add:
+          def load_lint_data(path: str | None = None) -> dict:
+              """Parse the fenced yaml block in ai-tells.md (single source for lint data)."""
+              import yaml
+              p = Path(path) if path else Path(__file__).resolve().parent.parent / "skills/educational-writing/references/ai-tells.md"
+              m = re.search(r"```yaml\n(.*?)```", p.read_text(encoding="utf-8"), re.DOTALL)
+              if not m:
+                  raise ValueError(f"no fenced yaml block in {p}")
+              return yaml.safe_load(m.group(1))
+          (add `from pathlib import Path` if absent; keep import style consistent with the file.)
+      Run: bash tests/run-unit.sh -k ai_tells
+      EXPECT: GREEN.
+- number: 2
+  title: Verify (phase 1)
+  steps:
+  - id: P1.T2.S1
+    text: |
+      [VERIFY] bash tests/run-unit.sh
+      EXPECT: full suite green (same pass set as origin/main plus the new ai_tells cases; no new failures).
+state:
+  steps:
+    P1.T1.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T1.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T2.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+  completion:
+    at: null
+    note: null
+    observed_prs: []
