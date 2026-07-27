@@ -543,6 +543,13 @@ deliberately leaves it alone — a partial apply is not a sync, and recording on
 would give every out-of-scope path a base built from a config it was never
 rendered with.
 
+**Read the backfilling run's output.** Recording the first snapshot fixes every
+future update, but it also freezes whatever the tree currently holds — including
+a change an earlier, pre-#60 run already dropped. After that the path is an
+ordinary `NOOP` with nothing flagged on it. So that one run lists every `merged`
+path its fallback base resolved to `NOOP`, with how to diff each against a fresh
+render; anything that differs is shipped content you are missing.
+
 ```yaml
 # .blog-craft.sync.yaml — GENERATED, DO NOT EDIT
 #   <provenance header>

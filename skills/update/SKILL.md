@@ -69,6 +69,28 @@ became a silent no-op for every `merged` path this way
 (derio-net/blog-craft#60). `/update` warns whenever it falls back, and records
 the snapshot so the next run is exact.
 
+### The backfilling run is your one chance to spot old drift
+
+Recording the first snapshot fixes every *future* update. What it cannot do is
+undo a drop that already happened: it asserts "this blog is synced to this
+config" over a tree that may not match, so from the next run onward such a path
+is an ordinary `NOOP` with no warning on it — the tool has stopped disagreeing.
+
+So the backfilling run names them. On the one `--apply` that both falls back
+*and* records a snapshot, `/update` lists by destination every `merged` path its
+fallback base resolved to `NOOP`, and tells you how to check:
+
+```bash
+bash <blog-craft>/tools/bootstrap-render.sh <config> /tmp/bc-fresh
+diff /tmp/bc-fresh/<staging-relative path> <your copy>
+```
+
+A difference there is a change blog-craft shipped and an earlier, pre-#60 run
+dropped — copy it across before it becomes invisible. No difference means the
+`NOOP` was the harmless kind. The warning is silent on snapshot-backed runs and
+on fallback runs whose plan had no `NOOP`s: one that fired on clean plans is one
+you would learn to skip.
+
 ### Where each path lands (`site_dir` blogs)
 
 `--blog` always points at the **config root**, not the site dir. From there,
