@@ -1,7 +1,8 @@
 """P6.T2 — 3-way-merge update flow (staging classify + diff3, no auto-resolve)."""
 from pathlib import Path
 
-from update import apply_plan, default_manifest, dry_run_diff, plan_update, three_way
+from update import (apply_plan, default_manifest, dry_run_diff, plan_summary,
+                    plan_update, three_way)
 
 M = default_manifest()
 
@@ -43,6 +44,51 @@ def test_merged_clean_3way(tmp_path):
     e = {x["path"]: x for x in plan}["hugo.toml"]
     assert e["action"] == "merge"
     assert b"line1-new" in e["merged"] and b"<<<<<<<" not in e["merged"]
+
+
+def test_merge_that_changes_nothing_is_reported_as_noop(tmp_path):
+    # base has a line the blog does not: the merge honours that as a deletion and
+    # keeps local wholesale, writing nothing. Printed as MERGE, that outcome was
+    # indistinguishable from one that wrote something — which is how #60 hid.
+    plan = _plan(
+        tmp_path,
+        base={"hugo.toml": "keep\ndropped-by-operator\n"},
+        blog={"hugo.toml": "keep\n"},
+        stg={"hugo.toml": "keep\ndropped-by-operator\n"},
+    )
+    e = {x["path"]: x for x in plan}["hugo.toml"]
+    assert e["action"] == "noop"
+    assert e.get("reason"), "a NOOP has to say why it is a NOOP"
+    assert "NOOP" in dry_run_diff(plan)
+
+    apply_plan(tmp_path / "blog", tmp_path / "stg", plan)
+    assert (tmp_path / "blog" / "hugo.toml").read_text() == "keep\n"   # untouched
+
+
+def test_a_merge_that_does_change_the_file_is_still_a_merge(tmp_path):
+    plan = _plan(
+        tmp_path,
+        base={"hugo.toml": "line1\nline2\n"},
+        blog={"hugo.toml": "line1\nline2\n"},
+        stg={"hugo.toml": "line1\nline2\nline3\n"},
+    )
+    e = {x["path"]: x for x in plan}["hugo.toml"]
+    assert e["action"] == "merge"
+    assert "MERGE" in dry_run_diff(plan)
+    apply_plan(tmp_path / "blog", tmp_path / "stg", plan)
+    assert (tmp_path / "blog" / "hugo.toml").read_text() == "line1\nline2\nline3\n"
+
+
+def test_plan_summary_counts_each_outcome(tmp_path):
+    plan = _plan(
+        tmp_path,
+        base={"layouts/x.html": "A\n", "hugo.toml": "keep\ngone\n"},
+        blog={"layouts/x.html": "A\n", "hugo.toml": "keep\n"},
+        stg={"layouts/x.html": "B\n", "hugo.toml": "keep\ngone\n", "layouts/new.html": "N\n"},
+    )
+    s = plan_summary(plan)
+    assert "1 add" in s and "1 replace" in s and "1 noop" in s
+    assert plan_summary([]) == "no changes"
 
 
 def test_merged_conflict_surfaced(tmp_path):
