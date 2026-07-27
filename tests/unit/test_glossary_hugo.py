@@ -10,6 +10,7 @@ locally-stamped post is future-dated for part of every day (see the phase-5
 journal entry).
 """
 import os
+import re
 import subprocess
 
 import yaml
@@ -25,7 +26,17 @@ REGISTRY = {
     "NUT": {"name": "Network UPS Tools",
             "description": "Daemon suite that monitors a UPS.",
             "url": "https://networkupstools.org"},
+    # Two expansions of the same letters (#65 item 4): the registry is keyed by
+    # the abbreviation, so the second sense needs a suffixed key — and
+    # rendered_text is what keeps that key out of the reader's face.
+    "GC": {"name": "Garbage Collection",
+           "description": "Reclaiming memory no longer reachable."},
+    "GC_GOATCOUNTER": {"rendered_text": "GC",
+                       "name": "GoatCounter",
+                       "description": "The analytics tool behind the numbers."},
 }
+
+_DT_RE = re.compile(r'<dt class="glossary-term"><abbr title="([^"]*)">([^<]*)</abbr>')
 
 POST = """---
 title: "Glossary smoke"
@@ -157,6 +168,48 @@ def test_display_override_changes_display_not_lookup(tmp_path):
     assert "Service Level Objective" in html
 
 
+def test_rendered_text_is_shown_instead_of_the_key(tmp_path):
+    blog = _blog(tmp_path, 'Our {{< abbr "GC_GOATCOUNTER" >}} numbers rose.')
+    _build(blog)
+    html = _post_html(blog)
+    assert ">GC<" in html
+    assert '<abbr title="GoatCounter"' in html
+    assert ">GC_GOATCOUNTER<" not in html          # never visible text
+
+
+def test_rendered_text_is_used_in_the_aria_label(tmp_path):
+    # abbr.html interpolated $key here, so the disambiguating suffix leaked to
+    # screen readers as well as to the index.
+    blog = _blog(tmp_path, 'Our {{< abbr "GC_GOATCOUNTER" >}} numbers rose.')
+    _build(blog)
+    html = _post_html(blog)
+    assert 'aria-label="Expand abbreviation: GC"' in html
+    assert "GC_GOATCOUNTER" not in html      # the id is anchorized, so lowercase
+
+
+def test_call_site_argument_still_beats_rendered_text(tmp_path):
+    blog = _blog(tmp_path, 'Two {{< abbr "GC_GOATCOUNTER" "GCs" >}} later.')
+    _build(blog)
+    html = _post_html(blog)
+    assert ">GCs<" in html
+    assert '<abbr title="GoatCounter"' in html
+
+
+def test_rendered_text_does_not_move_the_id_or_the_anchor(tmp_path):
+    # #49: $id and the anchor name stay derived from the KEY. Deriving them from
+    # a shared display text would collide both senses of GC onto one anchor.
+    blog = _blog(tmp_path,
+                 'Both {{< abbr "GC" >}} and {{< abbr "GC_GOATCOUNTER" >}}.')
+    _build(blog)
+    html = _post_html(blog)
+    assert 'id="abbr-gc-0"' in html
+    assert 'style="anchor-name: --abbr-gc-0"' in html
+    assert 'style="position-anchor: --abbr-gc-0"' in html
+    assert 'id="abbr-gc_goatcounter-1"' in html
+    assert 'style="anchor-name: --abbr-gc_goatcounter-1"' in html
+    assert 'style="position-anchor: --abbr-gc_goatcounter-1"' in html
+
+
 def test_inner_abbr_carries_the_expansion_as_a_title(tmp_path):
     blog = _blog(tmp_path, 'We wired {{< abbr "NUT" >}} in.')
     _build(blog)
@@ -181,6 +234,28 @@ def test_glossary_index_lists_every_term_alphabetically(tmp_path):
     assert "Service Level Objective" in html
     assert html.index("Network UPS Tools") < html.index("Service Level Objective")
     assert "<dl" in html
+
+
+def test_glossary_index_shows_rendered_text_never_the_key(tmp_path):
+    blog = _blog(tmp_path, 'Terms:\n\n{{< glossary-index >}}\n')
+    _build(blog)
+    html = _post_html(blog)
+    terms = _DT_RE.findall(html)
+    assert ("GoatCounter", "GC") in terms
+    assert "GC_GOATCOUNTER" not in html
+
+
+def test_glossary_index_sorts_on_the_resolved_text_keeping_senses_adjacent(tmp_path):
+    # Sorting on the key would put GC_GOATCOUNTER after NUT for a reader who can
+    # only see "GC". Display text with the key as tiebreaker keeps both senses
+    # together and is a no-op for every entry without rendered_text.
+    blog = _blog(tmp_path, 'Terms:\n\n{{< glossary-index >}}\n')
+    _build(blog)
+    terms = _DT_RE.findall(_post_html(blog))
+    assert [name for name, _ in terms] == [
+        "Garbage Collection", "GoatCounter",
+        "Network UPS Tools", "Service Level Objective"]
+    assert [display for _, display in terms] == ["GC", "GC", "NUT", "SLO"]
 
 
 def test_glossary_index_is_safe_without_a_registry(tmp_path):

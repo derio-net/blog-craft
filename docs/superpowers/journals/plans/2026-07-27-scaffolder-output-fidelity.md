@@ -150,3 +150,62 @@ Phase 4 documented `--key` and the new `--output` default in tools/blog-post-cre
 - docs/acceptance/matrix.yaml BPC-5 (key/output defaults): now verified in CI. status ci, levels.unit -> blog-craft:tests/unit/test_blog_post_create.py. Tests: test_key_override_names_entry_hint_and_cover, test_key_defaults_to_series_number, test_bad_key_rejected, test_output_default_is_the_bundle_when_the_file_says_so, test_output_default_is_the_bundle_under_site_dir, test_output_default_stays_output_dir_for_a_static_blog, test_output_default_stays_output_dir_with_no_entries, test_output_flag_beats_detection_in_both_shapes, test_bundle_default_and_key_override_compose (plus the output-style half in tests/unit/test_prompts_append.py).
 
 `fr plan edit --complete-phase 4` warns about BPC-5 accordingly. Same shape as the BPC-1..4 debt recorded in phases 2 and 3: phases share one branch and one PR, so the repo-wide same-PR backfill rule is met as long as phase 6 does this.
+
+<!-- fr:journal kind=discovery scope=plan id=17d636c58397 created=2026-07-27T22:36:08 phase=5 -->
+### 17d636c58397 · discovery · rendered_text wiring: $display moved INSIDE the else branch, and the index sorts on ONE composite key (phase 5)
+
+Three seams that are not visible from the plan text.
+
+1. In abbr.html `$display` could not merely move below the `$entry` lookup — it had to move INSIDE the `{{- else -}}` branch. `or (.Get 1) $entry.rendered_text $key` evaluated between the lookup and the `if not $entry` guard reads `.rendered_text` off a nil entry, which is a Go template error ("nil pointer evaluating interface {}.rendered_text") and would pre-empt the errorf that names the file and the key. The guard still fires first, and the unknown-key build failure message is byte-unchanged.
+
+2. glossary-index.html now builds a slice of `dict "sortkey" … "display" … "entry" …` and does `sort $rows "sortkey"`, where sortkey is `printf "%s\x1f%s" $display $k`. Two reasons, both load-bearing:
+   - Hugo's `sort` is not documented as stable, so `sort (sort $rows "key") "display"` cannot be relied on for the key tiebreaker. One composite string is a total order by construction.
+   - The separator has to sort BELOW every printable character. With `\x1f` (US, 0x1f): display "GC" + key "GC" -> "GC\x1f GC" vs display "GCX" -> "GCX\x1f…"; 0x1f < 'X', so display order wins. A high separator like "~" (0x7e) would invert that and order "GCX" before "GC".
+   Where no entry carries rendered_text, display == key and this is exactly the previous key sort — hence the untouched assertion at test_glossary_index_lists_every_term_alphabetically.
+   Side note: the template's old explicit `sort $keys` was already belt-and-braces (Go's template range sorts map keys), but explicitness is kept.
+
+3. `$id`, the anchor name and `anchorize` are UNTOUCHED and still key-derived. Verified in the built HTML with both senses on one page: `id="abbr-gc-1"` / `--abbr-gc-1` for GC and `id="abbr-gc_goatcounter-0"` / `--abbr-gc_goatcounter-0` for GC_GOATCOUNTER — two anchors, no collision, #49's placement fix intact. anchorize lowercases the key and KEEPS the underscore, which is also why "GC_GOATCOUNTER" (uppercase) appearing nowhere in the page is a usable assertion.
+
+Emitted HTML, verbatim (registry: GC/Garbage Collection, GC_GOATCOUNTER/rendered_text GC/GoatCounter):
+
+trigger for `{{< abbr "GC_GOATCOUNTER" >}}`
+<button type="button" class="abbr-trigger" popovertarget="abbr-gc_goatcounter-0" style="anchor-name: --abbr-gc_goatcounter-0" aria-label="Expand abbreviation: GC"><abbr title="GoatCounter">GC</abbr></button><span popover id="abbr-gc_goatcounter-0" class="abbr-panel" style="position-anchor: --abbr-gc_goatcounter-0"><strong class="abbr-name">GoatCounter</strong><span class="abbr-desc">The analytics tool behind the numbers.</span></span>
+
+index rows
+  <dt class="glossary-term"><abbr title="Garbage Collection">GC</abbr> — Garbage Collection</dt>
+  <dt class="glossary-term"><abbr title="GoatCounter">GC</abbr> — GoatCounter</dt>
+
+The two senses are adjacent and each row's expansion is what disambiguates them for the reader — the key is gone from both surfaces, aria-label included.
+
+<!-- fr:journal kind=discovery scope=plan id=f7c14c293257 created=2026-07-27T22:36:28 phase=5 -->
+### f7c14c293257 · discovery · Validator: only the TYPE half of the rendered_text tests was diagnostic RED; the quote check is about hand-marking, not the data path (phase 5)
+
+TDD evidence, split honestly.
+
+Diagnostic RED (4 of 7 validator tests): non-string, empty, whitespace-only and quote-bearing rendered_text all validated CLEAN before the change — `_REQUIRED` (tools/validate_glossary.py:34) is a whitelist of REQUIRED fields, so an unknown key was already accepted silently. That is the whole reason to touch the validator; the field never needed permission.
+
+Passed from the start, kept as regression guards, not evidence:
+- a well-formed `rendered_text: GC` validates clean;
+- GC + GC_GOATCOUNTER SHARING `rendered_text: GC` validates clean — a shared display text must never be reported, it is the feature;
+- keys differing only in case are still an error even when both carry the same rendered_text (:72-79 untouched).
+
+Same split in the Hugo tests (4 diagnostic RED of 6): `{{< abbr "GC_GOATCOUNTER" "GCs" >}}` already rendered ">GCs<" (arg 1 already won), and the id/anchor pair was already key-derived. Both are now pinned.
+
+The quote rejection: `rendered_text` does NOT reach a shortcode argument through any code path today — glossary_apply.py:28-31 builds `{{< abbr "TERM" "DISPLAY" >}}` from the token it MATCHED IN PROSE (glossary_scan candidates), never from the registry field, and abbr.html emits it into an HTML attribute where Hugo escapes a quote to &#34;. It is rejected because the field is the text an operator copies into `{{< abbr "KEY" "TEXT" >}}` when marking the second sense BY HAND (which is the only way the second sense can be marked — see the finding for phase 6), and a quote there emits an unparseable shortcode. The error message says exactly that rather than repeating the key check's wording.
+
+Not done, deliberately: spec §4 line 218 mentions "the type check and the sorted-registry warning". The sorted-registry warning still checks KEY order (`keys != sorted(keys)`), untouched. The registry file is read by an operator as a keyed YAML mapping and GC / GC_GOATCOUNTER sort adjacently as keys anyway; re-basing that warning on display text would ask an operator to sort a file by a field most entries do not have. Plan task 1 lists only the type check as the deliverable. Flagged here in case phase 6's docs want to say something about file order.
+
+<!-- fr:journal kind=finding scope=plan id=c3ade469d220 created=2026-07-27T22:36:45 phase=5 state=open -->
+### c3ade469d220 · finding [open] · Phase 6 owes rendered_text docs (SKILL, CONFIG §9) and matrix rows GL-10 + GL-11, both satisfied in CI now (phase 5)
+
+Phase 5 documented `rendered_text` only in the two template header comments and the validator docstring. It touched no skill, not docs/CONFIG.md and not docs/acceptance/matrix.yaml (phase 6 owns all three). Still owed:
+
+- skills/glossary/SKILL.md — the field, the precedence chain (call-site arg 1 › entry.rendered_text › key), and spec D8's honest half: `glossary_apply.py` matches LITERAL TOKENS against registry keys, so it can only ever auto-mark the DEFAULT sense (`GC`). The second sense is marked by hand as `{{< abbr "GC_GOATCOUNTER" >}}` — nothing scans for it, and a bare "GC" in prose will be auto-marked as Garbage Collection. That is a workflow instruction, not a footnote: without it the field looks self-applying.
+- .opencode/skills/blog-craft-glossary/SKILL.md — the byte-identical mirror (tests/unit/test_opencode_sync.py); re-run scripts/sync-opencode.py.
+- docs/CONFIG.md §9 — `rendered_text` in the entry schema (optional, non-empty string, no double quote), defaulting to the key; two entries may share one; the index sorts by display text with the key as tiebreaker. Worth one sentence that keys stay the identifier (anchors and the marker argument both use the key).
+- docs/acceptance/matrix.yaml: GL-10 and GL-11 are both now verified in CI and only need refs written down. `fr plan edit --complete-phase 5` warns accordingly.
+  - GL-10 (two expansions both render as the abbreviation, inline and in the index): status ci, levels.unit -> blog-craft:tests/unit/test_glossary_hugo.py. Tests: test_rendered_text_is_shown_instead_of_the_key, test_rendered_text_is_used_in_the_aria_label, test_call_site_argument_still_beats_rendered_text, test_rendered_text_does_not_move_the_id_or_the_anchor, test_glossary_index_shows_rendered_text_never_the_key, test_glossary_index_sorts_on_the_resolved_text_keeping_senses_adjacent.
+  - GL-11 (validator accepts rendered_text typed, never rejects a shared one): status ci, levels.unit -> blog-craft:tests/unit/test_glossary_validator.py. Tests: test_rendered_text_is_optional_and_a_string_is_fine, test_two_entries_may_share_a_rendered_text, test_non_string_rendered_text_is_an_error, test_empty_rendered_text_is_an_error, test_whitespace_only_rendered_text_is_an_error, test_rendered_text_containing_a_quote_is_an_error, test_case_colliding_keys_are_still_an_error_with_rendered_text.
+- CHANGELOG 0.17.0 / tools/bump_version.py minor (spec D9) if phase 6 owns it: this phase touched tools/ and templates/, both under check_version_bump_needed.py:22's required prefixes.
+
+No migration is owed: templates/manifest.yaml classes `layouts/**` and `scripts/**` as framework (an /update ships the new templates) and `data/**` as content (the operator's registry is untouched), and the field is purely additive.

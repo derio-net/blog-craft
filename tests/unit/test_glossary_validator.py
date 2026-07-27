@@ -92,6 +92,64 @@ def test_a_non_mapping_entry_is_an_error():
     assert any("NUT" in e for e in errors)
 
 
+# --- rendered_text (optional, #65 item 4) ------------------------------------
+
+def test_rendered_text_is_optional_and_a_string_is_fine():
+    reg = {"GC_GOATCOUNTER": {"rendered_text": "GC", "name": "GoatCounter",
+                              "description": "A privacy-friendly analytics tool."}}
+    errors, _ = validate_glossary(reg, _marked("GC_GOATCOUNTER"))
+    assert errors == []
+
+
+def test_two_entries_may_share_a_rendered_text():
+    # The whole point of the field: two expansions of the same letters.
+    reg = {"GC": {"name": "Garbage Collection", "description": "Reclaims memory."},
+           "GC_GOATCOUNTER": {"rendered_text": "GC", "name": "GoatCounter",
+                              "description": "Analytics."}}
+    errors, _ = validate_glossary(reg, _marked("GC", "GC_GOATCOUNTER"))
+    assert errors == []
+
+
+def test_non_string_rendered_text_is_an_error():
+    reg = {"GC": {"rendered_text": 123, "name": "Garbage Collection",
+                  "description": "d"}}
+    errors, _ = validate_glossary(reg, _marked("GC"))
+    assert any("GC" in e and "rendered_text" in e for e in errors)
+
+
+def test_empty_rendered_text_is_an_error():
+    reg = {"GC": {"rendered_text": "", "name": "Garbage Collection",
+                  "description": "d"}}
+    errors, _ = validate_glossary(reg, _marked("GC"))
+    assert any("rendered_text" in e for e in errors)
+
+
+def test_whitespace_only_rendered_text_is_an_error():
+    reg = {"GC": {"rendered_text": "   ", "name": "Garbage Collection",
+                  "description": "d"}}
+    errors, _ = validate_glossary(reg, _marked("GC"))
+    assert any("rendered_text" in e for e in errors)
+
+
+def test_rendered_text_containing_a_quote_is_an_error():
+    # Same reasoning as the key check: it reaches a shortcode argument.
+    reg = {"GC": {"rendered_text": 'G"C', "name": "Garbage Collection",
+                  "description": "d"}}
+    errors, _ = validate_glossary(reg, _marked("GC"))
+    assert any("rendered_text" in e and "quote" in e.lower() for e in errors)
+
+
+def test_case_colliding_keys_are_still_an_error_with_rendered_text():
+    # tools/validate_glossary.py:72-79 must not regress: sharing a rendered_text
+    # is legal, but two keys differing only in case never are.
+    reg = {"GC": {"rendered_text": "GC", "name": "Garbage Collection",
+                  "description": "d"},
+           "gc": {"rendered_text": "GC", "name": "GoatCounter",
+                  "description": "d"}}
+    errors, _ = validate_glossary(reg, _marked("GC"))
+    assert any("case" in e.lower() for e in errors)
+
+
 # --- warnings ---------------------------------------------------------------
 
 def test_unreferenced_entry_is_a_warning_not_an_error():
