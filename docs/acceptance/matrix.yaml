@@ -548,20 +548,26 @@ rows:
       a blog root
     origin:
     - blog-craft:docs/superpowers/specs/2026-07-27-path-roots-and-subprocess-legibility-design.md
-    levels: {}
-    status: not-implemented
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_update_paths.py
+    status: ci
     notes: blog-craft#59 — the documented form always failed; the relative path was
-      resolved after bootstrap-render.sh's internal cd. Flips to ci when tests/unit/test_update_paths.py
-      lands.
+      resolved after bootstrap-render.sh's internal cd. Fixed at the cd, so every
+      caller is covered; the tests exercise the shell script, both CLIs and the
+      library boundary. The audit found four sites with this shape, not one.
   - id: UPD-R2
     capability: update-path-roots
     acceptance: A renderer failure surfaces the renderer's own stderr, not a bare CalledProcessError
     origin:
     - blog-craft:docs/superpowers/specs/2026-07-27-path-roots-and-subprocess-legibility-design.md
-    levels: {}
-    status: not-implemented
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_proc.py
+    status: ci
     notes: blog-craft#59 second half — reproduce.py captured the streams and discarded
-      them. Flips to ci when tests/unit/test_proc.py lands.
+      them, leaving a bare CalledProcessError pointing at the stdlib. tools/proc.run_checked
+      attaches them to the message; all four swallowing sites route through it.
   - id: UPD-R3
     capability: update-path-roots
     acceptance: Repo-rooted materialized paths (.github/**, .claude/**) are never placed
