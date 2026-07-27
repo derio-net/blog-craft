@@ -7,14 +7,27 @@ per-path action:
   content   -> leave   (operator-owned)
   merged    -> 3-way merge (base=re-render at recorded version, local=on-disk,
                incoming=staging) via `git merge-file`; conflicts are surfaced,
-               never auto-resolved.
-The base is recovered by re-rendering the templates AT the recorded
-`blog_craft_version` (git tag) — no per-repo baseline is stored.
+               never auto-resolved. A merge that keeps local wholesale writes
+               nothing and is reported as `noop`, not `merge`.
+
+The base answers "what did blog-craft last give this blog?" — that is
+`render(config_at_last_sync, templates_at_recorded_version)`. The templates come
+from a `git archive` of the recorded `blog_craft_version`; the config comes from
+`.blog-craft.sync.yaml`, the snapshot this tool writes on every clean `--apply`
+(see tools/sync_state.py). No rendered baseline TREE is stored — one small YAML
+file is (spec §8.2).
+
+A blog with no snapshot — every blog synced before blog-craft#60 — falls back to
+the current config and is told so: that fallback is exactly the defect #60
+describes, and the first `--apply` records the snapshot that ends it.
 
 Library:
   render_staging(config, staging) -> Path
+  base_config(config, blog) -> (Path, str | None)            # which config, why
+  render_base(config, blog, version, base_dir) -> str        # the 3-way base
   plan_update(blog, staging, base, manifest) -> list[dict]   # actions
   dry_run_diff(plan) -> str
+  plan_summary(plan) -> str                                  # per-action tally
   apply_plan(blog, plan) -> list[str]                        # conflicted paths
 """
 from __future__ import annotations
@@ -26,8 +39,19 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from path_ownership import _glob_to_regex, classify, load_manifest  # noqa: E402
 from reproduce import apply, materialized_paths      # noqa: E402
+from sync_state import SNAPSHOT_NAME, read_snapshot, write_snapshot  # noqa: E402
 
 _PLUGIN_ROOT = Path(__file__).resolve().parent.parent
+
+# Ordered for the dry-run tally: what lands, then what needs a human.
+_ACTIONS = ("add", "replace", "merge", "noop", "conflict")
+
+_NO_SNAPSHOT_WARNING = (
+    f"no {SNAPSHOT_NAME} — the 3-way base is rendered with the CURRENT config, so\n"
+    "         changes you have made to .blog-craft.yaml since the last sync may be\n"
+    "         dropped on `merged` paths (derio-net/blog-craft#60). A conflict-free\n"
+    "         --apply records the snapshot; updates after that are exact."
+)
 
 
 def render_staging(config: str, staging: str) -> Path:
@@ -95,9 +119,21 @@ def plan_update(blog: str | Path, staging: str | Path, base: str | Path | None, 
                              "reason": "no base to merge from"})
             else:
                 merged, conflict = three_way(b, loc, inc)
-                plan.append({"path": p, "dest": dest,
-                             "action": "conflict" if conflict else "merge",
-                             "class": cls, "merged": merged})
+                entry = {"path": p, "dest": dest, "class": cls, "merged": merged}
+                if conflict:
+                    entry["action"] = "conflict"
+                elif merged == loc.read_bytes():
+                    # The merge resolved entirely in local's favour, so applying
+                    # it would rewrite the file with the bytes already in it.
+                    # Reported as `merge`, that is indistinguishable from a merge
+                    # that shipped something — which is how #60 stayed invisible.
+                    # A NOOP on a path you expected to change means the base is
+                    # wrong: a stale or absent sync snapshot.
+                    entry["action"] = "noop"
+                    entry["reason"] = "merge produced no change"
+                else:
+                    entry["action"] = "merge"
+                plan.append(entry)
     return plan
 
 
@@ -107,6 +143,16 @@ def dry_run_diff(plan: list[dict]) -> str:
     if not lines:
         return "no changes"
     return "\n".join(lines)
+
+
+def plan_summary(plan: list[dict]) -> str:
+    """One-line tally — `2 replace, 1 merge, 1 noop` — so a long plan is readable."""
+    if not plan:
+        return "no changes"
+    counts = {a: 0 for a in _ACTIONS}
+    for e in plan:
+        counts[e["action"]] = counts.get(e["action"], 0) + 1
+    return ", ".join(f"{counts[a]} {a}" for a in _ACTIONS if counts[a])
 
 
 def apply_plan(blog: str | Path, staging: str | Path, plan: list[dict]) -> list[str]:
@@ -131,11 +177,15 @@ def default_manifest() -> dict:
 
 
 def base_by_rerender(config: str, blog_craft_version: str, base_dir: str) -> Path:
-    """Recover the 3-way base by re-rendering templates AT the recorded release.
+    """Render <config> through blog-craft's templates AT the recorded release.
 
-    Extracts blog-craft's templates+tools at the git tag <blog_craft_version>
-    into a temp checkout, then renders <config> through THAT. No per-repo
-    baseline is stored (spec §8.2). Raises if the tag isn't reachable.
+    Extracts templates+tools at the git tag <blog_craft_version> into a temp
+    checkout and renders <config> through THAT. No baseline TREE is stored (spec
+    §8.2). Raises if the tag isn't reachable.
+
+    Deliberately single-purpose: *this config, that tag*. Choosing WHICH config
+    is the base's — the sync snapshot, not whatever the operator last edited —
+    belongs to `render_base`, and conflating the two is what #60 was.
     """
     import tempfile
     with tempfile.TemporaryDirectory() as td:
@@ -147,6 +197,50 @@ def base_by_rerender(config: str, blog_craft_version: str, base_dir: str) -> Pat
         subprocess.run(["bash", str(old / "tools" / "bootstrap-render.sh"), str(config), str(base_dir)],
                        check=True, capture_output=True, text=True)
     return Path(base_dir)
+
+
+def base_config(config: str | Path, blog: str | Path) -> tuple[Path, str | None]:
+    """Which config the 3-way base must be rendered from, and what to warn about.
+
+    The snapshot when the blog has one — that is the whole point of #60. The
+    live config otherwise, with the warning that makes the approximation
+    visible; silence was the defect's accomplice.
+    """
+    snap = read_snapshot(blog)
+    if snap is not None:
+        return snap, None
+    return Path(config), _NO_SNAPSHOT_WARNING
+
+
+def _warn(msg: str) -> None:
+    print(f"[update] {msg}", file=sys.stderr)
+
+
+def render_base(config: str | Path, blog: str | Path, blog_craft_version: str,
+                base_dir: str, *, render=None, warn=_warn) -> str:
+    """Render the 3-way base, preferring the sync snapshot over the live config.
+
+    `render` is injected so the selection logic is testable without a git tag or
+    a Hugo toolchain; it defaults to `base_by_rerender`.
+
+    A snapshot that will not render — one whose schema the recorded release
+    predates, say — degrades to the live config rather than killing the run:
+    that is the pre-#60 behaviour, which is imperfect but not fatal. If the live
+    config will not render either, the failure propagates; there is nothing left
+    to fall back to.
+    """
+    render = render or base_by_rerender
+    chosen, warning = base_config(config, blog)
+    if warning:
+        warn(warning)
+    try:
+        return render(str(chosen), blog_craft_version, base_dir)
+    except Exception as e:                                    # noqa: BLE001
+        if warning:                                           # already the live config
+            raise
+        warn(f"{SNAPSHOT_NAME} would not render at {blog_craft_version} ({e}); falling back\n"
+             "         to the current config — merged paths may lose changes (#60).")
+        return render(str(config), blog_craft_version, base_dir)
 
 
 def _main(argv):
@@ -170,16 +264,22 @@ def _main(argv):
         if not base:
             ver = cfg.get("blog_craft_version")
             if ver:
-                base = str(base_by_rerender(a.config, ver, str(Path(td) / "base")))
+                base = render_base(a.config, a.blog, ver, str(Path(td) / "base"))
         plan = plan_update(a.blog, staging, base, m, cfg=cfg, only=a.only)
         print(dry_run_diff(plan))
+        if plan:
+            print(f"\n{plan_summary(plan)}")     # dry_run_diff already says "no changes"
         if not a.apply:
             print("\n(dry-run — pass --apply to write)")
             return 0
         conflicts = apply_plan(a.blog, staging, plan)
         if conflicts:
+            # Leave the previous snapshot in place: half the plan is unresolved,
+            # so "this blog is synced to config X" would be a lie, and a stale
+            # but honest base beats a fresh but false one.
             print("CONFLICTS (resolve manually):", *conflicts, sep="\n  ", file=sys.stderr)
             return 1
+        print(f"recorded sync snapshot: {write_snapshot(a.config, a.blog)}")
         print("update applied")
         return 0
 
