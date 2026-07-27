@@ -10,6 +10,26 @@ matching `vX.Y.Z` tag on merge (#18).
 
 ## [Unreleased]
 
+## [0.16.2] - 2026-07-27
+
+### Documentation
+- **The backfill warning is documented where operators meet it (#60).** 0.16.1
+  shipped the check that names the `merged` paths a fallback base may have
+  frozen, but only the CHANGELOG described it — an operator-facing warning with
+  no entry in the skill or the config contract. `skills/update/SKILL.md` now
+  explains what the backfilling run is telling you and how to act on it (diff
+  each named path against a fresh render; a difference is shipped content an
+  earlier run dropped), and `docs/CONFIG.md` §11 carries the short form. The
+  archived spec gains a "Shipped beyond this spec" section recording the design
+  it did not anticipate: the spec treats the fallback purely as a forward
+  compatibility path, and misses that recording the first snapshot also freezes
+  whatever the tree already holds.
+- **Acceptance row UB-5** books the behaviour, which shipped with tests but no
+  matrix row — the backfill the repo's acceptance rule owes on any PR that ships
+  a capability.
+- Plan and spec for #60 archived to `docs/superpowers/implemented/`; the UB-1…5
+  origin refs follow them.
+
 ## [0.16.1] - 2026-07-27
 
 ### Fixed

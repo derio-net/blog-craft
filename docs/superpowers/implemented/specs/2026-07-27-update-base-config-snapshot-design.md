@@ -275,3 +275,28 @@ Post-merge, operator-driven — these need a real blog and a real release tag.
    `assets/css/**` survived.
 5. Re-run `/update` — the second run reports no outstanding change for those
    paths (no oscillation).
+
+## Shipped beyond this spec
+
+Recorded after the fact, so the design record matches what merged in #62.
+
+**The backfilling run names what it may have frozen** (`baselined_by_fallback`).
+The spec treats the no-snapshot fallback purely as a compatibility path: warn,
+apply, record, be exact from the next run. That is true going *forward* and
+misses what recording the snapshot does *backward*. The first snapshot asserts
+"this blog is synced to this config" over a tree that may already be missing a
+change an earlier, pre-#60 run dropped — so from the run after it, that path is
+an ordinary `NOOP` with no warning attached, and the tool has stopped
+disagreeing with the drift it inherited.
+
+The backfilling run is therefore the last run that can still see it. It now
+lists, by mapped destination, every `merged` path its fallback base resolved to
+`NOOP`, and says how to diff each against a fresh render. Silent on a
+snapshot-backed run and on a fallback run whose plan had no `NOOP`s — a warning
+that fires on clean plans is one operators learn to skip.
+
+The two cases are genuinely indistinguishable from inside a single run (an
+honest `NOOP` and an inherited drop look identical), which is why the tool names
+the candidates rather than guessing. Covered by matrix row **UB-5** and four
+tests in `tests/unit/test_update_base_snapshot.py`, pinning both directions plus
+`site_dir`-aware destination mapping.
