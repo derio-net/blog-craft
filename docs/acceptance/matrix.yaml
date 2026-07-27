@@ -698,7 +698,10 @@ rows:
     - blog-craft:docs/superpowers/specs/2026-07-27-humanize-writing-design.md
     levels: {}
     status: not-implemented
-    notes: Unit-testable against clean and tell-laden fixtures
+    notes: Unit-testable against clean and tell-laden fixtures. Phase 1 shipped only
+      the lint DATA source (ai-tells.md fenced yaml + load_lint_data(), covered by
+      tests/unit/test_ai_tells.py); the lint checks this row accepts land in the
+      validator-lint phase, which flips this status and cites its refs.
   - id: HW-4
     capability: quality.lint config seeding
     acceptance: A consumer blog missing quality.lint gets it seeded with defaults and

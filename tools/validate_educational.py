@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import re
 import sys
+from pathlib import Path
 
 # Canonical Diataxis modes (see references/diataxis.md). Aliases normalize in.
 _DIATAXIS = {"tutorial", "how-to", "reference", "explanation"}
@@ -65,6 +66,21 @@ _DEFAULT_GATE = {
 
 # Diátaxis modes that teach a procedure — these must carry a diagram.
 _DIAGRAM_MODES = {"how-to", "tutorial"}
+
+
+def load_lint_data(path: str | None = None) -> dict:
+    """Parse the fenced yaml block in ai-tells.md (single source for lint data)."""
+    import yaml
+    p = (
+        Path(path)
+        if path
+        else Path(__file__).resolve().parent.parent
+        / "skills/educational-writing/references/ai-tells.md"
+    )
+    m = re.search(r"```yaml\n(.*?)```", p.read_text(encoding="utf-8"), re.DOTALL)
+    if not m:
+        raise ValueError(f"no fenced yaml block in {p}")
+    return yaml.safe_load(m.group(1))
 
 
 def split_frontmatter(text: str) -> tuple[dict, str]:
