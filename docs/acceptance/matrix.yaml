@@ -696,12 +696,18 @@ rows:
       density and cliche conclusions, thresholds configurable via quality.lint
     origin:
     - blog-craft:docs/superpowers/specs/2026-07-27-humanize-writing-design.md
-    levels: {}
-    status: not-implemented
-    notes: Unit-testable against clean and tell-laden fixtures. Phase 1 shipped only
-      the lint DATA source (ai-tells.md fenced yaml + load_lint_data(), covered by
-      tests/unit/test_ai_tells.py); the lint checks this row accepts land in the
-      validator-lint phase, which flips this status and cites its refs.
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_educational_lint.py
+      - blog-craft:tests/unit/test_ai_tells.py
+      - blog-craft:tests/unit/test_config_schema.py
+    status: ci
+    notes: 'Lint layer CI-pinned end-to-end against clean and tell-laden fixtures:
+      vocabulary fails by default, densities/conclusions/what-transfers warn,
+      severities fail|warn|off + thresholds honored from quality.lint (schema
+      checked in test_config_schema.py), code/frontmatter excluded, CLI exit
+      codes + LINT FAIL/WARN lines, blog-side sibling ai-tells.md fallback and
+      loud LINT SKIPPED when the data file is absent.'
   - id: HW-4
     capability: quality.lint config seeding
     acceptance: A consumer blog missing quality.lint gets it seeded with defaults and
@@ -710,4 +716,6 @@ rows:
     - blog-craft:docs/superpowers/specs/2026-07-27-humanize-writing-design.md
     levels: {}
     status: not-implemented
-    notes: seed_config.py pattern, unit-testable
+    notes: seed_config.py pattern, unit-testable. The lint layer itself shipped in
+      the validator-lint phase (HW-3); the skill-side seeding this row accepts
+      lands in the pipeline-wiring phase, which flips this status.

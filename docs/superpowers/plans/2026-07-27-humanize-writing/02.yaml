@@ -108,50 +108,51 @@ tasks:
 state:
   steps:
     P2.T1.S1:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-07-27T22:50:15+00:00'
       note: null
     P2.T1.S2:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-07-27T22:50:18+00:00'
       note: null
     P2.T2.S1:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-07-27T22:52:05+00:00'
       note: null
     P2.T2.S2:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-07-27T22:52:09+00:00'
       note: null
     P2.T2.S3:
-      state: ' '
-      ticked_at: null
-      note: null
+      state: '-'
+      ticked_at: '2026-07-27T22:52:12+00:00'
+      note: 'no refactor needed: pattern densities already share one loop; no duplication
+        introduced in S2'
     P2.T3.S1:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-07-27T22:53:04+00:00'
       note: null
     P2.T3.S2:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-07-27T22:53:07+00:00'
       note: null
     P2.T4.S1:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-07-27T22:55:47+00:00'
       note: null
     P2.T4.S2:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-07-27T22:55:51+00:00'
       note: null
     P2.T5.S1:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-07-27T23:01:32+00:00'
       note: null
     P2.T5.S2:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-07-27T23:01:35+00:00'
       note: null
   completion:
-    at: null
+    at: '2026-07-27T23:01:38+00:00'
     note: null
     observed_prs: []

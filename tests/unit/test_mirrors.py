@@ -14,6 +14,10 @@ Keep each pair in sync; edit the tools/ copy and re-mirror.
 glossary_scan.py travels with validate_glossary.py because the validator imports
 its marker + code-span helpers rather than re-deriving them. A blog's CI has no
 plugin on sys.path, so the companion has to ship too.
+
+ai-tells.md travels with validate_educational.py for the same reason: the lint
+layer's word lists live in its fenced yaml block, and a materialized blog has
+no skills/ tree — load_lint_data() falls back to the sibling scripts/ai-tells.md.
 """
 import os
 
@@ -33,6 +37,8 @@ MIRRORS = [
     ("tools/render_explainer.py", "templates/content-type-explainers/shared/scripts/render_explainer.py"),
     ("tools/validate_glossary.py", "templates/hugo-hextra/scripts/validate_glossary.py"),
     ("tools/glossary_scan.py", "templates/hugo-hextra/scripts/glossary_scan.py"),
+    ("skills/educational-writing/references/ai-tells.md",
+     "templates/hugo-hextra/scripts/ai-tells.md"),
 ]
 
 

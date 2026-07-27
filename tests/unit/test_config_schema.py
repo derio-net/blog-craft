@@ -298,3 +298,57 @@ def test_other_feature_keys_stay_unvalidated():
     cfg = _valid()
     cfg["features"] = {"read_tracker": "not-a-bool"}
     assert validate_config(cfg) == []
+
+
+# --- quality.lint (humanize lint layer; severities fail|warn|off, numeric ----
+# thresholds). Unknown severity/threshold KEYS stay unvalidated — forward-
+# compatible with new checks; only the SHAPE is enforced.
+
+def test_quality_lint_valid_block_passes():
+    cfg = _valid()
+    cfg["quality"] = {"lint": {"enabled": True}}
+    assert validate_config(cfg) == []
+
+
+def test_quality_lint_must_be_a_mapping():
+    cfg = _valid()
+    cfg["quality"] = {"lint": True}
+    assert any("quality.lint must be a mapping" in e for e in validate_config(cfg))
+
+
+def test_quality_lint_enabled_must_be_bool():
+    cfg = _valid()
+    cfg["quality"] = {"lint": {"enabled": "yes"}}
+    assert any("quality.lint.enabled must be a boolean" in e
+               for e in validate_config(cfg))
+
+
+def test_quality_lint_bad_severity_value_rejected():
+    cfg = _valid()
+    cfg["quality"] = {"lint": {"severities": {"vocabulary": "hard"}}}
+    assert any("fail | warn | off" in e for e in validate_config(cfg))
+
+
+def test_quality_lint_valid_severities_pass():
+    cfg = _valid()
+    cfg["quality"] = {"lint": {"severities": {"vocabulary": "warn", "em_dash": "off"}}}
+    assert validate_config(cfg) == []
+
+
+def test_quality_lint_threshold_must_be_a_number():
+    cfg = _valid()
+    cfg["quality"] = {"lint": {"thresholds": {"em_dash_per_1000": "many"}}}
+    assert any("must be a number" in e for e in validate_config(cfg))
+
+
+def test_no_quality_lint_block_is_never_an_error():
+    cfg = _valid()
+    cfg.pop("quality", None)
+    assert validate_config(cfg) == []
+
+
+def test_quality_lint_unknown_keys_allowed():
+    cfg = _valid()
+    cfg["quality"] = {"lint": {"severities": {"future_check": "warn"},
+                               "thresholds": {"future_per_1000": 4.5}}}
+    assert validate_config(cfg) == []
