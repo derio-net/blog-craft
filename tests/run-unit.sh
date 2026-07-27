@@ -27,4 +27,9 @@ fi
 # ensure pillow even on a pre-existing venv (contact sheet / post-process need it)
 "$VENV/bin/python" -c "import PIL" >/dev/null 2>&1 || _pip_install pillow
 cd "$HERE"
+# pytest's numbered-dir pool under /tmp/pytest-of-<user> exhausts across
+# repeated full-suite runs (OSError: could not create numbered dir with prefix
+# pytest- after 10 tries, ~40-165 collection ERRORs on tmp_path tests).
+# Clearing it up front deterministically restores green; pytest recreates it.
+rm -rf "/tmp/pytest-of-$(id -un)" 2>/dev/null || true
 exec "$VENV/bin/pytest" -q "${@:-tests/unit}"
