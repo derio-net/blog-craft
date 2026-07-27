@@ -1,0 +1,71 @@
+schema_version: 2
+phase:
+  number: 1
+  title: tools/sync_state.py — the sync snapshot, written and read in one place
+  tag: agentic
+  depends_on: []
+  tracking_issue: null
+tasks:
+- number: 1
+  title: Failing tests for the snapshot module
+  steps:
+  - id: P1.T1.S1
+    text: |-
+      Write tests/unit/test_sync_state.py FIRST (red). Cover: snapshot_path(blog_root)
+      resolves to <blog_root>/.blog-craft.sync.yaml; write_snapshot copies the config
+      VERBATIM (comments and key order preserved byte-for-byte) behind a comment-only
+      provenance header; the written file still yaml.safe_load's to the same mapping as
+      the source config; read_snapshot returns the path when present and None when the
+      file is absent, empty, or whitespace-only; write_snapshot is deterministic
+      (writing twice from the same config yields identical bytes — no timestamp).
+  - id: P1.T1.S2
+    text: |-
+      Run `bash tests/run-unit.sh tests/unit/test_sync_state.py` and confirm the tests
+      fail for the right reason (module does not exist), not an import typo.
+- number: 2
+  title: Implement the module
+  steps:
+  - id: P1.T2.S1
+    text: |-
+      Write tools/sync_state.py with SNAPSHOT_NAME = ".blog-craft.sync.yaml" and
+      snapshot_path / read_snapshot / write_snapshot per the spec. STDLIB ONLY — no
+      yaml import; the snapshot is a byte copy, so bootstrap can call it with a bare
+      python3. Header is YAML comments naming the file GENERATED, explaining that
+      update.py renders THIS rather than the live config, and citing blog-craft#60.
+      NO timestamp in the header (tests/reproduction renders a config twice and
+      demands zero structural drift).
+  - id: P1.T2.S2
+    text: |-
+      Add a small CLI (`--config <path> --blog <dir>`) so tools/bootstrap-render.sh can
+      invoke it from bash. Exit non-zero with a clear stderr message on a missing config.
+  - id: P1.T2.S3
+    text: |-
+      Run the unit tests green. Then run the FULL suite
+      (`bash tests/run-unit.sh tests/unit tests/reproduction`) to confirm nothing else moved.
+state:
+  steps:
+    P1.T1.S1:
+      state: x
+      ticked_at: '2026-07-27T15:17:27+00:00'
+      note: null
+    P1.T1.S2:
+      state: x
+      ticked_at: '2026-07-27T15:17:27+00:00'
+      note: null
+    P1.T2.S1:
+      state: x
+      ticked_at: '2026-07-27T15:17:27+00:00'
+      note: null
+    P1.T2.S2:
+      state: x
+      ticked_at: '2026-07-27T15:17:27+00:00'
+      note: null
+    P1.T2.S3:
+      state: x
+      ticked_at: '2026-07-27T15:17:27+00:00'
+      note: null
+  completion:
+    at: '2026-07-27T15:17:28+00:00'
+    note: sync_state.py + 15 unit tests green; full unit+reproduction suite green
+      (500 tests).
+    observed_prs: []

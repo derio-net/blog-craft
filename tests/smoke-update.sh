@@ -146,6 +146,59 @@ grep -q "STALE_TARGETS=0" <<<"$REL" && pass "re-run never targets the site_dir p
 [[ -e "$STALE_CI" ]] && fail "stale copy under site_dir survived" || pass "stale copy under site_dir removed"
 grep -q "OPERATOR RENAMED CI" "$FR/.github/workflows/blog-ci.yml" && pass "operator's CI edit survived the relocation" || fail "operator's CI edit lost in the move"
 
+echo "=== config toggle: a newly-enabled feature must reach a merged file (#60) ==="
+# The regression this leg exists for: turning a features.* flag ON and running
+# /update used to be a silent no-op for every `merged`-class path, because the
+# 3-way base was re-rendered with the config the operator had just edited — so
+# the base already contained the feature and diff3 read the on-disk file as a
+# deliberate deletion.
+#
+# `blog_craft_version: HEAD` keeps this leg tag-free: base_by_rerender resolves
+# any git ref, and what is under test is which CONFIG the base is rendered from,
+# not which templates. (HEAD is committed state; run this after committing
+# template edits.)
+TG="$W/toggle"
+"$PY" - "$FIX" "$W" <<'PY'
+import sys, yaml
+fix, w = sys.argv[1], sys.argv[2]
+cfg = yaml.safe_load(open(fix + "/stoa-v2.expected.yaml"))
+cfg["blog_craft_version"] = "HEAD"
+cfg.setdefault("features", {})["glossary"] = {"enabled": False}
+yaml.safe_dump(cfg, open(w + "/cfg-off.yaml", "w"))
+cfg["features"]["glossary"] = {"enabled": True}
+yaml.safe_dump(cfg, open(w + "/cfg-on.yaml", "w"))
+PY
+bash "$REPO_ROOT/tools/bootstrap-render.sh" "$W/cfg-off.yaml" "$TG" >/dev/null 2>&1
+CI_YML="$TG/.github/workflows/blog-ci.yml"
+
+[[ -f "$TG/.blog-craft.sync.yaml" ]] && pass "bootstrap records the sync snapshot" \
+  || fail "bootstrap wrote no .blog-craft.sync.yaml"
+grep -q "Validate glossary" "$CI_YML" && fail "glossary step present before the toggle" \
+  || pass "glossary step absent before the toggle"
+
+cp "$W/cfg-on.yaml" "$TG/.blog-craft.yaml"          # the operator turns the feature on
+"$PY" "$REPO_ROOT/tools/update.py" --config "$TG/.blog-craft.yaml" --blog "$TG" --apply 2>&1 \
+  | sed 's/^/    /'
+grep -q "Validate glossary" "$CI_YML" \
+  && pass "toggled-on feature reaches the merged CI workflow" \
+  || fail "#60: the feature's contribution was dropped from the merged file"
+grep -q "enabled: true" "$TG/.blog-craft.sync.yaml" \
+  && pass "a clean apply refreshes the snapshot" || fail "snapshot not refreshed by --apply"
+( cd "$TG" && hugo --buildDrafts --quiet ) >/dev/null 2>&1 \
+  && pass "hugo builds after the toggle" || fail "hugo build broken after the toggle"
+"$PY" "$REPO_ROOT/tools/update.py" --config "$TG/.blog-craft.yaml" --blog "$TG" 2>/dev/null \
+  | grep -q "no changes" && pass "second run is clean (no oscillation)" \
+  || fail "update oscillates on a second run"
+
+# A merge that resolves entirely in local's favour writes nothing. Printed as
+# MERGE it was indistinguishable from one that shipped something, which is what
+# kept #60 invisible; it must report as NOOP.
+sed -i.bak '/Validate glossary/d' "$CI_YML" && rm -f "$CI_YML.bak"
+"$PY" "$REPO_ROOT/tools/update.py" --config "$TG/.blog-craft.yaml" --blog "$TG" 2>/dev/null \
+  | grep -q "^NOOP .*blog-ci.yml" \
+  && pass "a merge that writes nothing reports NOOP, not MERGE" \
+  || fail "a no-change merge still reports as MERGE"
+
 echo
 echo "=== Summary: $pass_n passed, $fail_n failed ==="
 [[ "$fail_n" -eq 0 ]] && echo "ALL OK" || { echo "FAILED"; exit 1; }

@@ -115,6 +115,50 @@ def test_framework_class_relocation_replaces_and_prunes(tmp_path):
     assert not (tmp_path / "blog" / "blog" / ".hookify.warn-hextra-weight-zero.md").exists()
 
 
+def test_a_merge_that_keeps_local_still_MOVES_a_relocated_file(tmp_path):
+    """Where #60's NOOP and #61's relocation collide.
+
+    #60 added `noop` for a merge that resolves entirely in local's favour:
+    writing it back would rewrite the file with the bytes already in it. But on
+    a RELOCATED path, `local` is the copy at the OLD destination — so writing it
+    is not a no-op, it is the move. Reporting NOOP here would strand the file
+    where nothing reads it and leave the stale copy in place, which is exactly
+    the state #61 exists to end.
+    """
+    def wf(extra):
+        return f"name: blog\n\non: push\n\njobs:\n  a:\n    runs-on: x\n\n{extra}\n"
+
+    # local == base + an operator edit; incoming == base. diff3 keeps local.
+    _mk(tmp_path / "base", {CI: wf("# base")})
+    _mk(tmp_path / "blog", {"blog/.github/workflows/blog-ci.yml": wf("# operator's line")})
+    _mk(tmp_path / "stg", {CI: wf("# base")})
+
+    plan = plan_update(tmp_path / "blog", tmp_path / "stg", tmp_path / "base", M, cfg=SITE_CFG)
+    e = {x["path"]: x for x in plan}[CI]
+    assert e["action"] == "relocate", f"a relocated path must never report noop (got {e['action']})"
+
+    assert apply_plan(tmp_path / "blog", tmp_path / "stg", plan) == []
+    landed = (tmp_path / "blog" / CI).read_text()
+    assert "# operator's line" in landed, "the merge result must land, not the staged bytes"
+    assert not (tmp_path / "blog" / "blog" / ".github").exists()
+
+
+def test_noop_still_applies_when_there_is_no_relocation(tmp_path):
+    """#60's behaviour is untouched for ordinary paths."""
+    def wf(extra):
+        return f"name: blog\n\non: push\n\njobs:\n  a:\n    runs-on: x\n\n{extra}\n"
+
+    _mk(tmp_path / "base", {CI: wf("# base")})
+    _mk(tmp_path / "blog", {CI: wf("# operator's line")})
+    _mk(tmp_path / "stg", {CI: wf("# base")})
+
+    plan = plan_update(tmp_path / "blog", tmp_path / "stg", tmp_path / "base", M, cfg=ROOT_CFG)
+    e = {x["path"]: x for x in plan}[CI]
+    assert e["action"] == "noop"
+    apply_plan(tmp_path / "blog", tmp_path / "stg", plan)
+    assert (tmp_path / "blog" / CI).read_text() == wf("# operator's line")
+
+
 def test_a_conflict_writes_nothing_and_removes_nothing(tmp_path):
     """/update never auto-resolves — and never destroys the evidence."""
     _mk(tmp_path / "base", {CI: "shared\n"})

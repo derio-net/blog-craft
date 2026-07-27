@@ -154,6 +154,22 @@ else
   echo "[3e] layer-palette: SKIPPED (no series_index.layers)"
 fi
 
+# Record what was rendered. A bootstrap IS this blog's first sync, so the
+# snapshot has to be written here too — otherwise the first `/update` after a
+# fresh bootstrap (the run that most often enables a feature) falls back to the
+# current config and drops the feature's contribution to merged paths (#60).
+# Snapshot the EFFECTIVE answers — $ANSWERS after the blog_craft_version stamp,
+# not the operator's pre-stamp input — because that is what was actually
+# rendered. Non-fatal, like the layer-palette step: a bootstrap must not die
+# over its own bookkeeping, and update.py's fallback covers a missing snapshot.
+echo "[3g] sync snapshot"
+if "${PYTHON:-python3}" "$PLUGIN_ROOT/tools/sync_state.py" --config "$ANSWERS" --blog "$TARGET"; then
+  :
+else
+  echo "[3g] sync-snapshot: SKIPPED — could not write .blog-craft.sync.yaml." >&2
+  echo "     Updates will fall back to the current config (see blog-craft#60)." >&2
+fi
+
 # Hugo smoke build — fails fast on template/config errors before the user sees them.
 echo "[4] hugo build smoke check"
 ( cd "$TARGET" && hugo --buildDrafts --quiet 2>&1 | grep -v "^WARN" || true )

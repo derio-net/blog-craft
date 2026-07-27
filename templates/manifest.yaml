@@ -37,6 +37,12 @@ merged:
 
 content:
   - ".blog-craft.yaml"
+  - ".blog-craft.sync.yaml"   # the sync snapshot (tools/sync_state.py) — the config
+                              # as of the last sync, written explicitly by bootstrap
+                              # and update.py, never through the update plan. The row
+                              # is load-bearing: without it a staging tree containing
+                              # the file trips reproduce.structural_diff's
+                              # "unclassified materialized path" (spec §11).
   - "prompt_for_images.yaml"
   - "content/**"
   - "data/**"
@@ -68,6 +74,9 @@ content:
 roots:
   repo:
     - ".blog-craft.yaml"          # the config root, by definition
+    - ".blog-craft.sync.yaml"     # the sync snapshot sits beside the config it
+                                  # snapshots — sync_state writes it at --blog,
+                                  # which is the config root (#60)
     - "prompt_for_images.yaml"    # relocated by image.prompts_file (config-declared)
     - ".reference-pool/**"        # relocated by image.reference_pool (config-declared)
     - ".github/**"                # GitHub Actions: <repo>/.github/workflows/ only

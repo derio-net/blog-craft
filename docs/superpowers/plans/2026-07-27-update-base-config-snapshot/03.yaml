@@ -1,0 +1,77 @@
+schema_version: 2
+phase:
+  number: 3
+  title: 'Close the loop: bootstrap writes the snapshot, manifest classifies it, smoke
+    covers it'
+  tag: agentic
+  depends_on:
+  - 1
+  - 2
+  acceptance:
+  - UB-2
+  - UB-3
+  tracking_issue: null
+tasks:
+- number: 1
+  title: Manifest row
+  steps:
+  - id: P3.T1.S1
+    text: |-
+      Add ".blog-craft.sync.yaml" to templates/manifest.yaml under `content`, with a comment
+      saying why: the updater writes it explicitly, outside the plan, and without the row a
+      staging tree containing it trips reproduce.structural_diff's "unclassified
+      materialized path" (spec §11). Confirm tests/unit/test_path_manifest.py stays green.
+- number: 2
+  title: bootstrap-render.sh writes the snapshot
+  steps:
+  - id: P3.T2.S1
+    text: |-
+      After the render steps and before the Hugo smoke build, call tools/sync_state.py with
+      the EFFECTIVE answers file — i.e. $ANSWERS after the blog_craft_version stamp, not the
+      operator's original input — and TARGET as the blog root. Echo a numbered step line
+      matching the surrounding style. Non-fatal on failure, like the layer-palette step.
+  - id: P3.T2.S2
+    text: |-
+      Verify a fresh bootstrap produces .blog-craft.sync.yaml whose payload equals the
+      stamped answers, and that rendering the same config twice still yields
+      byte-identical trees (tests/reproduction/test_golden_configs.py green).
+- number: 3
+  title: Smoke coverage for the toggle case
+  steps:
+  - id: P3.T3.S1
+    text: |-
+      Extend tests/smoke-update.sh with a config-toggle leg: bootstrap with a merged-path
+      feature off, assert the snapshot exists, toggle the feature on, plan+apply, and assert
+      the feature's contribution actually lands in the merged file — the assertion the
+      original bug would have failed. Also assert the snapshot is refreshed by a clean apply
+      and that a no-op merge reports NOOP.
+  - id: P3.T3.S2
+    text: |-
+      Run tests/smoke-update.sh and tests/smoke-bootstrap.sh green.
+state:
+  steps:
+    P3.T1.S1:
+      state: x
+      ticked_at: '2026-07-27T15:29:32+00:00'
+      note: null
+    P3.T2.S1:
+      state: x
+      ticked_at: '2026-07-27T15:29:32+00:00'
+      note: null
+    P3.T2.S2:
+      state: x
+      ticked_at: '2026-07-27T15:29:32+00:00'
+      note: null
+    P3.T3.S1:
+      state: x
+      ticked_at: '2026-07-27T15:29:32+00:00'
+      note: null
+    P3.T3.S2:
+      state: x
+      ticked_at: '2026-07-27T15:29:32+00:00'
+      note: null
+  completion:
+    at: '2026-07-27T15:29:32+00:00'
+    note: smoke-update 19/19; smoke-bootstrap 6/6; unit+reproduction green. Negative
+      control (snapshot deleted) confirms the toggle assertion fails without the fix.
+    observed_prs: []
