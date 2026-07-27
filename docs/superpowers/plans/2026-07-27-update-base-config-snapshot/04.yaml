@@ -1,0 +1,76 @@
+schema_version: 2
+phase:
+  number: 4
+  title: 'Ship it: docs, mirrors, acceptance rows, version'
+  tag: agentic
+  depends_on:
+  - 3
+  acceptance:
+  - UB-1
+  - UB-2
+  - UB-3
+  - UB-4
+  tracking_issue: null
+tasks:
+- number: 1
+  title: Documentation
+  steps:
+  - id: P4.T1.S1
+    text: |-
+      Update skills/update/SKILL.md: the base is render(config at last sync, templates at
+      the recorded version); what .blog-craft.sync.yaml is and that it must be committed;
+      the NOOP outcome and what a surprising NOOP means (the base is wrong — stale or
+      absent snapshot); the guardrails section still says "no per-repo baseline is stored".
+  - id: P4.T1.S2
+    text: |-
+      Mirror the skill edit into .opencode/skills/blog-craft-update/SKILL.md the way the
+      repo's sync script does it (do not hand-diverge the two), and document
+      .blog-craft.sync.yaml in docs/CONFIG.md next to blog_craft_version.
+- number: 2
+  title: Acceptance matrix + changelog + version
+  steps:
+  - id: P4.T2.S1
+    text: |-
+      Add acceptance rows to docs/acceptance/matrix.yaml for the spec's Test Plan claims
+      (honest base from the snapshot; a merged-path feature toggle lands; NOOP is a distinct
+      reported outcome), citing the new unit tests and the smoke leg as levels, with the
+      right status. Run `fr acceptance check` clean.
+  - id: P4.T2.S2
+    text: |-
+      Add a CHANGELOG.md entry, and bump the version with tools/bump_version.py patch —
+      tools/ and templates/ both changed, so CI's version-bump guard requires it. Verify
+      with `python3 tools/bump_version.py --check`.
+- number: 3
+  title: Full verification
+  steps:
+  - id: P4.T3.S1
+    text: |-
+      Run the whole gate exactly as CI does: bump_version --check, unit + reproduction
+      suites, then smoke bootstrap/media/papers/update/character-sheet. Paste real output;
+      do not summarise a run you did not do.
+state:
+  steps:
+    P4.T1.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P4.T1.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P4.T2.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P4.T2.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P4.T3.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+  completion:
+    at: null
+    note: null
+    observed_prs: []

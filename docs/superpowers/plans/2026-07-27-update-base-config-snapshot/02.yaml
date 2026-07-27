@@ -1,0 +1,135 @@
+schema_version: 2
+phase:
+  number: 2
+  title: update.py — honest base from the snapshot, and a NOOP that is visible
+  tag: agentic
+  depends_on:
+  - 1
+  acceptance:
+  - UB-1
+  - UB-2
+  - UB-3
+  - UB-4
+  tracking_issue: null
+tasks:
+- number: 1
+  title: 'Failing tests: the #60 regression and the NOOP action'
+  steps:
+  - id: P2.T1.S1
+    text: |-
+      Write tests/unit/test_update_base_snapshot.py FIRST (red). Assert the defect at the
+      level it lives: with base rendered from the PRE-toggle config the feature's line is
+      planned onto the merged path, and with base rendered from the POST-toggle config the
+      3-way merge drops it. Use small synthetic base/local/staging trees over a merged-class
+      path (e.g. .github/workflows/blog-ci.yml) — no git tags, no Hugo, offline.
+  - id: P2.T1.S2
+    text: |-
+      In the same file, cover base-config SELECTION: snapshot present wins over the live
+      config; snapshot absent falls back to the live config AND emits the warning; a
+      snapshot whose render fails falls back to the live config with a warning rather than
+      aborting the run. Factor the selection into a testable helper rather than testing
+      _main by subprocess.
+  - id: P2.T1.S3
+    text: |-
+      Extend tests/unit/test_update_flow.py: a merged path whose clean 3-way merge equals
+      the on-disk bytes plans action "noop"; apply_plan leaves that file byte-identical;
+      dry_run_diff renders NOOP; and a merge that DOES change the file still plans "merge".
+      Confirm all new tests fail red first.
+- number: 2
+  title: Implement the NOOP action
+  steps:
+  - id: P2.T2.S1
+    text: |-
+      In plan_update, split the clean-merge branch: merged == loc.read_bytes() -> action
+      "noop", else "merge". Keep the conflict branch untouched.
+  - id: P2.T2.S2
+    text: |-
+      dry_run_diff prints NOOP with the reason "merge produced no change"; apply_plan skips
+      "noop" (writes nothing); _main prints a per-action tally after the plan so a dry-run
+      reads as counts, not a wall of lines.
+- number: 3
+  title: Implement snapshot-aware base resolution
+  steps:
+  - id: P2.T3.S1
+    text: |-
+      Add the base-config selection helper: snapshot if present else the live config,
+      returning both the chosen path and a warning string (None when exact). Wire it into
+      _main ahead of base_by_rerender. Leave base_by_rerender's signature and single
+      purpose — render THIS config at THAT tag — alone; only the caller's choice changes.
+  - id: P2.T3.S2
+    text: |-
+      Print the fallback warning to stderr, worded per the spec: no snapshot means the base
+      is rendered with the CURRENT config, config edits since the last sync may be dropped
+      on merged paths, this run records the snapshot, the next update is exact.
+  - id: P2.T3.S3
+    text: |-
+      Guard the snapshot render: if rendering the snapshot at the recorded tag raises, warn
+      and retry with the live config rather than killing the run.
+  - id: P2.T3.S4
+    text: |-
+      On a conflict-free --apply, write the snapshot from the live config via
+      sync_state.write_snapshot, and say so on stdout. Do NOT write it when the apply
+      reported conflicts. Update update.py's module docstring, which still claims the base
+      is recovered with no stored state.
+- number: 4
+  title: Prove the fix end-to-end against the real reproduction
+  steps:
+  - id: P2.T4.S1
+    text: |-
+      Re-run the issue's real repro (bootstrap a blog at tag v0.13.0 with
+      features.glossary off, write the snapshot for it, toggle the flag on, run update.py
+      --apply) and confirm the Validate glossary step now LANDS in
+      .github/workflows/blog-ci.yml. Record the before/after counts.
+  - id: P2.T4.S2
+    text: |-
+      Run the full unit + reproduction suites green.
+state:
+  steps:
+    P2.T1.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T1.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T1.S3:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T2.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T2.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T3.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T3.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T3.S3:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T3.S4:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T4.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T4.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+  completion:
+    at: null
+    note: null
+    observed_prs: []
