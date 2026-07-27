@@ -1,0 +1,51 @@
+schema_version: 2
+phase:
+  number: 3
+  title: '#61 — the hookify rule ships where hookify actually looks'
+  tag: agentic
+  depends_on:
+  - 2
+  acceptance:
+  - UPD-R3
+  tracking_issue: null
+tasks:
+- number: 1
+  title: Move + template the rule; classify and root it
+  steps:
+  - id: P3.T1.S1
+    text: |
+      [RED] tests/unit/test_hookify_rule.py:
+        1. the materialized rule lands at .claude/hookify.warn-hextra-weight-zero.local.md — the ONLY shape hookify's loader globs (verified: plugins/hookify/core/config_loader.py does glob.glob('.claude/hookify.*.local.md') from the project CWD; the old '.hookify.warn-hextra-weight-zero.md' matches neither the directory nor the filename, so it has never loaded for ANY blog);
+        2. rendered with site_dir absent, its file_path condition pattern is `content/.*\.md$`;
+        3. rendered with site_dir: blog, it is `blog/content/.*\.md$` — hookify matches file_path from the project root, so the rule's own path pattern is site-relative and must carry the prefix;
+        4. the rendered file parses through hookify's own extract_frontmatter shape: name/enabled/event/action present and a two-item conditions list.
+      Render via the Go renderer the way tests/unit/test_ci_template.py does.
+      Run: bash tests/run-unit.sh -k hookify
+      EXPECT: RED.
+  - id: P3.T1.S2
+    text: |
+      [GREEN] git mv templates/hugo-hextra/.hookify.warn-hextra-weight-zero.md to templates/hugo-hextra/.claude/hookify.warn-hextra-weight-zero.local.md.tmpl; add the site-prefix variable block from spec §B5 and use it in the file_path pattern. Update templates/manifest.yaml: replace the framework row '.hookify.warn-hextra-weight-zero.md' with '.claude/**', and add '.claude/**' to roots.repo (spec §B2 already lists it).
+      Run: bash tests/run-unit.sh -k "hookify or test_path_manifest or test_path_roots or roadmap_guard"
+      EXPECT: green.
+  - id: P3.T1.S3
+    text: |
+      Check tests/unit/test_roadmap_guard.py and anything else that referenced the old hookify path (grep -rn 'hookify' tests/ docs/ skills/ templates/) and update the references. Run the FULL unit suite: bash tests/run-unit.sh tests/unit
+      EXPECT: green.
+state:
+  steps:
+    P3.T1.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P3.T1.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P3.T1.S3:
+      state: ' '
+      ticked_at: null
+      note: null
+  completion:
+    at: null
+    note: null
+    observed_prs: []

@@ -542,3 +542,54 @@ rows:
       asserts the stylesheet contract (anchored rules gated behind @supports,
       block-end preferred, both try-fallbacks declared, UA popover inset/margin
       reset, fallback that cannot regress to the corner).'
+  - id: UPD-R1
+    capability: update-path-roots
+    acceptance: /update accepts the documented relative --config/--blog invocation from
+      a blog root
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-27-path-roots-and-subprocess-legibility-design.md
+    levels: {}
+    status: not-implemented
+    notes: blog-craft#59 — the documented form always failed; the relative path was
+      resolved after bootstrap-render.sh's internal cd. Flips to ci when tests/unit/test_update_paths.py
+      lands.
+  - id: UPD-R2
+    capability: update-path-roots
+    acceptance: A renderer failure surfaces the renderer's own stderr, not a bare CalledProcessError
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-27-path-roots-and-subprocess-legibility-design.md
+    levels: {}
+    status: not-implemented
+    notes: blog-craft#59 second half — reproduce.py captured the streams and discarded
+      them. Flips to ci when tests/unit/test_proc.py lands.
+  - id: UPD-R3
+    capability: update-path-roots
+    acceptance: Repo-rooted materialized paths (.github/**, .claude/**) are never placed
+      under site_dir
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-27-path-roots-and-subprocess-legibility-design.md
+    levels: {}
+    status: not-implemented
+    notes: blog-craft#61 — GitHub Actions and hookify define their own locations from
+      the repo root. Flips to ci when tests/unit/test_path_roots.py lands.
+  - id: UPD-R4
+    capability: update-path-roots
+    acceptance: /update relocates a stale pre-root-model copy instead of leaving two,
+      and a re-run plans nothing
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-27-path-roots-and-subprocess-legibility-design.md
+    levels: {}
+    status: not-implemented
+    notes: blog-craft#61 — without this the next /update re-adds the dead file. Flips
+      to ci when tests/unit/test_update_relocation.py lands.
+  - id: UPD-R5
+    capability: update-path-roots
+    acceptance: A site_dir blog's CI workflow renders repo-root-relative paths that
+      resolve from the repository root
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-27-path-roots-and-subprocess-legibility-design.md
+    levels: {}
+    status: not-implemented
+    notes: blog-craft#61 — moving the file to the right place is not enough if its paths
+      assume cwd is the site root. Flips to ci when tests/unit/test_ci_template.py covers
+      site_dir.
