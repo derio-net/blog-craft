@@ -670,3 +670,74 @@ rows:
       lists them on the one run that can still tell. Pinned in both directions: fires
       on a fallback-base run with NOOPs, silent on a snapshot-backed run and on a fallback
       run with none, and reports mapped destinations (site_dir-aware).'
+  - id: BPC-1
+    capability: post-scaffold-fidelity
+    acceptance: 'A scaffolded prompts entry leaves the entries file parseable whatever
+      indentation the file''s own images: sequence uses'
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-27-scaffolder-output-fidelity-design.md
+    levels: {}
+    status: not-implemented
+    notes: '#65 item 1 (data-corrupting). Awaits tools/prompts_append.py + the blog-post-create.sh
+      rewire.'
+  - id: BPC-2
+    capability: post-scaffold-fidelity
+    acceptance: An append that would corrupt the entries file fails loudly and leaves
+      the file byte-identical
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-27-scaffolder-output-fidelity-design.md
+    levels: {}
+    status: not-implemented
+    notes: '#65 spec D2 — the verify-after-write pass. Today the helper exits 0 over
+      a broken file.'
+  - id: BPC-3
+    capability: post-scaffold-fidelity
+    acceptance: A scaffolded post appears in its series overview — frontmatter carries
+      the series the shortcode derives from
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-27-scaffolder-output-fidelity-design.md
+    levels: {}
+    status: not-implemented
+    notes: '#65 item 2. {{< series-index >}} is page-derived from series:, which the
+      scaffolder never emitted.'
+  - id: BPC-4
+    capability: post-scaffold-fidelity
+    acceptance: layer and tags are set from the invocation, and their absence is visible
+      in the file rather than silent
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-27-scaffolder-output-fidelity-design.md
+    levels: {}
+    status: not-implemented
+    notes: '#65 item 2, second half. --layer validated against series_index.layers[].code;
+      --tag repeatable.'
+  - id: BPC-5
+    capability: post-scaffold-fidelity
+    acceptance: The entry key is overridable and the cover output default follows the
+      conventions the entries file already shows
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-27-scaffolder-output-fidelity-design.md
+    levels: {}
+    status: not-implemented
+    notes: '#65 item 3. --key had no override at all; output default ignored bundle-shaped
+      covers.'
+  - id: GL-10
+    capability: abbreviation-glossary
+    acceptance: Two expansions of the same abbreviation can both be defined and both
+      render as that abbreviation, inline and in the index
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-27-scaffolder-output-fidelity-design.md
+    levels: {}
+    status: not-implemented
+    notes: '#65 item 4. Optional entry-level rendered_text; precedence call-site arg
+      > rendered_text > key in abbr.html AND glossary-index.html (the index rendered
+      the raw key, leaking any disambiguating suffix).'
+  - id: GL-11
+    capability: abbreviation-glossary
+    acceptance: The glossary validator accepts rendered_text as a typed optional field
+      and never rejects two entries for sharing one
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-27-scaffolder-output-fidelity-design.md
+    levels: {}
+    status: not-implemented
+    notes: '#65 item 4. Case-colliding keys stay an error; a shared rendered_text is
+      the intended use, not a collision.'

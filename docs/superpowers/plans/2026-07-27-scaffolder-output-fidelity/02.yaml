@@ -1,0 +1,66 @@
+schema_version: 2
+phase:
+  number: 2
+  title: blog-post-create.sh uses the appender —
+  tag: agentic
+  depends_on:
+  - 1
+  tracking_issue: null
+  acceptance:
+  - BPC-1
+  - BPC-2
+tasks:
+- number: 1
+  title: Rewire the append path
+  steps:
+  - id: P2.T1.S1
+    text: |
+      [RED] Add to tests/unit/test_blog_post_create.py, extending _mk_blog with a `prompts_seed` parameter so a test can seed the entries file with a REAL existing entry instead of the bare "images:\n" that hid this bug (tests/unit/test_blog_post_create.py:37 — an empty sequence parses identically at either indent, which is why six passing tests missed a data-corrupting defect):
+        - a column-0 seeded entries file -> scaffold -> yaml.safe_load succeeds and images has exactly 2 entries, the second being the new key (this is the exact reproduction in the issue)
+        - a 2-space seeded file -> same
+        - a seeded file with no trailing newline -> same
+        - an already-broken entries file -> the script exits NON-ZERO (it exited 0 before) and the entries file bytes are unchanged
+      Run: bash tests/run-unit.sh -k blog_post_create
+      EXPECT: RED.
+  - id: P2.T1.S2
+    text: |
+      [GREEN] In tools/blog-post-create.sh, replace the `{ echo ...; } >> "$PROMPTS_YAML"` block (currently :139-160) with: compose the entry block into a temp file at the authored 2-space indent, then invoke `python3 "$HERE/prompts_append.py" append --file "$PROMPTS_YAML" --key "$KEY" --entry-file "$TMP"`. Locate the helper next to blog-post-create.sh (same `$HERE` the script already computes at :78) and fail with a clear error if it is missing. Propagate its exit code — `set -euo pipefail` is already on, but assert the behaviour in the test rather than trusting it. Clean the temp file on exit via trap.
+      Run: bash tests/run-unit.sh -k blog_post_create
+      EXPECT: GREEN.
+- number: 2
+  title: Un-hardcode the smoke test's indent assumption
+  steps:
+  - id: P2.T2.S1
+    text: |
+      tests/smoke-blog-post.sh:93 counts the appended scene's lines with awk terminating on `/^  - key:/` — a hardcoded 2-space indent that would silently stop terminating if the fixture's indentation ever changed, making the assertion vacuous. Relax it to `/^[[:space:]]*- key:/`.
+      Run: BLOG_CRAFT_TEST_MODE=1 PYTHON=python3 bash tests/smoke-blog-post.sh
+      EXPECT: all assertions pass (B2.d still reports 1 line — confirm it is not vacuously passing by checking the count is 1, not 0).
+- number: 3
+  title: Verify (phase 2)
+  steps:
+  - id: P2.T3.S1
+    text: |
+      [VERIFY] bash tests/run-unit.sh && BLOG_CRAFT_TEST_MODE=1 PYTHON=python3 bash tests/smoke-blog-post.sh
+      EXPECT: green.
+state:
+  steps:
+    P2.T1.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T1.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T2.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T3.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+  completion:
+    at: null
+    note: null
+    observed_prs: []

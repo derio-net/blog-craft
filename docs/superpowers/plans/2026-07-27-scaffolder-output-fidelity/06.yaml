@@ -1,0 +1,88 @@
+schema_version: 2
+phase:
+  number: 6
+  title: Docs, version, mirrors, matrix — the shipped surface made honest
+  tag: agentic
+  depends_on:
+  - 4
+  - 5
+  tracking_issue: null
+  acceptance:
+  - BPC-1
+  - BPC-2
+  - BPC-3
+  - BPC-4
+  - BPC-5
+  - GL-10
+  - GL-11
+tasks:
+- number: 1
+  title: Skill and config docs
+  steps:
+  - id: P6.T1.S1
+    text: |
+      Update skills/blog-post/SKILL.md: the Plugin internals helper line (:27) gains --key/--layer/--tag; Step 4 instructs the agent to propose `tags` alongside the summary and to ask the operator for the `layer` when `series_index.layers` is declared (listing the codes); Step 8's invocation block shows the new flags and tells the agent to read a few existing entries in <image.prompts_file> and pass --key when the blog's keys are not `<series>-<number>`; the numbered "The helper" list (:198-202) is corrected — item 1 lists series/layer/tags, item 2 states the entry is appended at the file's own sequence indentation and verified after write. Fix the claim at :202 / Step 8 that the overview "lists the new post automatically" to say it does so BECAUSE the frontmatter now carries `series` (that promise was false before this change — #65 item 2).
+      Update skills/glossary/SKILL.md: document `rendered_text` in the Step 4 entry schema (:60-71) and state plainly in Notes that glossary_apply.py matches literal tokens and can therefore only auto-mark the DEFAULT sense of a colliding abbreviation — the author must mark the second sense themselves. (That sentence is documentation the step WRITES, not an operation this step performs; the whole step is a file edit.)
+      Update docs/CONFIG.md: §9's registry rules (:352-376) gain rendered_text with the precedence chain; the image-entry docs note the cover-default detection.
+      Run: python3 -c "import re,sys; [sys.exit(1) for f in ['skills/blog-post/SKILL.md'] if False]" ; grep -n 'key\|layer\|tag' skills/blog-post/SKILL.md | head
+      EXPECT: the docs read back consistent with the code; no stale --output-only sentence remains.
+  - id: P6.T1.S2
+    text: |
+      Re-sync the OpenCode mirrors: `uv run scripts/sync-opencode.py` (both edited skills have byte-identical copies under .opencode/skills/blog-craft-<name>/).
+      Run: bash tests/run-unit.sh -k "opencode or mirrors"
+      EXPECT: GREEN.
+- number: 2
+  title: Version, changelog, acceptance matrix
+  steps:
+  - id: P6.T2.S1
+    text: |
+      Run `tools/bump_version.py minor` (0.16.2 -> 0.17.0). The diff touches tools/, templates/ and skills/ — all under check_version_bump_needed.py:22's required prefixes — and adds four flags plus an optional data field, which is added capability rather than a pure fix (spec D9).
+      Add a `## [0.17.0] - 2026-07-27` CHANGELOG.md section in the house style (bolded lead sentence, issue ref, what was wrong and why it was silent) with `### Fixed` for #65 items 1-3 and `### Added` for --key/--layer/--tag and rendered_text. Keep `## [Unreleased]` above it.
+      Run: python3 tools/bump_version.py --check && bash tests/run-unit.sh -k "changelog or version"
+      EXPECT: GREEN.
+  - id: P6.T2.S2
+    text: |
+      Flip the acceptance rows added for this spec from not-implemented to ci, attaching the test refs: BPC-1/2 -> tests/unit/test_prompts_append.py + tests/unit/test_blog_post_create.py (unit) and tests/smoke-blog-post.sh (int); BPC-3/4/5 -> tests/unit/test_blog_post_create.py; GL-10 -> tests/unit/test_glossary_hugo.py; GL-11 -> tests/unit/test_glossary_validator.py. Edit the rows in docs/acceptance/matrix.yaml (levels + status + notes recording the evidence).
+      Run: fr acceptance check
+      EXPECT: exit 0, and none of BPC-1..5 / GL-10..11 appear as not-implemented warnings.
+- number: 3
+  title: Verify (phase 6)
+  steps:
+  - id: P6.T3.S1
+    text: |
+      [VERIFY] bash tests/run-unit.sh && BLOG_CRAFT_TEST_MODE=1 PYTHON=python3 bash tests/smoke-blog-post.sh && BLOG_CRAFT_TEST_MODE=1 bash tests/smoke-update.sh && python3 tools/bump_version.py --check && fr acceptance check
+      EXPECT: all green. smoke-update.sh is in the list because the glossary templates are `framework`-class and travel to blogs through /update.
+  - id: P6.T3.S2
+    text: |
+      [VERIFY] Re-run the issue's exact reproduction against a throwaway frank-shaped blog: seed prompt_for_images.yaml with a column-0 `images:` sequence plus one entry, scaffold with --no-generate, then confirm (a) the file parses, (b) `generate-images.py --print-prompt <key>` runs — the Step 6 preview the issue reports as broken, and (c) the frontmatter carries series/layer/tags.
+      EXPECT: all three hold. This is the end-to-end shape of the bug report, not a unit slice of it.
+state:
+  steps:
+    P6.T1.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P6.T1.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P6.T2.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P6.T2.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P6.T3.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P6.T3.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+  completion:
+    at: null
+    note: null
+    observed_prs: []
