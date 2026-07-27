@@ -91,7 +91,11 @@ cliché conclusions.
 
 Dual use, single source: the drafting skills apply it as a mandatory
 self-revision instruction; the validator's lint word/pattern lists derive from
-this file so prose and mechanics cannot drift apart.
+this file so prose and mechanics cannot drift apart. Mechanism: `ai-tells.md`
+carries a fenced machine-readable YAML block (word lists, regex patterns,
+default thresholds) that `validate_educational.py` parses — the prose guidance
+and the lint data physically share the file, and the validator never parses
+markdown prose.
 
 ### 3. `agents/cold-reader.md` (new agent)
 
@@ -133,6 +137,10 @@ New lint checks, run with the existing gate, warnings-first:
 | Negative-parallelism / rule-of-three density | warn |
 | Cliché conclusion openers | warn |
 | Missing what-transfers-style closing section on building/tutorial posts | warn |
+
+Mode-conditional checks (what-transfers, landscape) key off the **`diataxis`
+frontmatter** (tutorial/explanation vs how-to/reference), never series names —
+series names are per-blog and carry no mode semantics.
 
 Warnings print with counts and line numbers, exit 0. Existing hard-gate items
 untouched. Thresholds and per-check severity live in a new **`quality.lint`**
