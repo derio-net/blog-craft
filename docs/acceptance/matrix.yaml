@@ -599,7 +599,7 @@ rows:
     acceptance: The 3-way merge base is rendered from the config as of the last sync,
       not the operator's current (possibly just-edited) config
     origin:
-    - blog-craft:docs/superpowers/specs/2026-07-27-update-base-config-snapshot-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-07-27-update-base-config-snapshot-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_update_base_snapshot.py
@@ -616,7 +616,7 @@ rows:
     acceptance: Enabling a features.* flag lands that feature's contribution in merged-class
       files on the very run that enables it
     origin:
-    - blog-craft:docs/superpowers/specs/2026-07-27-update-base-config-snapshot-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-07-27-update-base-config-snapshot-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_update_base_snapshot.py
@@ -632,7 +632,7 @@ rows:
     acceptance: A 3-way merge that changes nothing on disk is reported as a distinct
       NOOP outcome, never as MERGE
     origin:
-    - blog-craft:docs/superpowers/specs/2026-07-27-update-base-config-snapshot-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-07-27-update-base-config-snapshot-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_update_flow.py
@@ -647,10 +647,26 @@ rows:
     acceptance: A blog with no sync snapshot still updates, warns that its base is approximate,
       and records a snapshot so the next update is exact
     origin:
-    - blog-craft:docs/superpowers/specs/2026-07-27-update-base-config-snapshot-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-07-27-update-base-config-snapshot-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_update_base_snapshot.py
     status: ci
     notes: 'Backward compatibility for every blog synced before this fix; the warning
       is the signal whose absence made #60 invisible.'
+  - id: UB-5
+    capability: update-base-fidelity
+    acceptance: 'The run that backfills the first snapshot names the merged paths it
+      may have frozen, so a pre-existing #60 drop is still visible once'
+    origin:
+    - blog-craft:docs/superpowers/implemented/specs/2026-07-27-update-base-config-snapshot-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_update_base_snapshot.py
+    status: ci
+    notes: 'Recording the first snapshot fixes every future update but baselines whatever
+      the tree holds — including a change an earlier pre-#60 run already dropped; from
+      the next run that path is an ordinary NOOP with no warning. update.baselined_by_fallback
+      lists them on the one run that can still tell. Pinned in both directions: fires
+      on a fallback-base run with NOOPs, silent on a snapshot-backed run and on a fallback
+      run with none, and reports mapped destinations (site_dir-aware).'
