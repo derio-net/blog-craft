@@ -28,6 +28,7 @@ Library:
   plan_update(blog, staging, base, manifest) -> list[dict]   # actions
   dry_run_diff(plan) -> str
   plan_summary(plan) -> str                                  # per-action tally
+  baselined_by_fallback(plan) -> list[str]                   # NOOPs a fallback base hid
   apply_plan(blog, plan) -> list[str]                        # conflicted paths
 """
 from __future__ import annotations
@@ -158,6 +159,38 @@ def plan_summary(plan: list[dict]) -> str:
     return ", ".join(f"{counts[a]} {a}" for a in order if counts.get(a))
 
 
+def baselined_by_fallback(plan: list[dict]) -> list[str]:
+    """`merged` paths that resolved to NOOP — where a pre-#60 drop would be hiding.
+
+    A NOOP means the merge kept local wholesale. Against an HONEST base that is
+    simply "nothing to do". Against the FALLBACK base — rendered from the current
+    config because the blog has no snapshot yet — it also covers the case this
+    fix exists to end: blog-craft shipped a change, an earlier run dropped it, and
+    a base built from today's config now agrees the absence was deliberate.
+
+    The two are indistinguishable from inside a single run, so the caller names
+    them instead of guessing. Cheap to ignore when they are the harmless kind;
+    the only way to notice when they are not.
+    """
+    return [e.get("dest", e["path"]) for e in plan if e["action"] == "noop"]
+
+
+def _baselined_warning(paths: list[str]) -> str:
+    listed = "\n".join(f"           {p}" for p in paths)
+    return (
+        f"a snapshot was recorded, but THIS run's base still came from the current\n"
+        f"         config — there was no {SNAPSHOT_NAME} when it started. These\n"
+        f"         `merged` paths resolved to NOOP against that base:\n{listed}\n"
+        "         If blog-craft shipped a change to one of them BEFORE this run, an\n"
+        "         earlier update dropped it (#60) — and the snapshot just written now\n"
+        "         makes every future update agree with that drift instead of\n"
+        "         reporting it. This is the one run that can still tell you.\n"
+        "         Check each against a fresh render before trusting it:\n"
+        "           bash <blog-craft>/tools/bootstrap-render.sh <config> /tmp/bc-fresh\n"
+        "         then diff /tmp/bc-fresh/<staging-relative path> against your copy."
+    )
+
+
 def apply_plan(blog: str | Path, staging: str | Path, plan: list[dict]) -> list[str]:
     blog, staging = Path(blog), Path(staging)
     conflicts: list[str] = []
@@ -258,6 +291,10 @@ def _main(argv):
                          "e.g. --only 'scripts/**' migrates the image machinery only")
     ap.add_argument("--apply", action="store_true", help="apply (default is dry-run)")
     a = ap.parse_args(argv)
+    # Is THIS run's base the #60 fallback? Read before anything can write a
+    # snapshot — a conflict-free apply records one, after which the answer would
+    # always be "no" and the one chance to flag pre-existing drift would be gone.
+    fallback_base = not a.base and read_snapshot(a.blog) is None
     import yaml
     m = default_manifest()
     cfg = yaml.safe_load(open(a.config)) or {}
@@ -298,6 +335,17 @@ def _main(argv):
                 # will fall back to the current config.
                 _warn(f"applied, but could not write {SNAPSHOT_NAME} ({e}) — the next\n"
                       "         update will render its base from the current config (#60).")
+            else:
+                # A snapshot now exists, so this blog's base is honest from here
+                # on. What it cannot do is undo a drop that happened before it:
+                # the snapshot asserts "synced to this config" over a tree that
+                # may not match, and from the next run those paths are ordinary
+                # NOOPs with no warning attached. Name them while it still means
+                # something.
+                if fallback_base:
+                    suspect = baselined_by_fallback(plan)
+                    if suspect:
+                        _warn(_baselined_warning(suspect))
         print("update applied")
         return 0
 

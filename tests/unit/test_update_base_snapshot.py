@@ -220,3 +220,80 @@ def test_render_base_propagates_when_the_live_config_will_not_render_either(tmp_
 
     with pytest.raises(RuntimeError, match="not reachable"):
         render_base(live, blog, "v0.13.0", str(tmp_path / "b"), render=render, warn=lambda _: None)
+
+
+# --- the first snapshot cannot undo a drop that predates it -------------------
+#
+# Recording a snapshot fixes every FUTURE update, but it also freezes whatever
+# the tree happens to contain. If an earlier, pre-#60 run already dropped
+# something, the snapshot asserts "synced to this config" over a tree that does
+# not match it — and from the next run onward that path is an ordinary NOOP with
+# no warning left on it. The fallback run is the last one able to say so.
+
+
+def _apply_with_base(tmp_path, monkeypatch, base_tree, blog_tree, stg_tree):
+    cfg = tmp_path / "cfg.yaml"
+    cfg.write_text("version: 5\nblog_craft_version: v0.16.0\n")
+    monkeypatch.setattr(update, "render_staging", lambda c, dest: stg_tree)
+    monkeypatch.setattr(update, "render_base", lambda c, b, v, dest: str(base_tree))
+    return update._main(["--config", str(cfg), "--blog", str(blog_tree), "--apply"])
+
+
+def test_a_fallback_base_names_the_paths_it_may_have_baselined(tmp_path, monkeypatch, capsys):
+    # base has the step, blog does not -> diff3 reads a deliberate deletion and
+    # keeps it: a NOOP. With no snapshot at the start of the run, that base was
+    # built from the current config, so the NOOP is not trustworthy.
+    rc = _apply_with_base(
+        tmp_path, monkeypatch,
+        _tree(tmp_path / "base", {CI_PATH: _ci(True)}),
+        _tree(tmp_path / "blog", {CI_PATH: _ci(False)}),
+        _tree(tmp_path / "stg", {CI_PATH: _ci(True)}),
+    )
+    err = capsys.readouterr().err
+
+    assert rc == 0
+    assert CI_PATH in err, "the suspect path must be named, not merely counted"
+    assert "#60" in err
+
+
+def test_a_snapshot_backed_run_does_not_cry_baseline(tmp_path, monkeypatch, capsys):
+    # Same NOOP, but the blog already had a snapshot when the run started, so the
+    # base was honest and the NOOP means exactly what it says.
+    blog = _tree(tmp_path / "blog", {CI_PATH: _ci(False)})
+    sync_state.write_snapshot(_config(tmp_path, "old.yaml", "version: 5\n"), blog)
+
+    rc = _apply_with_base(
+        tmp_path, monkeypatch,
+        _tree(tmp_path / "base", {CI_PATH: _ci(True)}),
+        blog,
+        _tree(tmp_path / "stg", {CI_PATH: _ci(True)}),
+    )
+
+    assert rc == 0
+    assert "baselined" not in capsys.readouterr().err
+
+
+def test_nothing_is_flagged_when_the_fallback_run_had_no_noops(tmp_path, monkeypatch, capsys):
+    # A fallback base is only worth mentioning where it actually decided
+    # something. A clean plan must not train the operator to ignore the warning.
+    rc = _apply_with_base(
+        tmp_path, monkeypatch,
+        _tree(tmp_path / "base", {CI_PATH: _ci(False)}),
+        _tree(tmp_path / "blog", {CI_PATH: _ci(False)}),
+        _tree(tmp_path / "stg", {CI_PATH: _ci(True)}),      # a real change -> merge, not noop
+    )
+    out = capsys.readouterr()
+
+    assert rc == 0
+    assert "baselined" not in out.err
+    assert GLOSSARY_STEP in (tmp_path / "blog" / CI_PATH).read_text()
+
+
+def test_baselined_by_fallback_reports_mapped_destinations(tmp_path):
+    # site_dir blogs: the operator needs the path in THEIR tree, not the
+    # staging-relative one, or the diff instruction points at nothing.
+    plan = [
+        {"path": CI_PATH, "dest": f"blog/{CI_PATH}", "action": "noop", "class": "merged"},
+        {"path": "hugo.toml", "action": "merge", "class": "merged"},
+    ]
+    assert update.baselined_by_fallback(plan) == [f"blog/{CI_PATH}"]

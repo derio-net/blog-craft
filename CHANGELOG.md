@@ -42,6 +42,16 @@ matching `vX.Y.Z` tag on merge (#18).
   invisible for a release. A `NOOP` on a path you expected to change is now the
   visible fingerprint of a wrong base. The dry-run also prints a per-action
   tally.
+- **The backfilling run names what it may have frozen.** Recording the first
+  snapshot fixes every future update, but it also baselines whatever the tree
+  currently holds — including a change an earlier, pre-#60 run already dropped.
+  From the run after that, such a path is an ordinary `NOOP` with no warning on
+  it: the snapshot asserts "synced to this config" over a tree that does not
+  match, and the tool stops disagreeing. So the one run that can still tell you
+  now does, listing by mapped destination every `merged` path its fallback base
+  resolved to `NOOP`, with how to diff them against a fresh render. Silent on a
+  snapshot-backed run, and silent when the fallback decided nothing — a warning
+  that fires on clean plans is one operators learn to skip.
 
 ## [0.16.0] - 2026-07-27
 
