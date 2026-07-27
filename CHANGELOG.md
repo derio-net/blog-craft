@@ -10,6 +10,43 @@ matching `vX.Y.Z` tag on merge (#18).
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-07-27
+
+### Added
+- **`features.mermaid_csp_init` — mermaid survives a strict CSP (#58).** The
+  third instance of the failure class 0.15.0 fixed twice, and the one that got
+  away: the Hextra theme initialises mermaid from an inline `<script>`, which
+  `script-src 'self'` drops. `mermaid.js` self-starts, so diagrams still
+  *appear* — always in the light theme, no longer following the dark/light
+  toggle, with no build error and nothing in the console. Enabling the feature
+  materializes `assets/js/mermaid-init.js`, which re-implements the theme's two
+  behaviours (source capture + `MutationObserver` re-render) from an external
+  asset; the theme's block stays in the markup, inert.
+
+  **Opt-in, unlike the 0.15.0 fixes, and the asymmetry is the point.** Those
+  replaced inline scripts blog-craft *itself* emitted, so nothing was left to
+  collide with. This one supersedes a script inside the **pinned theme**, which
+  blog-craft cannot remove — on a site with no CSP that block still runs, and
+  shipping ours unconditionally would give every such site two
+  `mermaid.initialize()` calls and two MutationObservers racing the same nodes.
+  The flag therefore tracks a fact about the deployment, not a preference.
+  Documented as `docs/CONFIG.md` §10.
+
+- **`tests/unit/test_mermaid_csp_init.py`** — the guard, and the reason this bug
+  outlived #56. `test_templates_csp_safe.py` asserts a *built* page carries no
+  inline `<script>`, but its fixture post contains no diagram, so the theme never
+  loads its mermaid partial and that assertion passed **vacuously** against this
+  failure. The new guard builds a page that actually uses mermaid and pins both
+  directions (flag on ⇒ external, deferred, same-origin `mermaid-init` in the
+  output; flag off ⇒ asset never materialized, nothing referenced). It also
+  asserts the theme *still* emits the inline init being superseded — keyed on
+  `dataset.original`, a load-bearing substring rather than a cosmetic one — so a
+  theme bump that fixes this upstream fails loudly and says to retire the flag,
+  instead of silently leaving two initialisers behind. Deliberately does **not**
+  assert "no inline script" on a mermaid page: there is one, blog-craft does not
+  own it, and the guarantee that matters is that a working external superseder
+  ships alongside it.
+
 ## [0.15.0] - 2026-07-26
 
 ### Fixed

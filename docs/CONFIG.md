@@ -61,6 +61,13 @@ quality:                  # optional; educational-writing gate (see §7). Absent
 
 features:                 # series_overview_posts, read_tracker, banners,
                           # roadmap{enabled,data}, analytics, css{mermaid_palette}
+  mermaid_csp_init: true  # optional; default false. Turn ON when the site serves
+                          # `script-src 'self'` without 'unsafe-inline': that drops
+                          # the theme's inline mermaid init, and diagrams then
+                          # freeze in the light theme instead of following the
+                          # dark/light toggle. Leave OFF otherwise — without a CSP
+                          # the theme's block still runs and you would get two
+                          # initialisers racing. See §10.
   glossary:               # optional; abbreviation glossary (see §9). Absent => off.
     enabled: true
     first_occurrence_only: true
@@ -454,3 +461,48 @@ is not gated on its own example.
 Ships at `scripts/validate_glossary.py` (with its `scripts/glossary_scan.py`
 companion — the validator imports it) so a plain-python CI runs it without the
 plugin, and runs as a CI step when `features.glossary.enabled` is true.
+
+## §10 Mermaid under a strict CSP (`features.mermaid_csp_init`)
+
+```yaml
+features:
+  mermaid_csp_init: true    # default false
+```
+
+Turn this on **when, and only when, the site serves `script-src 'self'` without
+`'unsafe-inline'`.**
+
+The Hextra theme initialises mermaid from an inline `<script>` at the end of
+`_partials/scripts/mermaid.html`: it captures each diagram's source, calls
+`mermaid.initialize()` with the current theme, and installs a MutationObserver
+that re-renders on the dark/light toggle. A strict `script-src` drops that block.
+
+The failure is quiet, which is the reason this knob exists at all. `mermaid.js`
+self-starts, so **diagrams still appear** — there is no blank space, no build
+error, and nothing in the console an author would think to look for. They simply
+render in the light theme always, and stop following the toggle, on every page
+that uses one. Enabling the feature materializes
+`assets/js/mermaid-init.js`, which re-implements both behaviours from an
+external asset; the theme's inline block stays in the markup, inert.
+
+**Why it is opt-in rather than always on.** The two CSP fixes in 0.15.0 replaced
+inline scripts *blog-craft itself emitted*, so there was nothing left behind to
+collide with. This one supersedes a script inside the pinned theme, which
+blog-craft cannot remove. On a site with no CSP that block still runs — shipping
+ours unconditionally would mean two `mermaid.initialize()` calls and two
+MutationObservers racing over the same nodes on every theme toggle. So the flag
+tracks a fact about your deployment, not a preference.
+
+If you enable a CSP later, flip this at the same time. If you are unsure whether
+your site sends one, check the response headers:
+
+```bash
+curl -sI https://<your-blog>/ | grep -i content-security-policy
+```
+
+Guarded by `tests/unit/test_mermaid_csp_init.py`, which pins both directions
+(flag on ⇒ an external, deferred, same-origin `mermaid-init` script in the built
+output; flag off ⇒ the asset is never materialized) and additionally asserts the
+theme *still* emits the inline init this feature supersedes — so a theme bump
+that fixes it upstream fails loudly and tells you to retire the flag rather than
+leaving you with a silent double-init.
