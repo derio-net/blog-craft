@@ -24,3 +24,13 @@ Phase 1 flagged that the mirrored validator's load_lint_data() default path (ski
 ### p2-hw3-flipped-early · discovery · HW-3 flipped to ci in phase 2 (completion nag + repo backfill rule), not phase 5
 
 fr plan edit --complete-phase 2 warned that HW-3/HW-4 were still not-implemented, and the repo's acceptance-matrix rule requires rows to move in the same PR as the tests that verify them. So phase 2 flipped HW-3 to ci citing tests/unit/test_educational_lint.py, test_ai_tells.py, and test_config_schema.py, and regenerated the report set (fr acceptance report --deterministic). HW-4 (quality.lint seeding) stays not-implemented with a note pointing at the pipeline-wiring phase (phase 4) — its seeding behavior does not exist yet. Phase 5 executor: HW-3 is already done; do not double-flip. HW-1 (reader-arc/what-transfers prose) note may deserve a levels ref to the what-transfers lint tests when phase 3/5 touch it.
+
+<!-- fr:journal kind=discovery scope=plan id=p3-hw1-flipped-early created=2026-07-27T23:15:33 phase=3 -->
+### p3-hw1-flipped-early · discovery · HW-1 flipped to ci in phase 3 (backfill rule), not phase 5 (phase 3)
+
+Phase 3's test_reader_arc_contract.py + phase 2's what-transfers lint tests together CI-pin HW-1's mechanical envelope, and the repo's acceptance-matrix rule requires rows to move in the same PR as the tests that verify them. So phase 3 flipped HW-1 to ci (levels: test_reader_arc_contract.py, test_educational_lint.py), noting prose quality on real posts stays operator judgment (phase 6 manual live run). Report set regenerated with 'fr acceptance report --deterministic'; 'fr acceptance check' green (54 rows, ci=44). Phase 5 executor: HW-1 and HW-3 are both done — only HW-2 and HW-4 remain to flip (HW-4 after phase 4 ships seeding, HW-2 after the cold-reader lands).
+
+<!-- fr:journal kind=discovery scope=plan id=p3-prose-files-not-mirrored created=2026-07-27T23:15:40 phase=3 -->
+### p3-prose-files-not-mirrored · discovery · SKILL.md / checklist.md / reader-arc.md have no template mirrors — only ai-tells.md + the validator do (phase 3)
+
+Checked per the phase-1/2 handoff: tests/unit/test_mirrors.py MIRRORS and a grep of templates/ confirm no copy of educational-writing SKILL.md, checklist.md, or the new references/reader-arc.md ships into materialized blogs. Only ai-tells.md and validate_educational.py are mirrored under templates/hugo-hextra/scripts/. Phase 3's prose edits therefore need no re-mirror. Also note for future executors: tests/run-unit.sh replaces its default 'tests/unit' path when given args, so 'bash tests/run-unit.sh -k foo' collects from the repo root (597 items) while the bare full run collects tests/unit only (587) — the count difference is collection scope, not missing tests.

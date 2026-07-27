@@ -676,10 +676,18 @@ rows:
       to the material and close with a what-transfers section
     origin:
     - blog-craft:docs/superpowers/specs/2026-07-27-humanize-writing-design.md
-    levels: {}
-    status: not-implemented
-    notes: Prose methodology (reader-arc.md) + lint warn for missing what-transfers
-      section; prose quality itself stays operator judgment
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_reader_arc_contract.py
+      - blog-craft:tests/unit/test_educational_lint.py
+    status: ci
+    notes: 'CI pins the mechanical envelope: the reader-arc.md methodology contract
+      (organizing rule, lay-of-the-land beginning, what-transfers ending,
+      mode-conditional + proportional sizing), the SKILL.md carve-out and
+      Session-skeleton signature, and the checklist items
+      (test_reader_arc_contract.py), plus the diataxis-keyed what-transfers lint
+      warn (test_educational_lint.py). Prose quality on a real post stays operator
+      judgment — the manual live-run phase exercises it.'
   - id: HW-2
     capability: Cold-reader editor pass
     acceptance: Every /blog-post and /post-rewrite draft is critiqued by a blind cold-reader
