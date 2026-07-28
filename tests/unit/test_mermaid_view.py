@@ -19,12 +19,21 @@ is the post-merge Test Plan (matrix rows MMD-2 / MMD-6).
 """
 import os
 import re
+import subprocess
+
+import yaml
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 FEATURE = os.path.join(ROOT, "templates", "features", "mermaid-view")
 CSS_PATH = os.path.join(FEATURE, "assets", "css", "mermaid-view.css")
 HOOK_PATH = os.path.join(
     FEATURE, "layouts", "_markup", "render-codeblock-mermaid.html")
+HEAD_END_PATH = os.path.join(
+    ROOT, "templates", "hugo-hextra", "layouts", "partials", "custom", "head-end.html")
+BOOTSTRAP = os.path.join(ROOT, "tools", "bootstrap-render.sh")
+FIX = os.path.join(ROOT, "tests", "fixtures")
+MV_CSS_REL = "assets/css/mermaid-view.css"
+MV_HOOK_REL = "layouts/_markup/render-codeblock-mermaid.html"
 
 
 def _css():
@@ -284,3 +293,72 @@ def test_the_hook_passes_the_diagram_source_through_unchanged():
     assert re.search(r"\.Inner\s*\|\s*htmlEscape\s*\|\s*safeHTML", _hook()), (
         "the source pipeline is the theme's: htmlEscape then safeHTML. Changing "
         "it either double-escapes the diagram or opens an injection path")
+
+
+# --- Task 4: wiring — head-end.html load order and the bootstrap [3h] gate ---
+
+def _head_end():
+    """head-end.html's markup, with Go template comments stripped.
+
+    The glossary block's header comment already quotes 'css/glossary.css' and
+    the mermaid-csp block quotes 'mermaid-init.js' — a raw substring search
+    would match those explanations for the WRONG feature, or in the worst case
+    pass vacuously on an empty partial whose only content is prose. Same trap
+    Task 3's _hook() guards against.
+    """
+    with open(HEAD_END_PATH) as fh:
+        return re.sub(r"\{\{-?\s*/\*.*?\*/\s*-?\}\}", "", fh.read(), flags=re.S)
+
+
+def test_head_end_loads_mermaid_view_css_before_custom_css():
+    # A blog overrides feature styling in its own custom.css, which only works
+    # if the feature sheet loads first — the same rule the glossary.css block
+    # at the top of this file already documents.
+    html = _head_end()
+    mermaid_idx = html.find('resources.Get "css/mermaid-view.css"')
+    custom_idx = html.find('resources.Get "css/custom.css"')
+    assert mermaid_idx != -1, "head-end.html must retrieve css/mermaid-view.css"
+    assert custom_idx != -1, "head-end.html must retrieve css/custom.css"
+    assert mermaid_idx < custom_idx, (
+        "mermaid-view.css must be requested BEFORE custom.css, or a blog's own "
+        "override of .content .mermaid in custom.css cannot win the cascade")
+
+
+def _mv_cfg(**features):
+    with open(os.path.join(FIX, "valid-v2.blog-craft.yaml")) as fh:
+        cfg = yaml.safe_load(fh)
+    if features:
+        cfg.setdefault("features", {}).update(features)
+    return cfg
+
+
+def _mv_bootstrap(cfg, tmp_path, name):
+    ans = tmp_path / f"{name}.yaml"
+    ans.write_text(yaml.safe_dump(cfg))
+    target = tmp_path / name
+    r = subprocess.run(["bash", BOOTSTRAP, str(ans), str(target)],
+                       capture_output=True, text=True)
+    assert r.returncode == 0, r.stdout + r.stderr
+    return target
+
+
+def test_bootstrap_materializes_mermaid_view_true_false_and_absent(tmp_path):
+    # --get-bool returns false for an ABSENT key (verified against
+    # tools/render-template/main.go's digBool), but the config contract says
+    # absent means true — a blog that never ran migrations/005_to_006.py must
+    # still get the fix, or the feature silently misses every existing blog.
+    on = _mv_bootstrap(_mv_cfg(mermaid_view=True), tmp_path, "on")
+    assert (on / MV_CSS_REL).exists(), "flag true but the stylesheet was not materialized"
+    assert (on / MV_HOOK_REL).exists(), "flag true but the render hook was not materialized"
+
+    off = _mv_bootstrap(_mv_cfg(mermaid_view=False), tmp_path, "off")
+    assert not (off / MV_CSS_REL).exists(), "flag explicitly false but the stylesheet materialized anyway"
+    assert not (off / MV_HOOK_REL).exists(), "flag explicitly false but the render hook materialized anyway"
+
+    absent = _mv_bootstrap(_mv_cfg(), tmp_path, "absent")   # no features.mermaid_view key at all
+    assert (absent / MV_CSS_REL).exists(), (
+        "features.mermaid_view is absent from this config — absent means true, "
+        "and the stylesheet must still be materialized")
+    assert (absent / MV_HOOK_REL).exists(), (
+        "features.mermaid_view is absent from this config — absent means true, "
+        "and the render hook must still be materialized")

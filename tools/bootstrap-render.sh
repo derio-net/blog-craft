@@ -135,6 +135,29 @@ else
   echo "[3g] mermaid-csp-init: SKIPPED (features.mermaid_csp_init != true)"
 fi
 
+# Natural-size mermaid rendering: the framed, horizontally scrollable diagram
+# container (assets/css/mermaid-view.css + the render-codeblock-mermaid.html
+# hook). DEFAULT ON — unlike every other features.* gate above, absence of the
+# key means true, not false. `--get-bool` returns "false" (via its stderr/exit
+# path, caught by `|| echo`) for a key that is simply ABSENT from the config,
+# which is exactly the case for every blog that has not yet run
+# migrations/005_to_006.py — copying the mermaid-csp-init pattern verbatim here
+# would silently deny the fix to every existing blog until it updates. So the
+# key's PRESENCE is checked first (`--has`, which is true for an explicit
+# `false` too, since false is non-nil) and only an explicit value overrides the
+# true default.
+if ( cd "$RENDERER_DIR" && go run . --answers "$ANSWERS" --has features.mermaid_view ) 2>/dev/null; then
+  mv_value=$(cd "$RENDERER_DIR" && go run . --answers "$ANSWERS" --get-bool features.mermaid_view 2>/dev/null || echo "false")
+else
+  mv_value="true"
+fi
+if [[ "$mv_value" == "true" ]]; then
+  echo "[3h] mermaid-view"
+  ( cd "$RENDERER_DIR" && go run . --src "$PLUGIN_ROOT/templates/features/mermaid-view" --dst "$TARGET" --answers "$ANSWERS" )
+else
+  echo "[3h] mermaid-view: SKIPPED (features.mermaid_view == false)"
+fi
+
 # Opt-in layer palette: when the config declares series_index.layers, generate
 # data/layer_palette.yaml (colours the series-index cards + roadmap). Non-fatal —
 # a machine without PyYAML gets a warning; the author runs the generator manually.
