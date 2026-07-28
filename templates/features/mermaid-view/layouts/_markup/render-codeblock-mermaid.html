@@ -31,7 +31,8 @@
 
        Note the one tension accepted deliberately: a focusable element inside
        role="img" is unusual. The alternative — an unfocusable scroller — fails
-       WCAG outright. Confirmed by the manual pass for matrix row MMD-6. */ -}}
+       WCAG outright. NOT yet verified against a real screen reader: matrix row
+       MMD-6 is the post-merge manual check that closes this. */ -}}
 <div role="img" aria-label="{{ (T "mermaidDiagram") | default "Diagram" }}">
   <pre class="mermaid hx:mt-6" tabindex="0">
     {{ .Inner | htmlEscape | safeHTML }}
