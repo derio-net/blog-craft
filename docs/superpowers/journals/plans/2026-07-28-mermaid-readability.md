@@ -158,3 +158,92 @@ tests/unit/test_mermaid_layout_gate.py (13 tests) directly proves MMD-3 ('a diag
 ### 091ae53fc81b · discovery · Three traps for anyone extending the gate or its tests (phase 5)
 
 (1) Chrome teardown race: proc.kill() then fs.rmSync(tmpdir) throws ENOTEMPTY intermittently — Chrome is still writing its profile while dying. The tool awaits the exit event (3s bound) before rm, and the rm is try/caught so cleanup can never override the gate's verdict (a finally-throw was silently REPLACING successful measurements with exit 2). (2) The test stub bundle's svg deliberately makes viewBox DISAGREE with the inline max-width (half of it): with equal values, a regression to viewBox-first readout is invisible. Keep that disagreement if you touch STUB_BUNDLE — it is what makes the readout-priority assertion falsifiable (mutation M5 fails two tests only because of it). (3) The stub throws if entity remnants (&lt; &amp; etc.) reach render(): built HTML escapes diagram source, so extractor decoding is load-bearing and every stub-based pass re-proves it. Also of note: measuring is one Chrome + one page + N sequential mermaid.render() calls — do not parallelize per diagram; the bundle load (3.2MB) is the fixed cost you'd multiply.
+
+<!-- fr:journal kind=discovery scope=plan id=18406795c81a created=2026-07-29T00:24:20 phase=6 -->
+### 18406795c81a · discovery · CI wiring: absent-vs-zero for quality.mermaid_max_width needs a seeded Go-template var, not a bare default() (phase 6)
+
+templates/hugo-hextra/.github/workflows/blog-ci.yml.tmpl gates the new "Validate
+mermaid layout" step on a computed $mmw, placed right after the Hugo build step
+(needs public/ to exist) and run at the REPO ROOT with the {{ $site }} prefix
+convention, same as every other validator - not under working-directory (that's
+Hugo-only, since hugo needs its go.mod at the site root).
+
+The three-way contract (absent -> 1400, 0 -> step OMITTED entirely, N -> step
+present with --max-width N) cannot be expressed as a bare
+`{{ default 1400 .quality.mermaid_max_width }}` for two independent reasons,
+both verified empirically against tools/render-template (plain Go
+text/template over the yaml-unmarshalled answers map, no custom "get" funcs
+inside .tmpl files - those --get-bool/--has flags are bootstrap-render.sh's,
+a different tool):
+
+1. `{{- with .quality }}` SKIPS its body when .quality is absent OR an empty
+   map ({} is falsy in Go's template.IsTrue, same as an empty string/slice) -
+   so `default` never even runs, and whatever fallback you supply outside the
+   with-block is what you get. A step gated on `{{- if .quality.mermaid_max_width }}`
+   directly would render ABSENT for every blog that has never touched
+   `quality` at all - the exact opposite of "absent means 1400".
+
+2. `default` only treats nil and "" as "missing" - given 0 it passes 0 through
+   unchanged (verified: `default 1400 0` -> `0`), which is exactly what MUST
+   happen for the explicit-disable case, but means you cannot lean on default
+   alone to also supply 1400 when the key is simply absent from a present
+   `quality` map.
+
+Fixed by seeding `{{- $mmw := 1400 }}` OUTSIDE any `with`, then only
+overwriting it `{{- with .quality }}{{- $mmw = default 1400 .mermaid_max_width }}{{- end }}`
+so the with-block only ever RAISES specificity (present key wins, including
+0), never lowers it by skipping. `{{- if $mmw }}` then gates the step's
+presence: false only when $mmw is literally 0 (explicit opt-out), true for
+1400 (absent) and any configured N>0.
+
+Mutation-tested (5 mutations, each reverted after confirming the expected named
+failure): reordering the step before Hugo build (ordering assertion), removing
+the `{{- if $mmw }}` gate (budget-0 absence assertion), seeding $mmw at 0
+instead of 1400 (default-budget assertion, which also cascaded into the
+ordering and site_dir assertions since the step vanished entirely), dropping
+the `{{ $site }}` prefix from --public (site_dir assertion), and adding a real
+actions/setup-node step (no-setup-node assertion).
+
+<!-- fr:journal kind=finding scope=plan id=a04be13cae1a created=2026-07-29T00:24:34 phase=6 state=open -->
+### a04be13cae1a · finding [open] · MMD-3's matrix row still not-implemented; phase 6 gives it a THIRD piece of evidence (CI wiring), the flip stays phase 7's (phase 6)
+
+Same tooling gap phases 3/4/5 already hit (fr acceptance 3.19.0 has no
+update/set-status verb, only `add`, which hard-errors on a duplicate id) -
+`fr plan edit --complete-phase 6` reproduced the identical warning: "phase 6
+completed but its acceptance rows are still not-implemented: mmd-3". Left the
+matrix untouched, per the repo rule and per this phase's dispatch (phase 7
+owns docs + the flip).
+
+Worth phase 7 knowing explicitly: MMD-3's row now has THREE layers of evidence
+that should probably all get cited once fr acceptance can flip it -
+tests/unit/test_mermaid_layout_gate.py (phase 5, the tool itself),
+tests/unit/test_ci_template.py's new mermaid_layout_gate tests (phase 6, the
+CI wiring - proves the tool is actually invoked in CI, not just that it works
+standalone), and the real frank measurement in journal entry d13dffed5885
+(phase 5, 35/203 blocked at 1400px). The CI-wiring layer matters for MMD-3's
+literal wording ("a diagram exceeding the width budget fails THE BUILD") -
+phase 5 proved the tool blocks; phase 6 proves CI actually runs it.
+
+<!-- fr:journal kind=discovery scope=plan id=a578f627c252 created=2026-07-29T00:24:51 phase=6 -->
+### a578f627c252 · discovery · A default-on CI step breaks the frozen pre-site-dir fixture test; strip it from the new render, don't touch the fixture (phase 6)
+
+tests/unit/test_ci_template.py::test_site_dir_less_render_matches_the_pre_site_dir_template
+and ::test_a_blog_without_site_dir_renders_byte_identically pin the CURRENT
+template's render against tests/fixtures/blog-ci.pre-site-dir.yml.tmpl, a
+snapshot frozen before blog-craft#61's site_dir fix - and therefore also
+frozen before this entire mermaid-readability plan. Any new step that is
+present BY DEFAULT (no explicit opt-in config key) breaks the identity
+assertion the moment it lands, regardless of how correct the new step is,
+because the frozen fixture obviously never had it.
+
+Fixed the same way the file already handles the one pre-existing case (the
+papers glob difference): narrowly strip the new step's block out of the
+CURRENT render before comparing, with a comment explaining why, rather than
+editing the frozen fixture (which exists specifically to catch UNINTENDED
+site-prefix regressions, not to track every feature added since). Also caught
+a self-defeating assertion while writing the RED tests: a comment on the new
+step that explains "no actions/setup-node, no npm install" trips a naive
+`"setup-node" not in y` / `"npm install" not in y` substring assertion against
+the comment prose itself - assert against actual step shape (`uses:` value /
+`run:` content) instead of the whole rendered text, mirroring phase 2's
+_strip_comments() lesson for the same class of trap in a different form.
