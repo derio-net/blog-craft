@@ -17,7 +17,11 @@ framework:
                          # 3-way-merging a minified upstream bundle is meaningless.
   - ".gitignore"
   - "MEDIA-GUIDE.md"
-  - ".hookify.warn-hextra-weight-zero.md"
+  - ".claude/hookify.*.local.md"   # the weight-zero guard, at the ONLY shape hookify
+                                   # globs. Deliberately NOT `.claude/**`: blog-craft
+                                   # ships one file there and owns only that one — a
+                                   # broader glob would classify an operator's own
+                                   # .claude/ files and make reproduce.py call them drift.
   - "static/images/.gitkeep"
   - "assets/images/.gitkeep"
   - ".reference-pool/README.md"
@@ -44,3 +48,78 @@ content:
   - "data/**"
   - "static/images/*.png"
   - "assets/images/*.png"   # per-blog banners (opt-image reads them from assets/); never overwrite
+
+# --- Path ROOT (spec §3, #61) -------------------------------------------------
+# Where a materialized path lands in a blog whose Hugo site is NOT the repo root
+# (`site_dir: blog`). The class above answers "who OWNS this file?"; this answers
+# a different question, and it is the one /update used to get wrong:
+#
+#     Who DEFINES this path's location — the Hugo site, or a tool that reads it
+#     from the REPOSITORY root?
+#
+#   repo : an external contract fixes the location. Never prefixed by site_dir.
+#   site : Hugo's own layout defines it. Lands under `site_dir`.
+#
+# The distinction is not "dotfile" — `.gitignore` is site-rooted (a nested
+# gitignore governs its own subtree) while `.github/**` is repo-rooted (GitHub
+# Actions loads workflows from <repo>/.github/workflows/ and nowhere else).
+# Getting this wrong is silent: a workflow in the wrong directory is not an
+# error, it is an inert YAML document that looks exactly like a workflow.
+#
+# An UNDECLARED path resolves to `site` — identical to the pre-#61 behaviour, so
+# a forgotten declaration can never break a blog at runtime. The enforcement is
+# tests/unit/test_path_roots.py, which requires exactly one match for every
+# materialized path: a new template file cannot merge without a reviewer
+# answering the question above.
+roots:
+  repo:
+    - ".blog-craft.yaml"          # the config root, by definition
+    - ".blog-craft.sync.yaml"     # the sync snapshot sits beside the config it
+                                  # snapshots — sync_state writes it at --blog,
+                                  # which is the config root (#60)
+    - "prompt_for_images.yaml"    # relocated by image.prompts_file (config-declared)
+    - ".reference-pool/**"        # relocated by image.reference_pool (config-declared)
+    - ".github/**"                # GitHub Actions: <repo>/.github/workflows/ only
+    - ".claude/**"                # Claude Code reads .claude/ from the project root —
+                                  # hookify globs .claude/hookify.*.local.md there
+                                  # (verified against its loader). Broad on purpose:
+                                  # roots is consulted only for paths blog-craft
+                                  # materializes, and ANY .claude/ path is repo-rooted.
+  site:
+    - "layouts/**"                # Hugo's directory contract
+    - "assets/**"
+    - "content/**"
+    - "static/**"
+    - "data/**"
+    - "fonts/**"                  # consumed by assets/css
+    - "scripts/**"                # invoked as <site_dir>/scripts/…; they resolve their
+                                  # own config-declared paths against the config root,
+                                  # so they run correctly from anywhere
+    - "hugo.toml"                 # Hugo / Hugo Modules, read from the site root
+    - "go.mod"
+    - "go.sum"
+    - "README.md"                 # the SITE's readme; a repo README is the operator's
+    - "MEDIA-GUIDE.md"            # documents the site's image workflow
+    - ".gitignore"                # nested gitignores govern their own subtree
+
+# --- Where earlier releases put a path (#61) ----------------------------------
+# Fixing the destination is not enough on its own. `plan_update` classifies an
+# absent managed path as `add`, so a blog that already carries the file at the
+# OLD location ends up with two copies and no indication which one the tool
+# behind it honours — and the next /update re-adds the dead one.
+#
+# So: current materialized path -> the destinations earlier releases wrote it to.
+# `{site}/` expands to `<site_dir>/`, and to nothing when the Hugo site IS the
+# config root; a legacy destination that comes out equal to the current one is
+# simply not a relocation, which is what keeps this inert for blogs that never
+# had the problem.
+#
+# One table, because there are two migration axes and both need covering:
+#   - a ROOT change  — .github/** moved out from under site_dir;
+#   - a RENAME       — the hookify rule moved into .claude/ and gained the
+#                      `.local.md` suffix hookify's glob requires.
+legacy_dests:
+  ".github/workflows/blog-ci.yml":
+    - "{site}/.github/workflows/blog-ci.yml"
+  ".claude/hookify.warn-hextra-weight-zero.local.md":
+    - "{site}/.hookify.warn-hextra-weight-zero.md"

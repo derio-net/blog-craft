@@ -14,6 +14,11 @@ site_dir: .               # optional; where the Hugo site lives relative to this
                           # file (e.g. `blog` when the config sits at the repo
                           # root). Consumed by /blog-post scaffolding + /update
                           # path mapping. Default `.`.
+                          # NOT everything moves with it: paths whose location is
+                          # defined by a tool outside Hugo — `.github/**` (GitHub
+                          # Actions) and `.claude/**` (hookify) — stay at the repo
+                          # root. templates/manifest.yaml's `roots:` section is the
+                          # registry of which is which; see skills/update/SKILL.md.
 
 image:
   provider: gemini

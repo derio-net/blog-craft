@@ -746,3 +746,123 @@ rows:
       (/blog-post and /post-rewrite) are pinned by the seeding greps in
       test_cold_reader_contract.py. Live seeding into a consumer blog is
       verified in the manual live-run phase.'
+  - id: UPD-R1
+    capability: update-path-roots
+    acceptance: /update accepts the documented relative --config/--blog invocation from
+      a blog root
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-27-path-roots-and-subprocess-legibility-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_update_paths.py
+    status: ci
+    notes: blog-craft#59 — the documented form always failed; the relative path was
+      resolved after bootstrap-render.sh's internal cd. Fixed at the cd, so every
+      caller is covered; the tests exercise the shell script, both CLIs and the
+      library boundary. The audit found four sites with this shape, not one.
+  - id: UPD-R2
+    capability: update-path-roots
+    acceptance: A renderer failure surfaces the renderer's own stderr, not a bare CalledProcessError
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-27-path-roots-and-subprocess-legibility-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_proc.py
+    status: ci
+    notes: blog-craft#59 second half — reproduce.py captured the streams and discarded
+      them, leaving a bare CalledProcessError pointing at the stdlib. tools/proc.run_checked
+      attaches them to the message; all four swallowing sites route through it.
+  - id: UPD-R3
+    capability: update-path-roots
+    acceptance: Repo-rooted materialized paths (.github/**, .claude/**) are never placed
+      under site_dir
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-27-path-roots-and-subprocess-legibility-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_path_roots.py
+      - blog-craft:tests/unit/test_update_mapping.py
+      - blog-craft:tests/unit/test_hookify_rule.py
+    status: ci
+    notes: blog-craft#61 — GitHub Actions and hookify define their own locations from
+      the repo root; templates/manifest.yaml `roots:` declares which. test_path_roots
+      requires exactly one root per materialized path across every --src root
+      bootstrap-render.sh renders, so a new template file cannot merge without a
+      reviewer answering the question. Undeclared falls back to `site` (the pre-fix
+      behaviour), so the guard is a test, not a runtime crash.
+  - id: UPD-R4
+    capability: update-path-roots
+    acceptance: /update relocates a stale pre-root-model copy instead of leaving two,
+      and a re-run plans nothing
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-27-path-roots-and-subprocess-legibility-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_update_relocation.py
+      int:
+      - blog-craft:tests/smoke-update.sh
+    status: ci
+    notes: blog-craft#61 — plan_update classifies an absent managed path as `add`, so
+      without this the next /update re-adds the dead file. templates/manifest.yaml
+      `legacy_dests:` declares where earlier releases put each moved path; the planner
+      treats the stale copy as the 3-way `local` so the operator's edits move with the
+      file. A conflict writes nothing and removes nothing, naming both paths. The smoke
+      leg proves the loop is closed end to end on a site_dir blog.
+  - id: UPD-R5
+    capability: update-path-roots
+    acceptance: A site_dir blog's CI workflow renders repo-root-relative paths that
+      resolve from the repository root
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-27-path-roots-and-subprocess-legibility-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_ci_template.py
+    status: ci
+    notes: blog-craft#61 — moving the file to the right place is not enough if its paths
+      assume cwd is the site root. CI's cwd is the repository root, which is also the
+      config root, so scripts and content globs carry the site prefix while --config
+      and dossier_dir do not (both are config-root-relative by contract), and hugo gets
+      a working-directory. A parametrized guard renders against the pre-#61 template
+      fixture for all three deploy kinds, so every already-synced blog is byte-identical.
+  - id: GL-10
+    capability: abbreviation-glossary
+    acceptance: A sweep never marks an abbreviation inside a shortcode body that is
+      handed to a renderer, and CI names any marker an earlier sweep left there
+    origin:
+    - blog-craft:CHANGELOG.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_glossary_opaque_bodies.py
+    status: ci
+    notes: 'Found in the field, not in a spec: a full-blog sweep put four markers inside
+      {{< papers/landscape >}} bodies, which Hugo wraps in <pre class="mermaid"> under
+      a quadrantChart header. The expansion is a <button popovertarget> tree inside
+      a chart axis and mermaid dies with a lexer error that names nothing connecting
+      it to a glossary sweep. Extends GL-4 (fences/headings/frontmatter) to a class
+      the exclusions missed — the shortcode TAG was excluded, its BODY was not. Criterion
+      is ''the body is renderer source'', NOT ''the shortcode has a body'': pullquote
+      and scar take prose bodies that must stay markable. Two halves because the applier
+      is idempotent and never removes what it would no longer add — excluded_spans stops
+      new markers, a validate_glossary PLACEMENT error reports existing ones (the key
+      can be valid and the marker still fatal).'
+  - id: UPD-R6
+    capability: update-path-roots
+    acceptance: The shipped CI validates papers against the papers section only, so
+      a blog with papers alongside another series passes
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-27-path-roots-and-subprocess-legibility-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_ci_template.py
+    status: ci
+    notes: 'blog-craft#61 — the template globbed content/docs/*/*/index.md and handed
+      the lot to validate_papers, which validates EVERY file it is given and errors
+      on a post whose series lacks the papers key; it does not skip. So the step could
+      only pass on a blog whose sole series was papers. Latent only because the file
+      never ran: materialized under site_dir, GitHub never loaded it — making it execute
+      is what turns this into a guaranteed red build on adoption. Now globs content/docs/<key>/
+      with the key from series[].content_type == ''papers'' (default papers), the same
+      derivation scaffold-paper.sh uses. Path selection, not a frontmatter skip: a paper
+      carrying the WRONG series is still in the papers directory, so it is still validated
+      and the series check catches it. The pre-#61 byte-identity guard normalises this
+      one line rather than editing the historical fixture.'

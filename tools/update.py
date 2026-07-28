@@ -33,19 +33,21 @@ Library:
 """
 from __future__ import annotations
 
+import functools
 import subprocess
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from path_ownership import _glob_to_regex, classify, load_manifest  # noqa: E402
+from path_ownership import _glob_to_regex, classify, load_manifest, root_of  # noqa: E402
+from proc import run_checked                         # noqa: E402
 from reproduce import apply, materialized_paths      # noqa: E402
 from sync_state import SNAPSHOT_NAME, read_snapshot, write_snapshot  # noqa: E402
 
 _PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 
 # Ordered for the dry-run tally: what lands, then what needs a human.
-_ACTIONS = ("add", "replace", "merge", "noop", "conflict")
+_ACTIONS = ("add", "replace", "merge", "relocate", "prune", "noop", "conflict")
 
 _NO_SNAPSHOT_WARNING = (
     f"no {SNAPSHOT_NAME} — the 3-way base is rendered with the CURRENT config, so\n"
@@ -56,31 +58,77 @@ _NO_SNAPSHOT_WARNING = (
 
 
 def render_staging(config: str, staging: str) -> Path:
+    # apply() resolves both — the renderer cds before reading them (#59).
     return apply(config, staging)
 
 
-def map_dest(path: str, cfg: dict | None) -> str:
+def site_prefix(cfg: dict | None) -> str:
+    """`<site_dir>/`, or "" when the Hugo site IS the config root."""
+    site_dir = ((cfg or {}).get("site_dir") or ".").rstrip("/")
+    return "" if site_dir in ("", ".") else f"{site_dir}/"
+
+
+def map_dest(path: str, cfg: dict | None, manifest: dict | None = None) -> str:
     """Map a STAGING-relative materialized path to its blog-relative destination.
 
-    Config-rooted paths (the config itself, the reference pool, the prompts
-    file) stay at / relocate to their config-declared locations; everything
-    else — the Hugo site — lands under `site_dir` (spec D6). Identity when
-    site_dir is absent and the defaults hold, so existing blogs' plans are
-    byte-identical.
+    The manifest's `roots:` section decides, per path, WHO DEFINES ITS
+    LOCATION (#61):
+
+      repo  the location is fixed by a contract outside Hugo — GitHub Actions
+            reads workflows from <repo>/.github/workflows/, hookify globs
+            .claude/hookify.*.local.md from the project root. Never prefixed.
+      site  Hugo's own layout defines it. Lands under `site_dir`.
+
+    Two repo-rooted paths are additionally RENAMEABLE by the config, so their
+    destination is read from it rather than from the manifest: the prompts file
+    (`image.prompts_file`) and the reference pool (`image.reference_pool`).
+
+    Identity when `site_dir` is absent and the defaults hold, so existing blogs'
+    plans are byte-identical. An undeclared path falls back to `site`, which is
+    the pre-#61 behaviour — see `path_ownership.root_of`.
     """
     cfg = cfg or {}
     image = cfg.get("image") or {}
-    if path == ".blog-craft.yaml":
-        return path
+
+    # Config-DECLARED destinations (repo-rooted and renameable).
     if path == "prompt_for_images.yaml":
         return image.get("prompts_file") or path
-    pool = image.get("reference_pool") or ".reference-pool"
     if path == ".reference-pool" or path.startswith(".reference-pool/"):
+        pool = image.get("reference_pool") or ".reference-pool"
         return pool + path[len(".reference-pool"):]
-    site_dir = (cfg.get("site_dir") or ".").rstrip("/")
-    if site_dir in ("", "."):
+
+    if root_of(path, manifest if manifest is not None else default_manifest()) == "repo":
         return path
-    return f"{site_dir}/{path}"
+    return site_prefix(cfg) + path
+
+
+def legacy_dests(path: str, cfg: dict | None, manifest: dict | None = None) -> list[str]:
+    """Where earlier releases materialized `path`, per the manifest (#61).
+
+    Fixing `map_dest` alone does not settle #61: `plan_update` classifies an
+    absent managed path as `add`, so a blog carrying the file at the OLD
+    location ends up with two copies and no indication which one the tool
+    behind it honours — and the next `/update` re-adds the dead one.
+
+    `{site}/` expands to `<site_dir>/`, or to nothing when the Hugo site IS the
+    config root. Destinations that come out equal to the current one are dropped
+    (they are not relocations), which is what keeps this inert for the blogs
+    that never had the problem.
+    """
+    manifest = manifest if manifest is not None else default_manifest()
+    table = (manifest.get("legacy_dests") or {}).get(path) or []
+    if not table:
+        return []
+    prefix = site_prefix(cfg)
+    here = map_dest(path, cfg, manifest)
+    out = []
+    for tmpl in table:
+        # "{site}/x" -> "<site_dir>/x", or just "x" when the site IS the config
+        # root (site_prefix is "" there, so one substitution covers both).
+        dest = tmpl.replace("{site}/", prefix)
+        if dest != here and dest not in out:
+            out.append(dest)
+    return out
 
 
 def three_way(base: Path, local: Path, incoming: Path) -> tuple[bytes, bool]:
@@ -100,38 +148,71 @@ def plan_update(blog: str | Path, staging: str | Path, base: str | Path | None, 
         # classification runs on the STAGING-relative path (manifest is
         # site-shaped); comparison + application use the mapped destination
         cls = classify(p, manifest)
-        dest = map_dest(p, cfg)
-        inc, loc = staging / p, blog / dest
+        dest = map_dest(p, cfg, manifest)
+        inc = staging / p
         if cls in (None, "content"):
             continue
         if only_res and not any(r.match(p) for r in only_res):
             continue
+
+        # A path this release moved (root change and/or rename) may still be
+        # sitting at its old destination. That file is the operator's — it is
+        # the `local` side, not something to ignore and re-add blank (#61).
+        legacy = next((d for d in legacy_dests(p, cfg, manifest) if (blog / d).exists()), None)
+        entry = {"path": p, "dest": dest, "class": cls}
+        if legacy:
+            entry["legacy"] = legacy
+            # Pruning the directories the old copy needed must stop at the site
+            # directory — never retire the operator's site dir itself.
+            site = site_prefix(cfg).rstrip("/")
+            if site and (legacy == site or legacy.startswith(site + "/")):
+                entry["legacy_floor"] = site
+
+        loc = blog / dest
         if not loc.exists():
-            plan.append({"path": p, "dest": dest, "action": "add", "class": cls})
+            if legacy is None:
+                plan.append({**entry, "action": "add"})
+                continue
+            loc = blog / legacy                        # move the operator's copy
+        elif legacy is not None and loc.read_bytes() == inc.read_bytes():
+            # Half-migrated: a correct file already sits at the new destination
+            # and the stale duplicate is still there. Only the duplicate goes.
+            plan.append({**entry, "action": "prune"})
             continue
+
         if loc.read_bytes() == inc.read_bytes():
-            continue                                   # already up to date
+            if legacy is None:
+                continue                               # already up to date
+            plan.append({**entry, "action": "relocate"})   # identical -> pure move
+            continue
         if cls == "framework":
-            plan.append({"path": p, "dest": dest, "action": "replace", "class": cls})
+            plan.append({**entry, "action": "replace"})
         else:  # merged -> 3-way
             b = base / p if base and (base / p).exists() else None
             if b is None:
-                plan.append({"path": p, "dest": dest, "action": "conflict", "class": cls,
+                plan.append({**entry, "action": "conflict",
                              "reason": "no base to merge from"})
             else:
                 merged, conflict = three_way(b, loc, inc)
-                entry = {"path": p, "dest": dest, "class": cls, "merged": merged}
+                entry = {**entry, "merged": merged}
                 if conflict:
                     entry["action"] = "conflict"
                 elif merged == loc.read_bytes():
-                    # The merge resolved entirely in local's favour, so applying
-                    # it would rewrite the file with the bytes already in it.
-                    # Reported as `merge`, that is indistinguishable from a merge
-                    # that shipped something — which is how #60 stayed invisible.
-                    # A NOOP on a path you expected to change means the base is
-                    # wrong: a stale or absent sync snapshot.
-                    entry["action"] = "noop"
-                    entry["reason"] = "merge produced no change"
+                    if legacy is not None:
+                        # The merge kept the operator's copy wholesale — but that
+                        # copy is at the OLD destination, so writing it is not a
+                        # no-op, it IS the move (#61). Calling this NOOP would
+                        # strand the file where nothing reads it.
+                        entry["action"] = "relocate"
+                    else:
+                        # Applying would rewrite the file with the bytes already
+                        # in it. Reported as `merge`, that is indistinguishable
+                        # from a merge that shipped something — which is how #60
+                        # stayed invisible. A NOOP on a path you expected to
+                        # change means the base is wrong: a stale or absent sync
+                        # snapshot.
+                        entry["action"] = "noop"
+                        entry["reason"] = "merge produced no change"
                 else:
                     entry["action"] = "merge"
                 plan.append(entry)
@@ -139,11 +220,39 @@ def plan_update(blog: str | Path, staging: str | Path, base: str | Path | None, 
 
 
 def dry_run_diff(plan: list[dict]) -> str:
-    lines = [f"{e['action'].upper():8} {e.get('dest', e['path'])} [{e['class']}]"
-             + (f"  ({e['reason']})" if e.get("reason") else "") for e in plan]
-    if not lines:
-        return "no changes"
-    return "\n".join(lines)
+    """Render the plan. For a relocation the dry-run IS the migration notice —
+    it names both sides, so the operator sees where the file is coming from."""
+    lines = []
+    for e in plan:
+        dest, legacy = e.get("dest", e["path"]), e.get("legacy")
+        if e["action"] == "prune":
+            what = f"{legacy}  (stale — now at {dest})"
+        elif legacy:
+            what = f"{legacy} -> {dest}"
+        else:
+            what = dest
+        line = f"{e['action'].upper():8} {what} [{e['class']}]"
+        if e.get("reason"):
+            line += f"  ({e['reason']})"
+        lines.append(line)
+    return "\n".join(lines) if lines else "no changes"
+
+
+def _prune_empty_parents(floor: Path, path: Path) -> None:
+    """Remove directories left empty by a relocation, never at or above `floor`.
+
+    `floor` is the blog root, or the site directory when the stale copy lived
+    under it: a relocation retires the directories the OLD destination needed,
+    never the operator's site directory — even in the degenerate case where the
+    moved file was the only thing in it.
+    """
+    d = path.parent
+    while d != floor and floor in d.parents:
+        try:
+            d.rmdir()          # only succeeds while the directory is empty
+        except OSError:
+            return             # still holds operator files — stop here
+        d = d.parent
 
 
 def plan_summary(plan: list[dict]) -> str:
@@ -196,19 +305,43 @@ def apply_plan(blog: str | Path, staging: str | Path, plan: list[dict]) -> list[
     conflicts: list[str] = []
     for e in plan:
         dest = blog / e.get("dest", e["path"])
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        if e["action"] in ("replace", "add"):
-            dest.write_bytes((staging / e["path"]).read_bytes())
-        elif e["action"] == "merge":
-            dest.write_bytes(e["merged"])
-        elif e["action"] == "conflict":
-            # report the on-disk destination (mapped) — that's the file the
-            # operator must resolve; never auto-resolve
+        legacy = blog / e["legacy"] if e.get("legacy") else None
+
+        if e["action"] == "conflict":
+            # Never auto-resolve — and on a relocation, never destroy the
+            # evidence either: BOTH copies stay, both are named, because the
+            # operator has to know there are two (#61).
             conflicts.append(e.get("dest", e["path"]))
+            if legacy is not None:
+                conflicts.append(e["legacy"])
+            continue
+
+        # `prune` removes the stale duplicate only; `noop` is a merge that kept
+        # local wholesale, so writing it back would be a no-op by definition.
+        if e["action"] not in ("prune", "noop"):
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            if e["action"] == "merge":
+                dest.write_bytes(e["merged"])
+            elif e["action"] == "relocate":
+                # A relocation writes the operator's file at its NEW home: the
+                # 3-way result when there was one, else the staged bytes — which
+                # in the pure-move case are byte-identical to their copy.
+                dest.write_bytes(e["merged"] if "merged" in e
+                                 else (staging / e["path"]).read_bytes())
+            elif e["action"] in ("replace", "add"):
+                dest.write_bytes((staging / e["path"]).read_bytes())
+
+        # The new copy is on disk (or was already correct) — retire the old one.
+        if legacy is not None and legacy.exists() and legacy != dest:
+            legacy.unlink()
+            floor = blog / e["legacy_floor"] if e.get("legacy_floor") else blog
+            _prune_empty_parents(floor, legacy)
     return conflicts
 
 
+@functools.lru_cache(maxsize=1)
 def default_manifest() -> dict:
+    # Cached: map_dest() falls back to it per path when a caller passes none.
     return load_manifest(str(_PLUGIN_ROOT / "templates" / "manifest.yaml"))
 
 
@@ -224,14 +357,19 @@ def base_by_rerender(config: str, blog_craft_version: str, base_dir: str) -> Pat
     belongs to `render_base`, and conflating the two is what #60 was.
     """
     import tempfile
+    config = Path(config).resolve()          # the renderer cds before reading it (#59)
+    base_dir = Path(base_dir).resolve()
     with tempfile.TemporaryDirectory() as td:
         arch = Path(td) / "old.tar"
-        subprocess.run(["git", "-C", str(_PLUGIN_ROOT), "archive", "--output", str(arch),
-                        blog_craft_version], check=True, capture_output=True)
+        # run_checked, not bare check=True: an unreachable tag is exactly the
+        # failure /update's own guardrail ("keep blog_craft_version accurate")
+        # warns about, and git says which ref it could not find (#59).
+        run_checked(["git", "-C", str(_PLUGIN_ROOT), "archive", "--output", str(arch),
+                     blog_craft_version])
         old = Path(td) / "old"; old.mkdir()
-        subprocess.run(["tar", "-xf", str(arch), "-C", str(old)], check=True)
-        subprocess.run(["bash", str(old / "tools" / "bootstrap-render.sh"), str(config), str(base_dir)],
-                       check=True, capture_output=True, text=True)
+        subprocess.run(["tar", "-xf", str(arch), "-C", str(old)], check=True)  # output visible
+        run_checked(["bash", str(old / "tools" / "bootstrap-render.sh"),
+                     str(config), str(base_dir)])
     return Path(base_dir)
 
 
@@ -291,28 +429,36 @@ def _main(argv):
                          "e.g. --only 'scripts/**' migrates the image machinery only")
     ap.add_argument("--apply", action="store_true", help="apply (default is dry-run)")
     a = ap.parse_args(argv)
+    import yaml
+    # Resolve every path argument up front (#59), BEFORE anything reads them.
+    # --config is threaded into bootstrap-render.sh, which resolves it AFTER an
+    # internal `cd` — the documented `--config .blog-craft.yaml --blog .`
+    # invocation always failed because of it. --blog/--base are only Path-joined,
+    # but resolving all three keeps one file in view for the plan, the render and
+    # the sync snapshot.
+    config = Path(a.config).resolve()
+    blog = Path(a.blog).resolve()
     # Is THIS run's base the #60 fallback? Read before anything can write a
     # snapshot — a conflict-free apply records one, after which the answer would
     # always be "no" and the one chance to flag pre-existing drift would be gone.
-    fallback_base = not a.base and read_snapshot(a.blog) is None
-    import yaml
+    fallback_base = not a.base and read_snapshot(blog) is None
     m = default_manifest()
-    cfg = yaml.safe_load(open(a.config)) or {}
+    cfg = yaml.safe_load(open(config)) or {}
     with tempfile.TemporaryDirectory() as td:
-        staging = render_staging(a.config, str(Path(td) / "staging"))
-        base = a.base
+        staging = render_staging(str(config), str(Path(td) / "staging"))
+        base = str(Path(a.base).resolve()) if a.base else None
         if not base:
             ver = cfg.get("blog_craft_version")
             if ver:
-                base = render_base(a.config, a.blog, ver, str(Path(td) / "base"))
-        plan = plan_update(a.blog, staging, base, m, cfg=cfg, only=a.only)
+                base = render_base(config, blog, ver, str(Path(td) / "base"))
+        plan = plan_update(blog, staging, base, m, cfg=cfg, only=a.only)
         print(dry_run_diff(plan))
         if plan:
             print(f"\n{plan_summary(plan)}")     # dry_run_diff already says "no changes"
         if not a.apply:
             print("\n(dry-run — pass --apply to write)")
             return 0
-        conflicts = apply_plan(a.blog, staging, plan)
+        conflicts = apply_plan(blog, staging, plan)
         if conflicts:
             # Leave the previous snapshot in place: half the plan is unresolved,
             # so "this blog is synced to config X" would be a lie, and a stale
@@ -328,7 +474,7 @@ def _main(argv):
                   "         apply is not a sync. Run an unscoped --apply to record one.")
         else:
             try:
-                print(f"recorded sync snapshot: {write_snapshot(a.config, a.blog)}")
+                print(f"recorded sync snapshot: {write_snapshot(config, blog)}")
             except OSError as e:
                 # The files landed; only the bookkeeping failed. Don't fail the
                 # run over it — but the operator has to know the next update

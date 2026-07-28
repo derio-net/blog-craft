@@ -26,6 +26,9 @@ python <blog-craft>/tools/update.py --config .blog-craft.yaml --blog .          
 python <blog-craft>/tools/update.py --config .blog-craft.yaml --blog . --apply   # apply
 ```
 
+Paths are relative to wherever you run it — the documented form above works from
+the blog root.
+
 Renders to a staging tree and classifies every path via the manifest:
 
 | Class | Action |
@@ -88,12 +91,51 @@ dropped — copy it across before it becomes invisible. No difference means the
 on fallback runs whose plan had no `NOOP`s: one that fired on clean plans is one
 you would learn to skip.
 
-**Path mapping (site_dir blogs).** Destinations honour the blog's config: the
-Hugo site's paths land under `site_dir` (a blog with `.blog-craft.yaml` at the
-repo root and the site under `blog/` gets `blog/scripts/…`, `blog/layouts/…`),
-while config-rooted paths follow their declared locations (`.reference-pool/**`
-→ `image.reference_pool`, `prompt_for_images.yaml` → `image.prompts_file`).
-`--blog` always points at the **config root**, not the site dir.
+### Where each path lands (`site_dir` blogs)
+
+`--blog` always points at the **config root**, not the site dir. From there,
+`templates/manifest.yaml`'s `roots:` section answers, per path, the question
+that decides its destination:
+
+> **Who defines this path's location — the Hugo site, or a tool that reads it
+> from the repository root?**
+
+| Root | Destination | Examples |
+|---|---|---|
+| `site` | under `site_dir` | `layouts/**`, `scripts/**`, `content/**`, `hugo.toml`, `.gitignore` |
+| `repo` | the config root, unprefixed | `.github/**`, `.claude/**`, `.blog-craft.yaml` |
+
+The distinction is **not** "is it a dotfile". A nested `.gitignore` governs its
+own subtree, so it is site-rooted. GitHub Actions loads workflows from
+`<repo>/.github/workflows/` and nowhere else, and Claude Code's hookify globs
+`.claude/hookify.*.local.md` from the project root, so both are repo-rooted —
+placing them under `site_dir` produces a file that is not an error and not a
+workflow, just inert (blog-craft#61).
+
+Two repo-rooted paths are additionally renamed by your config:
+`.reference-pool/**` → `image.reference_pool`, `prompt_for_images.yaml` →
+`image.prompts_file`.
+
+### Relocation — when a path's home changed
+
+When a release moves a path (a new root, a rename, or both), `/update` **moves
+your copy** rather than adding a fresh one beside it:
+
+```
+RELOCATE blog/.github/workflows/blog-ci.yml -> .github/workflows/blog-ci.yml [merged]
+PRUNE    blog/.hookify.warn-hextra-weight-zero.md  (stale — now at .claude/hookify.warn-hextra-weight-zero.local.md) [framework]
+```
+
+- `RELOCATE` — the file moves. Your edits come with it: the old copy is the
+  `local` side of the 3-way merge, so a `MERGE` line for a relocated path means
+  your changes are being carried to the new destination.
+- `PRUNE` — a correct file already sits at the new destination and the stale
+  duplicate is removed.
+- On a **conflict**, nothing is written and **nothing is removed** — both copies
+  stay and both are named, so you can see there are two before resolving.
+
+A re-run after a successful apply plans no further relocation. The dry-run is
+the migration notice — read it before applying.
 
 **Scoping.** `--only '<glob>'` (repeatable, staging-relative) limits the plan —
 the way to migrate just the image machinery into an existing blog:

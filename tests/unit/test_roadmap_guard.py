@@ -20,7 +20,10 @@ def _bootstrap(tmp_path):
 
 def test_weight_zero_guard_and_banner_ship(tmp_path):
     blog = _bootstrap(tmp_path)
-    assert (blog / ".hookify.warn-hextra-weight-zero.md").exists()
+    # The guard ships at the only path hookify globs — .claude/hookify.*.local.md
+    # from the project root (#61). Its previous location was never discovered.
+    # Full coverage of the rule itself: tests/unit/test_hookify_rule.py.
+    assert (blog / ".claude" / "hookify.warn-hextra-weight-zero.local.md").exists()
     assert (blog / "layouts" / "partials" / "site-banner.html").exists()
 
 
