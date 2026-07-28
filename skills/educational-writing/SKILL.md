@@ -167,8 +167,22 @@ label gets crushed against a cluster boundary. Fixes, in order of leverage:
 - **Keep edge labels short** (`logs`, `crit`) or drop them when the direction is
   obvious — long labels near a subgraph border are what gets cramped. Put a
   far-right sink (e.g. a `Telegram` node) *outside* the subgraphs.
-- **Match direction to shape** — `TD` for tiers/pipelines, `LR` for a left-to-right
-  flow; try both, keep the one that crosses less.
+- **Default to `TD`; reserve `LR` for short, genuinely left-to-right pipelines.**
+  Direction is a *width* decision, and width is the constraint you can't see while
+  authoring: the content column is **672px** on every viewport (the Hextra shell
+  caps at `80rem`, so a 4K panel gets the same column a laptop does). Diagrams now
+  render at their authored size in a horizontal scroller rather than being shrunk
+  to fit — but the reader still has to scroll, so width is a budget, not a free
+  variable. Measured across all 182 diagrams of one blog: median 873px, p90
+  1622px, widest 2394px. Every sampled `LR` diagram overflowed the column (4/4),
+  while one `TD` diagram still measured 1895px — direction *predicts* width, it
+  does not determine it. So `TD` is the default you depart from with a reason, not
+  a cure: check the result either way. **Past `quality.mermaid_max_width`
+  (default 1400px, ~2× the column) CI fails the build** — a diagram needing more
+  than two column-widths of scrolling can't be held in the reader's head. Fix it
+  by splitting (see the first bullet), shortening labels, or flipping to `TD`; if
+  the width is genuinely the point, waive that one diagram in its own source:
+  `%% blog-craft: wide-ok — <reason>`.
 - **ELK for the hard ones** — if the blog's Mermaid bundle ships the ELK layout,
   `%%{init: {"flowchart": {"defaultRenderer": "elk"}}}%%` routes orthogonally and
   places labels far better. Confirm it renders in the target theme before relying

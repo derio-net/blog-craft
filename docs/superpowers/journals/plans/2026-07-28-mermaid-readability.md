@@ -247,3 +247,42 @@ step that explains "no actions/setup-node, no npm install" trips a naive
 the comment prose itself - assert against actual step shape (`uses:` value /
 `run:` content) instead of the whole rendered text, mirroring phase 2's
 _strip_comments() lesson for the same class of trap in a different form.
+
+<!-- fr:journal kind=discovery scope=plan id=ce758db2a2ee created=2026-07-29T00:53:02 phase=7 -->
+### ce758db2a2ee · discovery · The acceptance flip is done: mmd-1/3/4/5 -> ci, mmd-2/6 stay not-implemented by design (phase 7)
+
+Resolves the tooling gap phases 3/4/5/6 each hit and correctly deferred (findings 56824360c28d, 32a4502c02bc, 1e673e5f708c, a04be13cae1a). fr acceptance (3.19.0) still has no update verb — check/report/status/summary/add/init/backfill/digest, and add hard-errors on a duplicate id. Resolution taken here, per this phase's dispatch: the repo rule's 'agents never hand-edit matrix.yaml' governs CONSTRUCTING a row; changing status and appending a levels.unit ref on an EXISTING row is a value edit with no tool behind it, and .claude/rules/acceptance-matrix.md explicitly describes moving a status up as expected work. So docs/acceptance/matrix.yaml was edited directly, minimally, on those fields only.
+
+FLIPPED to ci:
+- mmd-1 -> unit: test_mermaid_view.py (the CSS rule AND phase 3's wiring proof)
+- mmd-3 -> unit: test_mermaid_layout_gate.py + test_ci_template.py. TWO refs deliberately: the row's wording is 'fails THE BUILD', and phase 5 only proves the tool blocks while phase 6 proves CI invokes it. Neither ref alone covers the acceptance.
+- mmd-4 -> unit: test_mermaid_validator.py
+- mmd-5 -> unit: test_mermaid_view.py (test_bootstrap_materializes_mermaid_view_true_false_and_absent)
+
+LEFT not-implemented, notes rewritten to name the closing Test Plan step: mmd-2 (visible scroll affordance, step 2 + corroborating 3 and 5) and mmd-6 (keyboard scrolling, step 4). Both are painted-pixel / input-device claims; CI has no layout engine and tabindex in markup is necessary, not sufficient. Both are browser-harness-walkable post-merge, as GL-3/GL-9 were — that walk moves them to skipped, not ci.
+
+Counts: ci 53 -> 57, not-implemented 12 -> 8, skipped 2 unchanged. 'fr acceptance report --deterministic' regenerated the three tracked reports (omitting it fails the gate on drift); 'fr acceptance check' exits 0.
+
+YAML TRAP for the next agent editing this file: several notes are PLAIN (unquoted) multi-line scalars. Writing a phrase containing ': ' into one is a hard ScannerError ('mapping values are not allowed here') — hit on mmd-2 with 'CLOSED BY, post-merge on a real deploy:'. Either rephrase to avoid the colon-space or convert the scalar to single-quoted (and double every apostrophe). Validate with a yaml.safe_load before running fr acceptance.
+
+<!-- fr:journal kind=finding scope=plan id=4722b80230cd created=2026-07-29T00:54:32 phase=7 state=fixed -->
+### 4722b80230cd · finding [fixed] · RESOLVED: the five deferred matrix-flip findings (ec26e1be81b4, 56824360c28d, 32a4502c02bc, 1e673e5f708c, a04be13cae1a) (phase 7)
+
+Phases 1 and 3-6 each recorded an open finding that their MMD acceptance row had real evidence but could not be flipped, because fr acceptance has no update verb. All five are now CLOSED by phase 7's direct, minimal edit of docs/acceptance/matrix.yaml (see discovery ce758db2a2ee). Recorded as a new fixed finding rather than by mutating the originals, because fr journal has no update path either: 'fr journal add --id <existing>' is idempotent-as-in-SKIP — probed here with a deliberate throwaway title/body against id 56824360c28d, and the file came back byte-identical (diff clean), no entry changed and no new entry appended. So 'fr journal check' will keep listing those five ids as open forever; read them together with this entry.
+
+STILL GENUINELY OPEN, do not treat as closed: dd6c3194d9f2 — the focusable <pre> inside the theme's role="img" wrapper. That is an accepted a11y tension awaiting the post-merge Test Plan step 4 walk, not a deferral for want of tooling.
+
+UPSTREAM ASK (super-fr), the same gap in two tools: (1) 'fr acceptance set-status <id> --status <s>' and 'fr acceptance add-level <id> --level unit=<ref>' — without them, every plan that lands evidence across phases must either hand-edit YAML or leave the matrix lying, and the repo's own backfill rule expects statuses to move. (2) 'fr journal update --id <id> --state fixed' — an append-only journal whose findings can never be marked resolved makes 'fr journal check' report permanent false positives, which trains agents to ignore it.
+
+<!-- fr:journal kind=discovery scope=plan id=97bcb00a562a created=2026-07-29T00:54:58 phase=7 -->
+### 97bcb00a562a · discovery · Docs shipped, and the 182-vs-203 reconciliation that would otherwise read as a contradiction (phase 7)
+
+THREE DOC SURFACES.
+
+1. skills/educational-writing/SKILL.md — the 'Keep the layout clean' list's direction bullet was 'Match direction to shape … try both, keep the one that crosses less', which is a routing heuristic and says nothing about width. Replaced with a width-first default: prefer flowchart TD, reserve LR for short genuinely left-to-right pipelines, grounded in the 182-diagram render (median 873px, p90 1622px, max 2394px vs a 672px column), stating the budget, that CI now FAILS past it, and the '%% blog-craft: wide-ok — <reason>' waiver. Deliberately NOT oversold: the bullet says direction predicts width without determining it and cites the 1895px TD case, so an author who flips to TD still checks the result. The .opencode/skills/ mirror re-synced automatically on save.
+
+2. docs/CONFIG.md — title v5 -> v6, 'accepts schema versions 2-5' -> 2-6 and the top sample's 'version: 5' -> 6 (both were stale after phase 1 moved ACCEPTED_VERSIONS to (2..6); not in the dispatch's list but wrong once the title said v6). New §12 covering the mechanism (inline max-width clamps 'width: 200rem' to min(200rem, natural)), the DO-NOT-ADD-max-width warning, both scroll affordances with the measurement behind each (0 -> 9px offsetHeight-clientHeight; scrollbar-width/color WIN over and DISABLE the WebKit pseudo-elements, hence the @supports gate is load-bearing not tidiness), the tabindex/WCAG note, and the absent-means-TRUE opt-out. New quality.mermaid_max_width row in the §7 table, flagged 'Blocks.' and explicitly marked as not a per-post gate (the rest of that table is gate.* keys). Every claim was re-read against the source before writing: mermaid-view.css, the render hook, tools/bootstrap-render.sh's [3h] block (false => module not materialized at all), and validate_mermaid_layout.mjs.
+
+3. CHANGELOG.md — [Unreleased] opens with a blockquote warning, matching the 0.17.0 precedent, that the width gate lands BLOCKING with no baseline by explicit operator decision and that adopters should expect RED CI, quantified at 35 of 203 on frank, with the three ways forward in preference order. A ### Changed entry covers the loud-disabled-gate behaviour change for anyone who had quality.mermaid_syntax: false and was reading a quiet exit 0 as a pass.
+
+THE 182-vs-203 TRAP (also written into the spec's Measurements section). The design audit scanned MARKDOWN fences and found 182. The shipped gate extracts from BUILT HTML and finds 203 on the same site — the extra ~21 are shortcode-emitted papers/landscape quadrantCharts that appear in no .md file. Both counts are correct; they are different populations. Worse for a reader reconciling them, BOTH block '35' at 1400px, which looks like proof the populations are the same. They are not: every blocked PAGE matches, but some findings are the shortcode quadrantCharts (/docs/papers/*/ #5) the audit never saw, so the 35s are an overlapping set with a coinciding count, not the same 35. The spec now says so in both places it quotes a number, and the CHANGELOG quotes 203 (what CI will actually report) while SKILL.md quotes 182 (the design-time distribution).

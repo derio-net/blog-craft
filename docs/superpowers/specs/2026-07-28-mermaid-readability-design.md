@@ -38,6 +38,14 @@ Orientation correlates with width but does not determine it — every sampled `L
 diagram overflowed (4/4, median 1644px), while `TD` overflowed in 3/5 with one
 `TD` diagram at 1895px. Direction is a strong signal, not a rule.
 
+**182 here, 203 in the shipped gate — different populations, both correct.** This
+audit scanned markdown for ` ```mermaid ` fences and found 182. The gate extracts
+from *built* HTML (§3) and finds **203** on the same site, because it also sees
+diagrams emitted by shortcodes — the `papers/landscape` quadrantCharts that never
+appear as a fence in any `.md` file, and precisely the class of breakage a
+markdown-level check misses. Numbers quoted against 182 are design-time
+measurements; numbers quoted against 203 are what CI will actually report.
+
 ## Goal
 
 Every diagram renders at its authored size, so its text is legible on every
@@ -94,9 +102,13 @@ rather than by hand-editing.
 
 **Budget derivation.** `1400` is ~2× the 672px content column: a diagram needing
 more than two column-widths of scrolling cannot be held in the reader's head.
-Against frank this blocks **35 of 182 (19%)** on day one. The number is
+Against frank this blocks **35 of 182 (19%)** on day one — and the shipped gate,
+run for real against frank's built site, blocks **35 of 203**. The same headline
+count against the larger built-HTML population above, and every blocked *page*
+matches, but it is not quite the same *set*: some findings are shortcode-emitted
+quadrantCharts (`/docs/papers/*/ #5`) the markdown audit never saw. The number is
 config-visible precisely so it can be argued with; the day-one impact at other
-budgets is 1200px → 46, 1600px → 20, 1800px → 9.
+budgets is 1200px → 46, 1600px → 20, 1800px → 9 (measured on the 182).
 
 ### 2. Feature module — `templates/features/mermaid-view/`
 
