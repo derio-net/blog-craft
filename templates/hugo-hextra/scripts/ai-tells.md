@@ -132,13 +132,24 @@ vocabulary:
   - in today's fast-paced
   - treasure trove
   - supercharge
+  - supercharges
+  - supercharged
+  - supercharging
   - revolutionize
+  - revolutionizes
+  - revolutionized
+  - revolutionizing
   - harness the power
   - embark
+  - embarks
+  - embarked
+  - embarking
   - realm
   - myriad
   - plethora
   - boasts
+  - boasting
+  - boasted
 conclusion_openers:
   - in conclusion
   - ultimately

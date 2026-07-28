@@ -45,6 +45,15 @@ python3 <plugin_root>/tools/seed_config.py --config <blog_root>/.blog-craft.yaml
     --values "dry,balanced,rich"
 ```
 
+Likewise check `quality.lint.enabled` and seed it if absent:
+
+```
+python3 <plugin_root>/tools/seed_config.py --config <blog_root>/.blog-craft.yaml \
+    --key quality.lint.enabled --default true \
+    --comment "Warnings-first AI-tells lint; severities/thresholds in docs/CONFIG.md." \
+    --values "true,false"
+```
+
 Then load the educational-writing methodology.
 
 ### Step 1: Load the methodology

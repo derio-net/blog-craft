@@ -35,6 +35,19 @@ def test_conclusion_openers_list_lowercase():
         assert opener == opener.lower(), f"not lowercase: {opener!r}"
 
 
+def test_vocabulary_covers_common_inflections():
+    """rev-minors (9): delve carries all conjugations; the other verbs must
+    not slip through by inflecting ('embarked on a journey', 'boasting')."""
+    vocab = set(load_lint_data()["vocabulary"])
+    for word in (
+        "embarks", "embarked", "embarking",
+        "supercharges", "supercharged", "supercharging",
+        "revolutionizes", "revolutionized", "revolutionizing",
+        "boasting", "boasted",
+    ):
+        assert word in vocab, f"missing inflection: {word}"
+
+
 def test_patterns_compile():
     patterns = load_lint_data()["patterns"]
     assert "negative_parallelism" in patterns

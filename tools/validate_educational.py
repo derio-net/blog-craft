@@ -270,22 +270,45 @@ def validate_post(fm: dict, body: str, gate: dict | None = None) -> list[str]:
 
 # ------------------------------------------------------------------ lint layer
 
+def _prose_lines(body: str) -> list[str]:
+    """The lines of *body* outside fenced code blocks.
+
+    Fence tracking follows CommonMark's closing rule: a block opened by a
+    fence of N backticks/tildes closes only on a fence of the SAME character
+    at least N long — so a ````markdown block that itself contains ``` lines
+    stays one block, and its inner content never leaks into the prose scan.
+    """
+    out: list[str] = []
+    fence_char = ""
+    fence_len = 0
+    for line in body.splitlines():
+        m = re.match(r"^(`{3,}|~{3,})", line.strip())
+        if m:
+            marker = m.group(1)
+            if not fence_char:  # opening fence
+                fence_char = marker[0]
+                fence_len = len(marker)
+            elif marker[0] == fence_char and len(marker) >= fence_len:
+                fence_char = ""  # closing fence
+                fence_len = 0
+            # else: a shorter/other-char fence inside an open block is content
+            continue
+        if fence_char:
+            continue
+        out.append(line)
+    return out
+
+
 def _prose_only(body: str) -> str:
     """Prose with fenced code blocks, inline code spans, and heading markup gone.
 
     The lint must never fire on code — a command containing "delve" is not a
     tell. Heading TEXT stays (it is prose); only the leading #s are stripped.
+    Typographic apostrophes normalize to ASCII so "isn’t" matches "isn't".
     """
-    out: list[str] = []
-    in_block = False
-    for line in body.splitlines():
-        if re.match(r"^(`{3,}|~{3,})", line.strip()):
-            in_block = not in_block
-            continue
-        if in_block:
-            continue
-        out.append(re.sub(r"^#{1,6}\s+", "", line))
-    return re.sub(r"`[^`\n]+`", " ", "\n".join(out))
+    out = [re.sub(r"^#{1,6}\s+", "", line) for line in _prose_lines(body)]
+    text = re.sub(r"`[^`\n]+`", " ", "\n".join(out))
+    return text.replace("’", "'")
 
 
 def lint_post(
@@ -351,9 +374,11 @@ def lint_post(
     # Keys off the diataxis frontmatter ONLY — never series names.
     if set(_normalize_modes(fm.get("diataxis"))) & {"tutorial", "explanation"}:
         marks = [str(h).lower() for h in data.get("transfer_headings") or []]
+        # Headings are collected from prose lines only — a `# takeaway:`
+        # comment inside a fenced code block is code, not a heading.
         heads = [
             m.group(1).lower()
-            for m in (re.match(r"^#{1,6}\s+(.*)$", ln) for ln in body.splitlines())
+            for m in (re.match(r"^#{1,6}\s+(.*)$", ln) for ln in _prose_lines(body))
             if m
         ]
         if not any(mark in head for head in heads for mark in marks):
@@ -363,12 +388,13 @@ def lint_post(
                 "(expected for tutorial/explanation posts)",
             )
 
-    # cliche conclusion openers: any paragraph starting with one
+    # cliche conclusion openers: any paragraph starting with one. Boundary-
+    # aware — "In the ending scene..." must not trip "in the end".
     openers = [str(o).lower() for o in data.get("conclusion_openers") or []]
     for para in re.split(r"\n\s*\n", low):
         p = para.strip()
         for opener in openers:
-            if p.startswith(opener):
+            if re.match(re.escape(opener) + r"(?!\w)", p):
                 emit("conclusion", f"cliche conclusion opener: '{opener}'")
                 break
 
@@ -417,7 +443,10 @@ def _main(argv):
         try:
             lint_data = load_lint_data()
         except (FileNotFoundError, ValueError) as e:
-            print(f"LINT SKIPPED: {e} — running the structural gate only")
+            print(
+                f"LINT SKIPPED: {e} — running the structural gate only",
+                file=sys.stderr,
+            )
 
     failed: dict[str, list[str]] = {}
     lint_failed = False

@@ -136,13 +136,13 @@ New lint checks, run with the existing gate, warnings-first:
 | Em-dash density above threshold (per 1000 words) | warn |
 | Negative-parallelism / rule-of-three density | warn |
 | Cliché conclusion openers | warn |
-| Missing what-transfers-style closing section on building/tutorial posts | warn |
+| Missing what-transfers-style closing section on tutorial/explanation posts | warn |
 
 Mode-conditional checks (what-transfers, landscape) key off the **`diataxis`
 frontmatter** (tutorial/explanation vs how-to/reference), never series names —
 series names are per-blog and carry no mode semantics.
 
-Warnings print with counts and line numbers, exit 0. Existing hard-gate items
+Warnings print with counts, exit 0. Existing hard-gate items
 untouched. Thresholds and per-check severity live in a new **`quality.lint`**
 block in `.blog-craft.yaml`, seeded via the existing `seed_config.py` pattern
 (defaults + explanatory comment) so consumer blogs adopt it without manual

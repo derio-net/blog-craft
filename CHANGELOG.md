@@ -36,7 +36,8 @@ matching `vX.Y.Z` tag on merge (#18).
 - **Blind cold-reader editor pass in `/blog-post` and `/post-rewrite`.**
   `agents/cold-reader.md` — a read-only agent (Read, Grep, Glob) dispatched
   with *no session context* — critiques every draft as a first-time reader
-  across five sections (confusions, unearned claims, tells, arc, verdict), and
+  across five sections (Takeaway mirror, Lost points, Session residue, Arc
+  assessment, AI-tell instances), and
   the draft is revised against the critique before the operator ever sees it.
   Both drafting skills carry the dispatch sub-step ahead of the approval
   question (`tests/unit/test_cold_reader_contract.py`).

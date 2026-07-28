@@ -7,6 +7,7 @@ create the real nested block the validator reads
 (cfg["quality"]["lint"]["enabled"]) — not a flat literal
 "quality.lint.enabled" top-level key — and the value must be a boolean.
 """
+import pytest
 import yaml
 
 from seed_config import seed_key  # tools/ on sys.path via conftest
@@ -52,6 +53,46 @@ def test_partial_path_extends_existing_quality_block(tmp_path):
     assert data["quality"]["lint"]["enabled"] is True
     assert data["quality"]["gate"]["require_commands"] is True  # preserved
     assert cfg_path.read_text().count("quality:") == 1  # no duplicate block
+
+
+# --- review finding rev-imp-1: ancestor lines that are NOT bare block
+# mappings must bail out loudly, never corrupt the file ----------------------
+
+def test_flow_style_ancestor_errors_and_leaves_file_untouched(tmp_path):
+    """`quality: {gate: {...}}` — inserting an indented block after a
+    flow-style mapping line produces unparseable YAML; seed_key must refuse."""
+    original = "site_dir: .\nquality: {gate: {require_commands: true}}\n"
+    cfg_path = _write(tmp_path / ".blog-craft.yaml", original)
+    with pytest.raises(SystemExit):
+        seed_key(cfg_path, "quality.lint.enabled", "true")
+    assert cfg_path.read_text() == original  # byte-for-byte untouched
+
+
+def test_scalar_ancestor_errors_and_leaves_file_untouched(tmp_path):
+    """`quality: true` — a scalar ancestor can't take a nested child block."""
+    original = "site_dir: .\nquality: true\n"
+    cfg_path = _write(tmp_path / ".blog-craft.yaml", original)
+    with pytest.raises(SystemExit):
+        seed_key(cfg_path, "quality.lint.enabled", "true")
+    assert cfg_path.read_text() == original
+
+
+def test_four_space_indent_keeps_gate_a_sibling_of_lint(tmp_path):
+    """Child indent derives from the ancestor's existing children — a 4-space
+    block must not silently swallow `gate:` under the new `lint:`."""
+    original = (
+        "site_dir: .\n"
+        "quality:\n"
+        "    gate:\n"
+        "        require_commands: true\n"
+    )
+    cfg_path = _write(tmp_path / ".blog-craft.yaml", original)
+    assert seed_key(cfg_path, "quality.lint.enabled", "true") is True
+    data = yaml.safe_load(cfg_path.read_text())  # must still parse
+    assert data["quality"]["lint"]["enabled"] is True
+    # gate stays a sibling of lint, values unchanged
+    assert data["quality"]["gate"] == {"require_commands": True}
+    assert "gate" not in data["quality"]["lint"]
 
 
 def test_top_level_flat_key_unchanged_behavior(tmp_path):

@@ -109,6 +109,13 @@ def test_post_rewrite_loads_arc_and_tells_references():
     assert "ai-tells.md" in text
 
 
+def test_post_rewrite_step0_seeds_quality_lint_enabled():
+    """rev-imp-4: /post-rewrite runs the same lint gate as /blog-post, so its
+    Step 0 must seed quality.lint.enabled the same way."""
+    step0 = _step_block(_read(POST_REWRITE), 0)
+    assert "quality.lint.enabled" in step0
+
+
 def test_post_rewrite_dispatches_cold_reader_before_approval():
     text = _read(POST_REWRITE)
     assert "cold-reader" in text

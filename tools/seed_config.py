@@ -14,6 +14,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -66,25 +67,11 @@ def seed_key(
         allowed = f"options: {values}"
         comment_line = f"{comment} ({allowed})" if comment else allowed
 
-    # Build the missing subtree (a scalar for a flat key), indented to sit
-    # under the deepest existing ancestor.
-    subtree = yaml.safe_load(default)
-    for part in reversed(parts[depth:]):
-        subtree = {part: subtree}
-    block = yaml.dump(subtree, default_flow_style=False, sort_keys=False).rstrip("\n")
-
-    indent = "  " * depth
-    lines_to_add = []
-    if comment_line:
-        for line in comment_line.split("\n"):
-            lines_to_add.append(f"{indent}# {line}")
-    for line in block.split("\n"):
-        lines_to_add.append(f"{indent}{line}")
-
     with open(config_path) as f:
         raw_lines = f.readlines()
 
     if depth == 0:
+        indent = ""
         # Insert before the first top-level key that sorts after ours, or at end
         insert_pos = len(raw_lines)
         for i, line in enumerate(raw_lines):
@@ -101,6 +88,8 @@ def seed_key(
         # Insert right after the deepest existing ancestor's mapping line,
         # located by walking the path segments at their block indentation.
         insert_pos = None
+        ancestor_line = ""
+        ancestor_indent = 0
         want = 0
         for i, line in enumerate(raw_lines):
             stripped = line.rstrip("\n")
@@ -111,8 +100,17 @@ def seed_key(
                 want += 1
                 if want == depth:
                     insert_pos = i + 1
+                    ancestor_line = stripped
+                    ancestor_indent = cur_indent
                     break
-        if insert_pos is None:
+        # The ancestor line must be a bare block-mapping line (`quality:`,
+        # nothing after the colon but an optional comment). A flow-style
+        # mapping (`quality: {gate: {...}}`) or a scalar (`quality: true`)
+        # cannot take an inserted child block — inserting would corrupt the
+        # YAML, so bail out loudly instead.
+        if insert_pos is None or not re.fullmatch(
+            r"\s*[\w.-]+:\s*(#.*)?", ancestor_line
+        ):
             print(
                 f"ERROR: could not locate existing block for "
                 f"{'.'.join(parts[:depth])!r} in {config_path} "
@@ -120,6 +118,36 @@ def seed_key(
                 file=sys.stderr,
             )
             sys.exit(1)
+        # Match the ancestor's existing children's indentation when it has
+        # any (a 4-space-indented config must get 4-space siblings, or the
+        # existing children silently nest under the new key); fall back to
+        # ancestor_indent + 2 for a childless ancestor.
+        child_indent = None
+        for line in raw_lines[insert_pos:]:
+            stripped = line.rstrip("\n")
+            if not stripped.strip() or stripped.lstrip().startswith("#"):
+                continue
+            cur_indent = len(stripped) - len(stripped.lstrip(" "))
+            if cur_indent > ancestor_indent:
+                child_indent = cur_indent
+            break
+        if child_indent is None:
+            child_indent = ancestor_indent + 2
+        indent = " " * child_indent
+
+    # Build the missing subtree (a scalar for a flat key), indented to sit
+    # under the deepest existing ancestor.
+    subtree = yaml.safe_load(default)
+    for part in reversed(parts[depth:]):
+        subtree = {part: subtree}
+    block = yaml.dump(subtree, default_flow_style=False, sort_keys=False).rstrip("\n")
+
+    lines_to_add = []
+    if comment_line:
+        for line in comment_line.split("\n"):
+            lines_to_add.append(f"{indent}# {line}")
+    for line in block.split("\n"):
+        lines_to_add.append(f"{indent}{line}")
 
     for line in lines_to_add:
         raw_lines.insert(insert_pos, line + "\n")

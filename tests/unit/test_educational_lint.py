@@ -162,6 +162,63 @@ Plain prose closes the post without any pattern in it.
     assert lint_post(fm, body) == ([], [])
 
 
+# --- review findings rev-imp-2/3, rev-minors: fence tracking, boundaries,
+# typographic apostrophes -----------------------------------------------------
+
+def test_transfer_heading_inside_code_block_does_not_satisfy_check():
+    """rev-imp-2: a `# takeaway:` comment inside a fenced bash block is code,
+    not a heading — the missing-what-transfers warning must still fire."""
+    fm, body = _fixture(LADEN)
+    body += "\n```bash\n# takeaway: not a heading, just a comment\necho done\n```\n"
+    _, warnings = lint_post(fm, body)
+    assert any("what-transfers" in w for w in warnings), warnings
+
+
+def test_nested_fence_inner_content_never_linted():
+    """rev-imp-3: a ````markdown block containing ``` lines is ONE block
+    (CommonMark closing rule: same char, >= opening length) — inner 'delve'
+    must not leak into the prose scan."""
+    fm, body = _fixture(CLEAN)
+    body += (
+        "\n````markdown\n"
+        "```bash\n"
+        "let us delve into a testament to nesting\n"
+        "```\n"
+        "````\n"
+    )
+    assert lint_post(fm, body) == ([], [])
+
+
+def test_conclusion_opener_requires_word_boundary():
+    """rev-minors (7): 'In the ending scene...' must not trip 'in the end'."""
+    fm, body = _fixture(CLEAN)
+    body += "\nIn the ending scene of every migration, the boring checklist wins.\n"
+    _, warnings = lint_post(fm, body)
+    assert not any("conclusion" in w for w in warnings), warnings
+
+
+def test_conclusion_opener_still_caught_at_boundary():
+    fm, body = _fixture(CLEAN)
+    body += "\nIn the end, the checklist won.\n"
+    _, warnings = lint_post(fm, body)
+    assert any("in the end" in w for w in warnings), warnings
+
+
+def test_curly_apostrophe_negative_parallelism_warns():
+    """rev-minors (8): typographic ’ normalizes to ' before matching."""
+    fm, body = _fixture(CLEAN)
+    body += "\nThe plan isn’t about speed, it’s about repeatability.\n"
+    _, warnings = lint_post(fm, body)
+    assert any("negative-parallelism" in w for w in warnings), warnings
+
+
+def test_curly_apostrophe_vocabulary_phrase_matches():
+    fm, body = _fixture(CLEAN)
+    body += "\nIn today’s fast-paced world of backups, nothing changes.\n"
+    failures, _ = lint_post(fm, body)
+    assert any("in today's fast-paced" in f for f in failures), failures
+
+
 # --- CLI wiring: severities, exit codes, output ------------------------------
 
 # Gate-satisfying scaffold so CLI exit codes isolate the LINT contribution:
@@ -262,5 +319,8 @@ def test_blog_copy_without_ai_tells_skips_lint_loudly(tmp_path):
     _write_post(p, CLEAN, fm_extra={"diagram_exempt": "key rotation has no topology"})
     r = _run(v, cfg, p)
     assert r.returncode == 0, r.stderr
-    assert "LINT SKIPPED" in r.stdout, r.stdout
+    # rev-minors (10): the skip notice is diagnostics, not results — stderr,
+    # like the gate/lint failure banners.
+    assert "LINT SKIPPED" in r.stderr, r.stderr
+    assert "LINT SKIPPED" not in r.stdout
     assert "LINT FAIL" not in r.stdout
