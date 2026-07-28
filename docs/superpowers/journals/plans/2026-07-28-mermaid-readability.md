@@ -127,3 +127,34 @@ repo rule (.claude/rules/acceptance-matrix.md) forbids for agents. `fr plan edit
 not-implemented: mmd-4". Left untouched by design, per this phase's dispatch instructions — phase
 7 owns the flip (status: not-implemented -> ci/skipped, cite
 unit=blog-craft:tests/unit/test_mermaid_validator.py under levels).
+
+<!-- fr:journal kind=discovery scope=plan id=e5611ca921d1 created=2026-07-29T00:02:42 phase=5 -->
+### e5611ca921d1 · discovery · Width gate shipped: exact CLI signature phase 6 must wire into blog-ci.yml.tmpl (phase 5)
+
+tools/validate_mermaid_layout.mjs (mirrored byte-for-byte to templates/hugo-hextra/scripts/validate_mermaid_layout.mjs, pair registered in tests/unit/test_mirrors.py). Zero npm dependencies — no package.json, no npm install step, no setup-node: Node >= 22's global WebSocket drives headless Chrome over raw CDP, and the tool exits 2 with a clear message on older Node (ubuntu-latest preinstalls 22.23.1).
+
+THE INVOCATION (CI runs at repo root, after the Hugo build step):
+  node {{ $site }}scripts/validate_mermaid_layout.mjs --public {{ $site }}public --max-width <budget>
+
+- --public (required): Hugo's output dir. With site_dir, that is {{ $site }}public — NOT working-directory-relative; the existing 'Hugo build' step uses working-directory but this step should run at repo root like every other validator step.
+- --max-width (optional, default 1400 = the config-absent default): the px budget. The budget is a FLAG, not read from .blog-craft.yaml, because zero-dep means no YAML parser in node — the CI template renders the value from config at materialization time, exactly like every other render-time gate in blog-ci.yml.tmpl.
+- --max-width 0: gate disabled BUT LOUD — still walks public/**/*.html, prints 'GATE DISABLED (quality.mermaid_max_width: 0) — N diagram(s) across M page(s) NOT measured (no browser invoked)' plus the per-diagram list to stderr, exits 0, and never launches (sentinel-tested). So phase 6 can either render the step unconditionally (recommended: spec section 4 wants disabled gates loud in the Actions log) or gate it out at render time when the key is 0 — both satisfy 'a blog that sets 0 invokes no browser'.
+- Exit codes: 0 pass/disabled, 1 over-budget or render failure, 2 environment/usage (no public dir, no bundle at public/js/mermaid.*.js when diagrams exist, no browser, Node < 22).
+- Browser: discovered as $CHROME_BIN, google-chrome, google-chrome-stable, chromium, chromium-browser (PATH); no CHROME_BIN needs defining on ubuntu-latest. Launch flags --headless --no-sandbox --disable-dev-shm-usage + fresh --user-data-dir.
+- A diagram-free blog exits 0 without locating a bundle or launching anything, so the step is ~free where mermaid is unused.
+- Runtime datum for CI budgets: frank's full site (203 diagrams, 3.2MB production bundle, one Chrome launch, one page, N renders) = ~14s wall on an M-series Mac.
+
+<!-- fr:journal kind=discovery scope=plan id=d13dffed5885 created=2026-07-29T00:02:43 phase=5 -->
+### d13dffed5885 · discovery · End-to-end against frank's real built site: the gate reproduces the spec's design measurements exactly (phase 5)
+
+Ran the shipped tool against frank's live public/ (CHROME_BIN=Google Chrome, budget 1400): exit 1, '35 of 203 diagram(s)' blocked — the spec's day-one prediction was 35 of 182, and all 35 pages match; /docs/building/22-health-monitoring/ #1 measured 2132px, the spec's headless design measurement to the pixel. 0 render errors across all 203. The count is 203 (not 182) because built-HTML extraction picks up the SHORTCODE-emitted papers/landscape quadrantCharts that never appear as fenced blocks — the /docs/papers/*/ '#5' findings are exactly those, i.e. the frank-breakage class a markdown-level check misses is demonstrably inside the gate's reach. Numbers phase 7 can quote: 35/203 blocked at 1400px, widest 2394px (/docs/building/27-cicd-platform/ #2), narrowest finding 4px over (/docs/operating/21-vk-remote/ #1).
+
+<!-- fr:journal kind=finding scope=plan id=1e673e5f708c created=2026-07-29T00:02:44 phase=5 state=open -->
+### 1e673e5f708c · finding [open] · MMD-3 evidence landed and executed for real; the matrix flip stays with phase 7 (phase 5)
+
+tests/unit/test_mermaid_layout_gate.py (13 tests) directly proves MMD-3 ('a diagram exceeding the width budget fails the build'). On this machine every one EXECUTED — no skips: the 6 browser tests ran against real headless Chrome (found via a macOS app-path probe, passed to the tool as CHROME_BIN), and the real-bundle contract test ran against frank's production mermaid.min bundle (BLOG_CRAFT_MERMAID_BUNDLE env override; it also probes sibling checkouts ../*/public/js and ../*/*/public/js). On a bare machine/CI the hermetic tests (discovery failure, extraction listing, disabled gate, bundle location, budget-0 sentinel) still run wherever node exists; the browser tests skip WITH a visible reason. All 13 were mutation-checked: 13 mutations total (candidate dropped/reordered, class filter dropped, index.html not stripped, silent disabled gate, bundle-missing exit 0, at-budget blocks, waiver ignored, render-error skipped, budget-0 branch deleted, viewBox-first readout, overage hardcoded, min-bundle preference dropped) — every one produced a named failure. Per phases 3/4's identical finding, fr acceptance (3.19.0) has no update verb, so mmd-3's not-implemented row is untouched; 'fr plan edit --complete-phase 5' will warn — phase 7 owns the flip (cite unit=blog-craft:tests/unit/test_mermaid_layout_gate.py).
+
+<!-- fr:journal kind=discovery scope=plan id=091ae53fc81b created=2026-07-29T00:02:45 phase=5 -->
+### 091ae53fc81b · discovery · Three traps for anyone extending the gate or its tests (phase 5)
+
+(1) Chrome teardown race: proc.kill() then fs.rmSync(tmpdir) throws ENOTEMPTY intermittently — Chrome is still writing its profile while dying. The tool awaits the exit event (3s bound) before rm, and the rm is try/caught so cleanup can never override the gate's verdict (a finally-throw was silently REPLACING successful measurements with exit 2). (2) The test stub bundle's svg deliberately makes viewBox DISAGREE with the inline max-width (half of it): with equal values, a regression to viewBox-first readout is invisible. Keep that disagreement if you touch STUB_BUNDLE — it is what makes the readout-priority assertion falsifiable (mutation M5 fails two tests only because of it). (3) The stub throws if entity remnants (&lt; &amp; etc.) reach render(): built HTML escapes diagram source, so extractor decoding is load-bearing and every stub-based pass re-proves it. Also of note: measuring is one Chrome + one page + N sequential mermaid.render() calls — do not parallelize per diagram; the bundle load (3.2MB) is the fixed cost you'd multiply.
