@@ -695,7 +695,11 @@ rows:
       The pre-existing empty-sequence seed could see neither, which is why 6 passing tests
       coexisted with the defect. smoke-blog-post.sh drives the real script end to end;
       its scene-line awk terminator was relaxed to ^[[:space:]]*- key: (hard-coded 2 spaces
-      ran to EOF on a column-0 file).'
+      ran to EOF on a column-0 file). The indent is now read off the PARSED node''s start
+      mark rather than a `^images\s*:` regex, after the adversarial verification found the
+      regex missed a quoted `"images":` key and silently fell back to 2 — pinned by
+      test_a_quoted_images_key_appends_at_the_files_own_indent (unit) and
+      test_a_quoted_images_key_scaffolds_at_the_files_own_indent (end to end).'
   - id: BPC-2
     capability: post-scaffold-fidelity
     acceptance: An append that would corrupt the entries file fails loudly and leaves
@@ -736,7 +740,32 @@ rows:
       the except swallowed it — silently answered output_dir for a bundle-style blog.
       test_a_kept_block_scalar_keeps_its_trailing_blank_line closes the recorded
       p1-keep-chomp-seam edge: the seam ensures a final newline instead of collapsing
-      the ones already there.'
+      the ones already there. Strengthened again after the adversarial verification of
+      that review commit, which REFUTED two of its fixes. (a) The "images: last" check
+      was a line scanner whose premise ("column-0 content cannot occur inside the
+      sequence") is false, so it REFUSED valid files — a hand-wrapped `description:`,
+      a `tags: [one,\ntwo]` — and killed every scaffold on such a blog. It is now
+      yaml.compose()''s own key order, pinned by
+      test_column_zero_continuations_are_not_trailing_keys (four valid files),
+      test_an_explicit_document_end_marker_is_named_for_what_it_is and
+      test_a_multi_document_stream_is_named_for_what_it_is (a `...` marker used to be
+      reported as "a top-level key `...`"), plus
+      test_a_hand_wrapped_description_does_not_block_the_scaffold end to end. (b) `check`
+      passed five files `append` then refused (flow-style values, a quoted `images` key),
+      leaving content/docs/.../index.md on disk — it modelled the refusal predicates but
+      neither the indent resolution nor the verification. `check` now runs the entire
+      append in memory over the real entry block and does not write:
+      test_check_answers_exactly_what_append_would_do (all five inputs, exit codes must
+      match), test_a_flow_style_images_value_is_refused_with_an_accurate_message,
+      test_every_images_shape_scaffolds_all_or_nothing and
+      test_the_preflight_is_handed_the_real_entry_block (the compose -> check -> bundle ->
+      append order). Two more crash paths closed: a close() that raises no longer leaks a
+      sibling .tmp or masks the errno with EBADF
+      (test_a_close_that_raises_still_unlinks_the_temp_file_and_keeps_the_errno), and a
+      RecursionError from a deeply nested document is treated as an unreadable file rather
+      than an exit-1 traceback (test_a_deeply_nested_document_is_refused_without_a_traceback,
+      test_check_refuses_a_deeply_nested_document_without_a_traceback,
+      test_output_style_never_fails_on_an_unreadable_document).'
   - id: BPC-3
     capability: post-scaffold-fidelity
     acceptance: A scaffolded post appears in its series overview — frontmatter carries
@@ -801,7 +830,18 @@ rows:
       no, on, y, true, null — emitted bare, read back as float/int/bool, so the append
       verification failed with a message blaming the prompts file for the flag''s value);
       test_a_key_with_digits_and_dots_is_still_accepted pins that the new rule costs no
-      real key shape. Output half (D7 — the file
+      real key shape. The adversarial verification of that review commit then found the
+      guard covered the FLAG and not the RESOLVED key, so the positionals reached the entry
+      unvalidated: `2026-07 27` produced the key 2026-07-27, retyped by YAML to a date, and
+      the message blamed the prompts file for the caller''s arguments with the bundle already
+      written. The guard now runs on the resolved key and names its source
+      (test_a_derived_key_yaml_would_retype_is_rejected_naming_the_positionals), and
+      test_the_resolved_key_guard_accepts_every_key_it_used_to pins that it did not tighten
+      (0o17, 1.5e3, 1e5, no-cache, on-call, ops-1.5-silent, a 300-char key). The same pass
+      found <number> unvalidated — a non-numeric one died at the frontmatter heredoc as
+      `WEIGHT: unbound variable` under set -u, exit 1, bundle already on disk — now refused
+      against the documented ^[0-9]{2,3}$ before anything is written
+      (test_a_non_numeric_number_is_refused_before_anything_is_written). Output half (D7 — the file
       states the answer): test_output_default_is_the_bundle_when_the_file_says_so,
       test_output_default_is_the_bundle_under_site_dir (site_dir: blog, the reporting
       blog''s shape), test_output_default_stays_output_dir_for_a_static_blog,

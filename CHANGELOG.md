@@ -42,7 +42,13 @@ matching `vX.Y.Z` tag on merge (#18).
   tracebacking — restores the pre-append bytes (atomically too) and exits 2, so a
   refused append leaves the file byte-identical and image generation never runs on
   it. That verification is what turns this whole class of bug from silent into
-  loud, independently of the indentation fix. Every file the helper reads is read
+  loud, independently of the indentation fix. Four consequences of swapping a file
+  instead of writing into it are recorded rather than fixed (`tools/prompts_append.py`
+  docstring): a `chmod 444` entries file is now modified successfully and a writable
+  one in a read-only directory now fails (a rename is governed by *directory*
+  permission), `os.replace` breaks hardlinks, and the rename is not crash-durable —
+  the temp file is fsynced, the directory is not. None of them can lose the original
+  bytes, which is the property the swap exists for. Every file the helper reads is read
   as explicit UTF-8: the composed `description:` always carries an em dash, so a
   locale-dependent read failed the append under `LC_ALL=C` — and, in the
   `output-style` path, silently answered `output_dir` for a bundle-style blog,
@@ -57,17 +63,34 @@ matching `vX.Y.Z` tag on merge (#18).
   entry — an operator had to know to go and delete it. `prompts_append.py check
   --file` now answers "would an append be accepted?" without writing anything, and
   the scaffolder asks it before it creates the bundle: the scaffold is
-  all-or-nothing. `check` also refuses a file with a **top-level key after the
-  `images:` sequence** with a message that says so, instead of letting the
-  end-of-file append fail with `expected <block end>, but found '-'` — an error
-  that blamed the append for the file's layout. `images:` must be the last
-  top-level key in the entries file (it is the only documented one).
-- **`--key` rejects values YAML would retype.** The guard admitted `1.5`, `123`,
-  `0x1f`, `no`, `on`, `y` — all plain slugs, all emitted bare, all read back as a
-  float/int/bool rather than the key that was asked for. The append verification
-  then failed with a message about the *prompts file*, blaming the file for the
-  flag's value. A key now needs at least one letter and must not be one of the YAML
-  1.1 boolean/null words, and the error names `--key`.
+  all-or-nothing. It answers by *performing* the append — reading the file,
+  resolving the sequence indent, re-indenting the real entry block, concatenating,
+  parsing and verifying — and simply not writing the result, so it cannot accept a
+  file the append then refuses. (It could: sharing only the refusal predicates left
+  `check` blind to the indent resolution and the verification, so a flow-style
+  `images:` value and a quoted `"images":` key passed `check` and were refused by
+  `append`, with the page bundle already on disk.) Three layouts an end-of-file
+  append cannot be correct for are refused up front, each named accurately instead
+  of surfacing as `expected <block end>, but found '-'`: a **top-level key after the
+  `images:` sequence** (`images:` must be the last one — it is the only documented
+  one), a **second document or a `...` document-end marker**, and a **flow-style
+  `images: [...]` value**, which no appended line can extend. That question is put
+  to PyYAML's own parse rather than to the columns, so an entries file whose content
+  legally continues at column 0 — a `description:` or a `tags: [...]` list an
+  operator wrapped by hand — is ordinary content and not a "trailing top-level key",
+  and a quoted `"images":` is the same key as `images:`.
+- **The entry key is validated wherever it came from, and so is `<number>`.** The
+  guard admitted `1.5`, `123`, `0x1f`, `no`, `on`, `y` — all plain slugs, all emitted
+  bare, all read back as a float/int/bool rather than the key that was asked for. The
+  append verification then failed with a message about the *prompts file*, blaming the
+  file for the caller's value. A key now needs at least one letter, must not be one of
+  the YAML 1.1 boolean/null words, and must not look like a date; the check runs on the
+  **resolved** key, so `<series> <number>` of `2026-07 27` (key `2026-07-27`, retyped by
+  YAML to a date) is refused too, and the error names whether the value came from
+  `--key` or from `<series>-<number>`. `<number>` itself must be the 2-3 digits the
+  skill documents: a non-numeric one used to reach the frontmatter heredoc as
+  `weight: $WEIGHT` and die under `set -u` with `WEIGHT: unbound variable`, exit 1,
+  page bundle already written.
 - **A scaffolded post now actually appears in its own series overview (#65
   item 2).** `{{< series-index >}}` is page-derived from frontmatter `series`, and
   the scaffolder emitted a fixed field list that never included it — while Step 8

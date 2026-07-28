@@ -16,6 +16,7 @@ import shutil
 import subprocess
 import sys
 
+import pytest
 import yaml
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -289,6 +290,105 @@ def test_a_trailing_top_level_key_is_refused_up_front_with_an_accurate_message(t
     assert "last" in r.stderr, f"stderr must explain the layout rule: {r.stderr!r}"
 
 
+# An entries file whose content legally continues at COLUMN 0 is ordinary, not a
+# trailing top-level key: `images:` last is asked of PyYAML's parse, not of the
+# columns. A line scanner refused this file — a `description:` an operator wrapped by
+# hand — and so killed every scaffold on such a blog (V1).
+
+SEED_HAND_WRAPPED = ('images:\n'
+                     '- key: existing-01\n'
+                     '  output: static/images/existing.png\n'
+                     '  description: "a long cover description that the\n'
+                     'operator wrapped by hand"\n')
+
+
+def test_a_hand_wrapped_description_does_not_block_the_scaffold(tmp_path):
+    assert yaml.safe_load(SEED_HAND_WRAPPED)["images"], "the seed must be VALID to begin with"
+    blog, r = _scaffold(tmp_path, SEED_HAND_WRAPPED, number="14", slug="hand-wrapped")
+    assert r.returncode == 0, r.stderr + r.stdout
+    entries = yaml.safe_load((blog / "prompt_for_images.yaml").read_text())["images"]
+    assert len(entries) == 2, "a column-0 continuation line is not a trailing top-level key"
+    assert entries[-1]["key"] == "building-14"
+    assert (blog / "content" / "docs" / "building" / "14-hand-wrapped").is_dir()
+
+
+# Every `images:` shape is all-or-nothing (V2). `check` used to model less than the
+# real append — not the indent resolution, not the parse verification — so these five
+# files passed it and were then refused by `append`, with the page bundle already on
+# disk. `check` now runs the whole append in memory, so the two answers are the same
+# answer: a flow-style value is refused before anything is created, and a quoted
+# `images` key scaffolds at the file's own column instead of being mis-indented.
+
+SHAPES = {
+    "flow-empty": "images: []\n",
+    "flow-item": "images: [{key: existing-01, output: static/images/existing.png}]\n",
+    "flow-spaced": "images: [ ]\n",
+    "quoted-key": '"images":\n- key: existing-01\n  output: static/images/existing.png\n',
+    "single-quoted-key": "'images':\n- key: existing-01\n  output: static/images/existing.png\n",
+}
+
+
+@pytest.mark.parametrize("name,seed", sorted(SHAPES.items()))
+def test_every_images_shape_scaffolds_all_or_nothing(tmp_path, name, seed):
+    blog, r = _scaffold(tmp_path, seed, number="15", slug="shape")
+    prompts = blog / "prompt_for_images.yaml"
+    bundle = blog / "content" / "docs" / "building" / "15-shape"
+    if r.returncode == 0:
+        assert yaml.safe_load(prompts.read_text())["images"][-1]["key"] == "building-15", \
+            f"{name}: a scaffold that reported success must have appended the entry"
+        assert bundle.is_dir(), f"{name}: a successful scaffold must leave the bundle"
+    else:
+        assert prompts.read_text() == seed, \
+            f"{name}: a refused scaffold must leave the prompts file byte-identical"
+        assert not bundle.exists(), \
+            f"{name}: a refused scaffold must leave no page bundle — it is all-or-nothing"
+
+
+@pytest.mark.parametrize("name", ["flow-empty", "flow-item", "flow-spaced"])
+def test_a_flow_style_images_value_is_refused_before_anything_is_created(tmp_path, name):
+    blog, r = _scaffold(tmp_path, SHAPES[name], number="16", slug="flow")
+    assert r.returncode != 0
+    assert "flow" in r.stderr.lower(), f"stderr must name the flow-style value: {r.stderr!r}"
+    assert (blog / "prompt_for_images.yaml").read_text() == SHAPES[name]
+    assert not (blog / "content" / "docs" / "building" / "16-flow").exists()
+
+
+def test_the_preflight_is_handed_the_real_entry_block(tmp_path):
+    """The pre-flight must model the bytes that will actually be appended (V2).
+
+    `check` falls back to a synthetic entry when it is given none, which exercises
+    the indent/concatenate/parse path but not the composed block's own bytes. The
+    scaffolder composes the block before it creates anything, so it passes the real
+    one. Asserted structurally: every field of the block is bare-or-escaped by
+    construction, so nothing reachable through the CLI makes the two answers differ
+    today — the ORDER is what would rot silently, and the order is the promise.
+    """
+    src = open(SCRIPT).read().splitlines()
+
+    def only(pred, what):
+        hits = [n for n, line in enumerate(src) if pred(line)]
+        assert len(hits) == 1, f"expected exactly one {what} line, found {hits}"
+        return hits[0]
+
+    compose = only(lambda ln: ln.startswith('} > "$ENTRY_BLOCK"'), "entry-block composition")
+    check = only(lambda ln: '"$PROMPTS_APPEND" check' in ln, "check invocation")
+    bundle = only(lambda ln: ln.startswith('mkdir -p "$BUNDLE_DIR"'), "bundle mkdir")
+    append = only(lambda ln: '"$PROMPTS_APPEND" append' in ln, "append invocation")
+    assert '--entry-file "$ENTRY_BLOCK"' in src[check] and '--key "$KEY"' in src[check], \
+        f"the pre-flight must be given the real key and block: {src[check]!r}"
+    assert compose < check < bundle < append, \
+        "order must be: compose the block, pre-flight it, create the bundle, then append"
+
+
+@pytest.mark.parametrize("name", ["quoted-key", "single-quoted-key"])
+def test_a_quoted_images_key_scaffolds_at_the_files_own_indent(tmp_path, name):
+    blog, r = _scaffold(tmp_path, SHAPES[name], number="17", slug="quoted")
+    assert r.returncode == 0, r.stderr + r.stdout
+    text = (blog / "prompt_for_images.yaml").read_text()
+    assert len(yaml.safe_load(text)["images"]) == 2, f"{name} did not round-trip:\n{text}"
+    assert "\n- key: building-17" in text, f"{name}: the entry belongs at column 0:\n{text}"
+
+
 # --- frontmatter fidelity: series always, layer + tags visible (#65 item 2) ----
 #
 # The frontmatter the reporting blog got was `title/date/draft/tags: []/summary/
@@ -533,6 +633,61 @@ def test_a_key_with_digits_and_dots_is_still_accepted(tmp_path):
     blog, r, prompts = _key_run(tmp_path, ["--key", "ops-1.5-silent"], seed=SEED_COL0)
     assert r.returncode == 0, r.stderr + r.stdout
     assert _last_entry(prompts)["key"] == "ops-1.5-silent"
+
+
+# The guard covered the FLAG, not the resolved key (V5). `KEY=${KEY_OVERRIDE:-"$SERIES
+# -$NUMBER"}` means the positionals reach the entry unvalidated, so `2026-07 27` yielded
+# the key `2026-07-27` — which YAML retypes to a datetime.date — and the failure message
+# blamed the prompts file for the caller's arguments, with the bundle already written.
+# The guard now runs on the RESOLVED key and names where the bad value came from.
+
+def test_a_derived_key_yaml_would_retype_is_rejected_naming_the_positionals(tmp_path):
+    blog, r, prompts = _key_run(tmp_path, [], seed=SEED_COL0, series="2026-07", number="27")
+    assert r.returncode != 0, "a derived key YAML retypes must be rejected too"
+    assert "ERROR: --key" not in r.stderr, \
+        f"this value came from the positionals, so the error must not blame --key: {r.stderr!r}"
+    assert "<series>-<number>" in r.stderr, \
+        f"stderr must name where the bad key came from: {r.stderr!r}"
+    assert "2026-07-27" in r.stderr, f"stderr must show the offending key: {r.stderr!r}"
+    assert prompts.read_text() == SEED_COL0, "the prompts file must be untouched"
+    assert not (blog / "content" / "docs" / "2026-07" / "27-silent-failure").exists(), \
+        "a rejected key must fail before the page bundle is created"
+
+
+# The guard must not tighten: every one of these survives a YAML round-trip today and
+# has to keep working. `0o17` and `1e5` are NOT YAML 1.1 numbers (the int resolver has
+# no `0o` form, the float resolver requires a dot and a signed exponent), and
+# `no-cache` / `on-call` are not the boolean words themselves.
+STILL_ACCEPTED = ["0o17", "1.5e3", "1e5", "no-cache", "on-call", "ops-1.5-silent",
+                  "k" + "9" * 299]
+
+
+@pytest.mark.parametrize("key", STILL_ACCEPTED)
+def test_the_resolved_key_guard_accepts_every_key_it_used_to(tmp_path, key):
+    blog, r, prompts = _key_run(tmp_path, ["--key", key], seed=SEED_COL0)
+    assert r.returncode == 0, f"--key {key!r} was accepted before: {r.stderr}"
+    assert _last_entry(prompts)["key"] == key, \
+        f"--key {key!r} must survive the round-trip as a string"
+
+
+# `weight: $WEIGHT` under `set -u` (V6). A non-numeric <number> made the arithmetic at
+# :201 leave WEIGHT unset, and the failure landed at the heredoc — `line 278: WEIGHT:
+# unbound variable`, exit 1, page bundle already on disk. <number>'s shape is already
+# documented (skills/blog-post/SKILL.md Step 3: `^[0-9]{2,3}$`), so it is validated
+# before anything is written.
+
+@pytest.mark.parametrize("number", ["f", "7", "1234", "0x1", "-1", "07x"])
+def test_a_non_numeric_number_is_refused_before_anything_is_written(tmp_path, number):
+    blog, r, prompts = _key_run(tmp_path, [], seed=SEED_COL0, series="building",
+                                number=number, slug="weightless")
+    assert r.returncode != 0, f"<number> {number!r} must be rejected"
+    assert "unbound variable" not in r.stderr, \
+        f"<number> {number!r} must be reported, not crash on $WEIGHT: {r.stderr!r}"
+    assert "<number>" in r.stderr, \
+        f"stderr must name the offending argument: {r.stderr!r}"
+    assert prompts.read_text() == SEED_COL0, "the prompts file must be untouched"
+    assert not (blog / "content" / "docs" / "building").exists(), \
+        "a rejected <number> must fail before the page bundle is created"
 
 
 # --- the `output:` default follows the entries file's own convention (spec D7) ---

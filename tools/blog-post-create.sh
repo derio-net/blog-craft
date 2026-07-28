@@ -80,37 +80,48 @@ for kv in ${ENTRY_FIELDS[@]+"${ENTRY_FIELDS[@]}"}; do
   esac
 done
 
-# --key is guarded like an --entry-field key above, and for the same reason: it
+# The key is guarded like an --entry-field key above, and for the same reason: it
 # becomes a `--only <key>` CLI argument, a cover filename and the {{< ... >}}-side
 # identifier the generator matches on. Same plain-token shape the `layer:` emitter
 # uses, so `ops-30-silent-failure` passes and a space/quote/slash never reaches a
 # downstream argument.
-if [[ -n "$KEY_OVERRIDE" ]]; then
-  if [[ ! "$KEY_OVERRIDE" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]]; then
-    echo "ERROR: --key '$KEY_OVERRIDE' is not a plain slug (letters, digits, - _ .; must start alphanumeric)" >&2
+#
+# Called on the RESOLVED key, not on the flag: `KEY=${KEY_OVERRIDE:-"$SERIES-$NUMBER"}`
+# means the positionals reach the entry unvalidated too, so `<series> <number>` of
+# `2026-07 27` produced the key `2026-07-27` — retyped by YAML to a date — and the
+# append then failed with a message about the prompts file, blaming the file for the
+# caller's arguments, with the page bundle already written (V5). $2 names the source
+# so the error points at the argument that actually carried the value.
+guard_key() {   # $1 = resolved key, $2 = how to name where it came from
+  local key=$1 src=$2 lc retyped=""
+  if [[ ! "$key" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]]; then
+    echo "ERROR: $src '$key' is not a plain slug (letters, digits, - _ .; must start alphanumeric)" >&2
     exit 2
   fi
   # A plain slug is not yet a plain STRING: the key is emitted bare, so a value
-  # YAML retypes comes back as a float/int/bool/null and the append verification
+  # YAML retypes comes back as a float/int/bool/null/date and the append verification
   # then fails with a message about the prompts file — blaming the file for the
-  # flag's value. So `1.5`, `123`, `0x1f`, `no`, `on`, `y` and friends are rejected
-  # HERE, naming the flag. Rule: at least one letter, and not one of the YAML 1.1
-  # boolean/null words. `ops-1.5-silent` still passes.
-  KEY_LC=$(printf '%s' "$KEY_OVERRIDE" | tr '[:upper:]' '[:lower:]')
-  KEY_RETYPED=""
-  [[ "$KEY_OVERRIDE" =~ [A-Za-z] ]] || KEY_RETYPED="a number to YAML"
-  case "$KEY_LC" in
-    y|yes|n|no|true|false|on|off) KEY_RETYPED="a boolean to YAML" ;;
-    null|nan|inf)                 KEY_RETYPED="null/not-a-number to YAML" ;;
-    0x*|0b*)                      KEY_RETYPED="a number to YAML" ;;
+  # caller's value. So `1.5`, `123`, `0x1f`, `no`, `on`, `y`, `2026-07-27` and friends
+  # are rejected HERE, naming their source. Rule: at least one letter, and not one of
+  # the YAML 1.1 boolean/null words. `ops-1.5-silent`, `0o17` and `1e5` still pass —
+  # PyYAML's int resolver has no `0o` form and its float resolver needs a dot and a
+  # signed exponent, so those round-trip as strings.
+  lc=$(printf '%s' "$key" | tr '[:upper:]' '[:lower:]')
+  [[ "$key" =~ [A-Za-z] ]] || retyped="a number to YAML"
+  [[ "$key" =~ ^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}$ ]] && retyped="a date to YAML"
+  case "$lc" in
+    y|yes|n|no|true|false|on|off) retyped="a boolean to YAML" ;;
+    null|nan|inf)                 retyped="null/not-a-number to YAML" ;;
+    0x*|0b*)                      retyped="a number to YAML" ;;
   esac
-  if [[ -n "$KEY_RETYPED" ]]; then
-    echo "ERROR: --key '$KEY_OVERRIDE' is $KEY_RETYPED, not a string — it would not survive" >&2
+  if [[ -n "$retyped" ]]; then
+    echo "ERROR: $src '$key' is $retyped, not a string — it would not survive" >&2
     echo "       a round-trip through the entries file. Use a key with at least one letter" >&2
     echo "       that is not y/yes/n/no/on/off/true/false/null (e.g. 'ops-30-silent-failure')." >&2
+    [[ "$src" == "--key" ]] || echo "       An explicit --key <key> overrides the derived one." >&2
     exit 2
   fi
-fi
+}
 
 BLOG_ROOT=${1:?"blog_root required"}
 SERIES=${2:?"series required"}
@@ -122,6 +133,16 @@ BODY_FILE=${7:?"body-file required"}
 SUMMARY_FILE=${8:?"summary-file required"}
 READER_GOAL_FILE=${9:-}
 DIATAXIS=${10:-}
+
+# <number> is `weight: $((10#$NUMBER + 1))` further down, and under `set -u` a
+# non-numeric one used to fail as `line 278: WEIGHT: unbound variable` — exit 1, no
+# useful message, page bundle already on disk (V6). The shape is the one
+# skills/blog-post/SKILL.md Step 3 already documents, checked before anything exists.
+if [[ ! "$NUMBER" =~ ^[0-9]{2,3}$ ]]; then
+  echo "ERROR: <number> '$NUMBER' must be 2-3 digits, zero-padded (e.g. 07) — it becomes the" >&2
+  echo "       page bundle's <NN>-<slug> directory and its frontmatter 'weight'." >&2
+  exit 2
+fi
 
 CONFIG="$BLOG_ROOT/.blog-craft.yaml"
 [[ -f "$CONFIG" ]]       || { echo "ERROR: $CONFIG not found" >&2; exit 2; }
@@ -206,6 +227,7 @@ TODAY=$(date +%Y-%m-%d)
 # content_type}). So no detection here — an explicit --key or the historical
 # default, byte-for-byte (spec D6).
 KEY=${KEY_OVERRIDE:-"$SERIES-$NUMBER"}
+if [[ -n "$KEY_OVERRIDE" ]]; then guard_key "$KEY" "--key"; else guard_key "$KEY" "<series>-<number>"; fi
 SITE_PREFIX=${SITE_DIR%/}; [[ "$SITE_PREFIX" == "." ]] && SITE_PREFIX=""
 BUNDLE_REL="${SITE_PREFIX:+$SITE_PREFIX/}content/docs/$SERIES/$NUMBER-$SLUG"
 BUNDLE_DIR="$BLOG_ROOT/$BUNDLE_REL"
@@ -213,16 +235,6 @@ PROMPTS_YAML="$BLOG_ROOT/$PROMPTS_REL"
 [[ -f "$PROMPTS_YAML" ]] || { echo "ERROR: prompts file $PROMPTS_YAML (image.prompts_file) not found" >&2; exit 2; }
 PROMPTS_APPEND="$HERE/prompts_append.py"
 [[ -f "$PROMPTS_APPEND" ]] || { echo "ERROR: prompts_append.py not found beside blog-post-create.sh ($HERE)" >&2; exit 2; }
-
-# Refuse a doomed append BEFORE creating anything, so the scaffold is
-# all-or-nothing. The append itself (step 2) is what writes and verifies, but it
-# runs after the page bundle exists, so a refusal there used to exit 2 with
-# content/docs/<series>/<NN>-<slug>/index.md already on disk and no matching entry
-# — an operator had to know to go and delete it. `check` re-answers exactly what
-# `append` would refuse (a file that does not parse; a top-level key after the
-# `images:` sequence, which an end-of-file append cannot be correct for) and never
-# writes. `set -e` carries its exit 2.
-python3 "$PROMPTS_APPEND" check --file "$PROMPTS_YAML"
 
 # The entry's `output:` — where THIS blog keeps its covers, asked of the file that
 # knows (spec D7). Covers inside the page bundle and covers in image.output_dir are
@@ -243,6 +255,67 @@ else
     OUTPUT_IMAGE="$OUTPUT_DIR/$KEY-cover.png"
   fi
 fi
+
+# 0. Compose the v5 composition-block entry: SCENE-ONLY text + selector fields
+#    under composition.modifiers (docs/CONFIG.md §4.1, schema v5). Integer
+#    values stay bare; everything else is double-quoted. v5 references are
+#    explicit — when the config declares image.reference_image, freeze it into
+#    reference_images.primary (the operator will point at named character
+#    sheets over time).
+#    The block is composed at a 2-space indent and PLACED by prompts_append.py,
+#    never appended with `>>`: a literal `  - key:` corrupts every prompts file
+#    whose `images:` sequence sits at column 0 — valid YAML, and what bootstrap
+#    plus 88 hand-written entries produced in the reporting blog (#65 item 1).
+#    The helper reads the file's own indent (spec D1) and re-parses what it wrote
+#    (D2), so a bad append is loud here instead of surfacing as a ParserError in
+#    the next generate-images.py run. Plugin-side only — a blog's scripts/ never
+#    invokes it, so there is no mirrored copy to keep in step.
+#    Composed BEFORE the page bundle exists so the pre-flight below can be handed
+#    the real bytes (V2) — nothing here writes to the blog.
+INDENTED_SCENE=$(sed 's/^/        /' "$SCENE_FILE")
+PRIMARY_REF=$(cfg image.reference_image --default "")
+ENTRY_BLOCK=$(mktemp)
+trap 'rm -f "$ENTRY_BLOCK"' EXIT
+{
+  echo "  - key: $KEY"
+  # Plain paths stay bare — that is what the 88 hand-written entries look like and
+  # what every previous run of this scaffolder emitted. `--output` and the <slug>/
+  # <series> the bundle path is built from are unguarded input, so anything that is
+  # not a plain path goes out as a quoted, escaped scalar rather than broken YAML.
+  if [[ "$OUTPUT_IMAGE" =~ ^[A-Za-z0-9][A-Za-z0-9_./-]*$ ]]; then
+    echo "    output: $OUTPUT_IMAGE"
+  else
+    echo "    output: \"$(yaml_escape "$OUTPUT_IMAGE")\""
+  fi
+  echo "    description: \"Cover for $SERIES post $NUMBER — $TITLE_ESC\""
+  echo "    composition:"
+  if [[ -n "$PRIMARY_REF" ]]; then
+    echo "      reference_images:"
+    echo "        primary: $PRIMARY_REF"
+  fi
+  echo "      modifiers:"
+  echo "        series: $SERIES"
+  for kv in ${ENTRY_FIELDS[@]+"${ENTRY_FIELDS[@]}"}; do
+    k=${kv%%=*}; v=${kv#*=}    # value may itself contain '=' — split on the first only
+    if [[ "$v" =~ ^-?[0-9]+$ ]]; then
+      echo "        $k: $v"
+    else
+      echo "        $k: \"$(yaml_escape "$v")\""
+    fi
+  done
+  echo "      scene: |"
+  echo "$INDENTED_SCENE"
+} > "$ENTRY_BLOCK"
+
+# Refuse a doomed append BEFORE creating anything, so the scaffold is
+# all-or-nothing. The append itself (step 2) is what writes and verifies, but it
+# runs after the page bundle exists, so a refusal there used to exit 2 with
+# content/docs/<series>/<NN>-<slug>/index.md already on disk and no matching entry
+# — an operator had to know to go and delete it. `check` performs the WHOLE append
+# in memory over THESE bytes — the same indent resolution, the same concatenation,
+# the same parse verification — and does not write, so it cannot pass where the
+# append will fail (V2). `set -e` carries its exit 2.
+python3 "$PROMPTS_APPEND" check --file "$PROMPTS_YAML" --key "$KEY" --entry-file "$ENTRY_BLOCK"
 
 # 1. Page bundle: frontmatter + composed body, in the blog's convention order:
 #    title, series, layer?, date, draft, tags, summary, weight, reader_goal?,
@@ -290,57 +363,10 @@ mkdir -p "$BUNDLE_DIR"
 } > "$BUNDLE_DIR/index.md"
 echo "  page bundle: $BUNDLE_DIR/index.md (body from $BODY_FILE, summary from $SUMMARY_FILE)"
 
-# 2. Append the v5 composition-block entry: SCENE-ONLY text + selector fields
-#    under composition.modifiers (docs/CONFIG.md §4.1, schema v5). Integer
-#    values stay bare; everything else is double-quoted. v5 references are
-#    explicit — when the config declares image.reference_image, freeze it into
-#    reference_images.primary (the operator will point at named character
-#    sheets over time).
-#    The block is composed at a 2-space indent and PLACED by prompts_append.py,
-#    never appended with `>>`: a literal `  - key:` corrupts every prompts file
-#    whose `images:` sequence sits at column 0 — valid YAML, and what bootstrap
-#    plus 88 hand-written entries produced in the reporting blog (#65 item 1).
-#    The helper reads the file's own indent (spec D1) and re-parses what it wrote
-#    (D2), so a bad append is loud here instead of surfacing as a ParserError in
-#    the next generate-images.py run. Plugin-side only — a blog's scripts/ never
-#    invokes it, so there is no mirrored copy to keep in step.
-INDENTED_SCENE=$(sed 's/^/        /' "$SCENE_FILE")
-PRIMARY_REF=$(cfg image.reference_image --default "")
-ENTRY_BLOCK=$(mktemp)
-trap 'rm -f "$ENTRY_BLOCK"' EXIT
-{
-  echo "  - key: $KEY"
-  # Plain paths stay bare — that is what the 88 hand-written entries look like and
-  # what every previous run of this scaffolder emitted. `--output` and the <slug>/
-  # <series> the bundle path is built from are unguarded input, so anything that is
-  # not a plain path goes out as a quoted, escaped scalar rather than broken YAML.
-  if [[ "$OUTPUT_IMAGE" =~ ^[A-Za-z0-9][A-Za-z0-9_./-]*$ ]]; then
-    echo "    output: $OUTPUT_IMAGE"
-  else
-    echo "    output: \"$(yaml_escape "$OUTPUT_IMAGE")\""
-  fi
-  echo "    description: \"Cover for $SERIES post $NUMBER — $TITLE_ESC\""
-  echo "    composition:"
-  if [[ -n "$PRIMARY_REF" ]]; then
-    echo "      reference_images:"
-    echo "        primary: $PRIMARY_REF"
-  fi
-  echo "      modifiers:"
-  echo "        series: $SERIES"
-  for kv in ${ENTRY_FIELDS[@]+"${ENTRY_FIELDS[@]}"}; do
-    k=${kv%%=*}; v=${kv#*=}    # value may itself contain '=' — split on the first only
-    if [[ "$v" =~ ^-?[0-9]+$ ]]; then
-      echo "        $k: $v"
-    else
-      echo "        $k: \"$(yaml_escape "$v")\""
-    fi
-  done
-  echo "      scene: |"
-  echo "$INDENTED_SCENE"
-} > "$ENTRY_BLOCK"
-# Its exit 2 already names what is wrong on stderr and guarantees the file was
-# left as it was found; `set -e` propagates it rather than reporting a success
-# the operator would only discover was a lie at generate time.
+# 2. Append the v5 composition-block entry, composed at step 0 above.
+#    Its exit 2 already names what is wrong on stderr and guarantees the file was
+#    left as it was found; `set -e` propagates it rather than reporting a success
+#    the operator would only discover was a lie at generate time.
 python3 "$PROMPTS_APPEND" append --file "$PROMPTS_YAML" --key "$KEY" --entry-file "$ENTRY_BLOCK"
 # The output path is worth printing now that the default follows the blog (D7) and
 # the key can be overridden (D6): both are what the operator would otherwise have

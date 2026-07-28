@@ -371,3 +371,92 @@ CHANGELOG: no version bump (0.17.0 is unreleased and these fix code shipping in 
 Acceptance matrix: no new rows or status changes (BPC-1/2/5 and GL-10 are already `ci` and already cite these files). The `notes` for BPC-2, BPC-5 and GL-10 were rewritten to record what the new tests pin and, for GL-10, that the sort test was previously unpinned — the registry is only useful if its notes say which tests are diagnostic. Reports regenerated with `fr acceptance report --deterministic`.
 
 Pre-existing and NOT touched: `ruff check tools/ tests/` reports 52 errors (E702/E402/F401/E741/E731) at this commit and reported the same 52 on the parent commit; none are in the four files this work changed (they pass clean). Fixing them is unrelated churn for a review-fix commit, and ruff is not wired into any workflow in .github/workflows.
+
+<!-- fr:journal kind=finding scope=plan id=v-v1-trailing-key-false-positive created=2026-07-28T00:38:57 state=fixed -->
+### v-v1-trailing-key-false-positive · finding [fixed] · V1 (regression): trailing_top_level_key() refused VALID prompts files, killing every scaffold on such a blog
+
+The F7 line scanner rested on "column-0 content cannot occur inside the `images:` sequence". That premise is false. Multi-line flow collections and multi-line quoted scalars legally continue at column 0, so four ORDINARY valid files were refused by both `check` and `append` — a hand-wrapped `description:` in an entries file is entirely ordinary, which made the diagnostic worse than the rare layout it diagnosed:
+
+```
+images:
+- key: a
+  output: x.png
+  tags: [one,
+two]                      # -> "refusing to append, `two]` is a top-level key at line 5"
+```
+plus a hand-wrapped `description: "…\noperator wrapped by hand"`, a `meta: {p: 1,\nq: 2}` flow mapping, and a `'hello\nworld'` single-quoted scalar. PyYAML parses all four and a plain end-of-file append works correctly on all four.
+
+Fix: the question is put to the parser's own structure. `yaml.compose()` gives the root MappingNode; if `images` is present but is not the LAST key, refuse and name the key that follows (line number from its start mark). Exact by construction — quoted keys, flow style, multi-line scalars and comments are PyYAML's business, not a heuristic's. `sequence_indent()` moved to the same source of truth (the sequence node's `start_mark.column`), which also fixed V2's quoted-key half. `append_shape_problem()` replaces `trailing_top_level_key()`; the line-scanning logic is gone.
+
+Two related mis-messages fixed with it, using `yaml.parse()` events rather than text: a `...` document-end marker was reported as "a top-level key `...`" (now: `DocumentEndEvent.explicit`, "the file closes its document explicitly with `...` at line N"), and a `---`-separated stream reported "`---` is a top-level key" (now: DocumentStartEvent count, "the file holds 2 YAML documents"). Both are still REFUSED — an end-of-file append into either is wrong — just named for what they are.
+
+Pinned by tests/unit/test_prompts_append.py::test_column_zero_continuations_are_not_trailing_keys (all four valid files, asserting `yaml.safe_load` accepts the fixture first, then check=0 AND append=0 with 2 entries), ::test_an_explicit_document_end_marker_is_named_for_what_it_is, ::test_a_multi_document_stream_is_named_for_what_it_is, and end to end by tests/unit/test_blog_post_create.py::test_a_hand_wrapped_description_does_not_block_the_scaffold. The pre-existing F7 tests (a real trailing `settings:` key IS refused; the message does not say "broke the file") are unchanged and still pass.
+
+<!-- fr:journal kind=finding scope=plan id=v-v2-check-append-divergence created=2026-07-28T00:39:17 state=fixed -->
+### v-v2-check-append-divergence · finding [fixed] · V2 (refuted fix): check passed five files append then refused, so the half-scaffolded-post hole was still open
+
+F3 claimed `check` and `append` "can never disagree about what is refusable" because they shared `_appendability_problem()`. They shared only the PREDICATES. `append` additionally resolved the insertion indent via `sequence_indent()` and verified the resulting parse; `check` modelled neither. Confirmed check=0 / append=2 with `content/docs/.../index.md` left on disk for `images: []`, `images: [{key: a, output: …}]`, `images: [ ]`, and (with column-0 entries under it) `"images":` / `'images':` — a flow value or a quoted key made the indent fall back to 2 and the appended `  - key:` was invalid at end of file.
+
+Fix by construction, not by another predicate. `prepare()` is the whole append minus the write: read the bytes, check the document shape, count the entries, read the entry block, resolve the indent, re-indent, concatenate (`compose_payload()`), parse and verify (`verification_problem()`). `cmd_check` calls it and stops; `cmd_append` calls it and then writes `plan.payload`. There is no second code path to drift. Refusals raise `Refused(msg)`; the post-write re-read-from-disk verification (D2) stays and re-runs `verification_problem` on the bytes.
+
+`check` now takes optional `--key`/`--entry-file` (both or neither) and blog-post-create.sh passes the REAL block: the entry-block composition moved ahead of `mkdir -p "$BUNDLE_DIR"` (it only needs KEY, OUTPUT_IMAGE, SCENE_FILE and the config — all resolved before the bundle), so the order is compose -> pre-flight check -> bundle -> append. Without an entry file `check` falls back to a synthetic minimal entry so the indent/concatenate/parse path is still exercised.
+
+The two halves of the five inputs now behave DIFFERENTLY on purpose, and both are all-or-nothing:
+- flow-style `images:` (3 cases) is refused UP FRONT with its own message ("`images:` is written in FLOW style (`[...]`) at line 1. A flow collection cannot be extended by appending a block entry at end of file"), prompts file byte-identical, no bundle.
+- a quoted `"images":` key (2 cases) is now ACCEPTED and appended at the file's own column 0 — `sequence_indent` reads the parsed node's start mark, so the quoted key is the same key. Deliberately not refused: V1 is the lesson that refusing valid files is worse than the bug being diagnosed. The verification instruction asked for non-zero on all five; making the two quoted cases WORK closes the same divergence without gratuitously refusing a legal file, and the pinning test asserts check and append agree rather than asserting a specific code.
+
+Pinned by tests/unit/test_prompts_append.py::test_check_answers_exactly_what_append_would_do (all five inputs, check exit == append exit, check never writes, a refusal leaves the file byte-identical), ::test_a_flow_style_images_value_is_refused_with_an_accurate_message, ::test_a_quoted_images_key_appends_at_the_files_own_indent, and end to end by tests/unit/test_blog_post_create.py::test_every_images_shape_scaffolds_all_or_nothing (all five: success => entry appended AND bundle present; refusal => prompts byte-identical AND bundle absent), ::test_a_flow_style_images_value_is_refused_before_anything_is_created, ::test_a_quoted_images_key_scaffolds_at_the_files_own_indent, ::test_the_preflight_is_handed_the_real_entry_block (the compose -> check -> bundle -> append ORDER, plus `--key`/`--entry-file` on the check line — asserted structurally because every field of the composed block is bare-or-escaped by construction, so no reachable input makes the two answers differ today).
+
+<!-- fr:journal kind=finding scope=plan id=v-v3-close-raises-leaks-tmp created=2026-07-28T00:39:38 state=fixed -->
+### v-v3-close-raises-leaks-tmp · finding [fixed] · V3 (F1-a): a close() that raises leaked a temp file beside the operator's entries file and masked the real errno
+
+`_write_atomically` did `os.close(fd)` then `fd = -1` inside the try. If `close()` raises — EIO/ENOSPC on close, plausible on NFS — `fd` is still >= 0, so the `finally` closed it again and the resulting `OSError: [Errno 9] Bad file descriptor` propagated OUT of the finally, skipping `os.unlink(tmp_name)`. Two consequences: an untracked `.prompt_for_images.yaml.XXXX.tmp` beside the operator's file (`*.tmp` is not in this repo's .gitignore) and a bogus EBADF instead of the real error. The same window existed if a signal landed between the close and `fd = -1`.
+
+Reproduced against 809e1a7 by patching `os.close` to raise EIO once: raised errno 9, left `.f.yaml.x0fjxiyb.tmp` behind. After: raises errno 5 (EIO), no temp file.
+
+Fix: the finally is tolerant — `if fd >= 0: try: os.close(fd) except OSError: pass` — and the unlink runs unconditionally afterwards, so cleanup never depends on the success path having run. `os.replace` is still reached only when the close succeeded, so the target is untouched on this path.
+
+Pinned by tests/unit/test_prompts_append.py::test_a_close_that_raises_still_unlinks_the_temp_file_and_keeps_the_errno. It drives `_write_atomically` in a CHILD interpreter (the module is imported by the test file for exactly this case) so the patched `os.close` cannot touch the pytest process; the patch closes the fd for real before raising, which is what close(2) does.
+
+<!-- fr:journal kind=finding scope=plan id=v-v4-recursionerror-traceback created=2026-07-28T00:39:38 state=fixed -->
+### v-v4-recursionerror-traceback · finding [fixed] · V4 (F1-b): a RecursionError escaped as exit 1 + traceback, falsifying output-style's never-fails promise
+
+`load_entries` was guarded by `(yaml.YAMLError, ValueError, UnicodeDecodeError)`. PyYAML raises RecursionError (a RuntimeError) on a deeply nested document, so all three subcommands exited 1 with a traceback — and it falsified `cmd_output_style`'s docstring promise ("Never fails a scaffold: an unreadable file answers `output_dir`"), which is load-bearing: the scaffolder reads its stdout to pick where the cover goes. Adversarial input only, no data loss.
+
+Fix: RecursionError joins the except tuples in `prepare()`, `verification_problem()`, `cmd_output_style()` and `_images_node()`. An unreadable file is an unreadable file, whichever way PyYAML says so.
+
+Test-shape note worth keeping: the reported repro (`images: ` + 60000 `[`) does NOT reach the RecursionError handler any more, because `list(yaml.parse(text))` now runs first and the unclosed brackets raise ParserError (also refused, also no traceback) — and building 60000 nested parser states takes ~42 s, which is not a unit test. The fixture that actually exercises the RecursionError path is `images:\n` + `- ` * 2000 (2000 nested block sequences): it tokenises instantly and every reader (compose, safe_load) then blows the stack. Both shapes are pinned.
+
+Pinned by tests/unit/test_prompts_append.py::test_a_deeply_nested_document_is_refused_without_a_traceback (append: exit 2, no traceback, file byte-identical), ::test_check_refuses_a_deeply_nested_document_without_a_traceback, ::test_output_style_never_fails_on_an_unreadable_document (parametrized over BOTH shapes: exit 0, prints output_dir).
+
+<!-- fr:journal kind=finding scope=plan id=v-v5-resolved-key-unguarded created=2026-07-28T00:40:04 state=fixed -->
+### v-v5-resolved-key-unguarded · finding [fixed] · V5 (F4-a): the --key guard covered the flag, not the resolved key, so the positionals reached the entry unvalidated
+
+blog-post-create.sh guarded `$KEY_OVERRIDE`, but the key is `KEY=${KEY_OVERRIDE:-"$SERIES-$NUMBER"}` and neither positional was validated. `blog-post-create.sh … 2026-07 27 slug …` therefore produced the key `2026-07-27`, which YAML retypes to `datetime.date`, and the append verification failed with "the last entry is not the appended key `'2026-07-27'` (found datetime.date(2026, 7, 27))" — blaming the prompts file for the caller's arguments, with the page bundle already on disk. Exactly the failure mode F4 set out to remove, one argument to the left.
+
+Fix: the guard became `guard_key <key> <source-name>` and is called on the RESOLVED key right where it is computed (before anything is written), with the source named so the error points at the argument that carried the value: `--key` or `<series>-<number>`. A date shape is classified as such ("is a date to YAML") rather than mislabelled "a number to YAML", and the derived-key message adds "An explicit --key <key> overrides the derived one."
+
+Deliberately NOT tightened: at least one letter, not a YAML 1.1 boolean/null word, not `0x`/`0b`, not a date. `0o17`, `1.5e3`, `1e5`, `no-cache`, `on-call`, `ops-1.5-silent` and a 300-char key all still round-trip as strings (PyYAML's int resolver has no `0o` form; its float resolver needs a dot AND a signed exponent).
+
+Pinned by tests/unit/test_blog_post_create.py::test_a_derived_key_yaml_would_retype_is_rejected_naming_the_positionals (exit non-zero, stderr names `<series>-<number>` and not `ERROR: --key`, prompts file untouched, bundle absent) and ::test_the_resolved_key_guard_accepts_every_key_it_used_to (7 keys, each asserted to reach the entry as a string). The existing `--key` cases are unchanged.
+
+<!-- fr:journal kind=finding scope=plan id=v-v6-weight-unbound-variable created=2026-07-28T00:40:04 state=fixed -->
+### v-v6-weight-unbound-variable · finding [fixed] · V6: a non-numeric <number> died on 'weight: $WEIGHT' under set -u, after the page bundle was written
+
+Pre-existing, two lines to close, and the live path to the same all-or-nothing hole. `WEIGHT=$((10#$NUMBER + 1))` does not abort the script for a non-numeric `<number>` (bash prints "10#f: value too great for base" and carries on with WEIGHT unset), so the failure landed 77 lines later inside the frontmatter heredoc: `line 278: WEIGHT: unbound variable`, exit 1, no useful message, and `content/docs/building/f-slug2/index.md` already on disk.
+
+Fix: `<number>` is validated against `^[0-9]{2,3}$` — the shape skills/blog-post/SKILL.md Step 3 already documents — immediately after the positionals are read, before anything exists, with a message that names `<number>` and says what it becomes (the `<NN>-<slug>` directory and the frontmatter `weight`).
+
+Pinned by tests/unit/test_blog_post_create.py::test_a_non_numeric_number_is_refused_before_anything_is_written, parametrized over `f`, `7`, `1234`, `0x1`, `-1`, `07x`: exit non-zero, stderr names `<number>` and never says "unbound variable", prompts file untouched, and `content/docs/building` does not exist at all.
+
+<!-- fr:journal kind=discovery scope=plan id=v-os-replace-behaviour-deltas created=2026-07-28T00:40:04 -->
+### v-os-replace-behaviour-deltas · discovery · What os.replace changes about the prompts-file append (accepted, recorded)
+
+Four behaviour deltas of the F1 atomic-replace rewrite, confirmed by the adversarial verification and accepted rather than fixed. Recorded in tools/prompts_append.py's module docstring ("What `os.replace` changes") and summarised in the CHANGELOG 0.17.0 entry, because two of them are operator-visible:
+
+1. a `chmod 444` prompts file is now modified SUCCESSFULLY, where the old in-place write was refused by the mode. A rename is governed by DIRECTORY write permission, so a read-only file no longer protects itself.
+2. the mirror image: a writable file in a read-only DIRECTORY now fails where an in-place write succeeded. It fails safely — the file is left byte-identical and the caller gets exit 2 with a message.
+3. `os.replace` breaks hardlinks: the directory entry is swung, so any other link to the old inode keeps the pre-append bytes instead of seeing the new entry.
+4. the rename is not crash-durable — the temp file is fsynced, the DIRECTORY is not — so a power loss between the rename and the filesystem's own commit can lose the swap. It cannot lose the original bytes, which is the property the swap exists for.
+
+None is worth a fix here: (1) and (3) are inherent to atomic replacement and the alternative is the truncate-then-write that caused F1; (2) is a safe failure; (4) would cost a directory fsync on every scaffold to protect against a window in which the operator loses the entry but never the file.

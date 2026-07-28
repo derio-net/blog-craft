@@ -104,11 +104,19 @@ entries carry a `composition:` block:
       ...
 ```
 
-**Keep `images:` last.** `images:` is the only top-level key the entries file
-needs, and `/blog-post` appends new entries at end of file (it never re-dumps the
-document, so hand-written formatting survives). A hand-added top-level key *after*
-the sequence is therefore refused up front, naming the key — move it above
-`images:`.
+**Keep `images:` last, and keep it a block sequence.** `images:` is the only
+top-level key the entries file needs, and `/blog-post` appends new entries at end of
+file (it never re-dumps the document, so hand-written formatting survives). Three
+layouts are therefore refused up front, each naming what it found: a hand-added
+top-level key *after* the sequence (move it above `images:`), a second YAML document
+or a `...` document-end marker (an appended entry would land outside the sequence),
+and a **flow-style** value — `images: []` or `images: [{key: a}]` — which cannot be
+extended by appending a line (rewrite it as one `- key:` item per line). The
+sequence's own indentation is read from the file, so column 0 and two spaces are
+equally fine, and a quoted `"images":` key is the same key. Anything the entries
+themselves do is *not* a layout problem: a `description:` or a `tags: [...]` list an
+operator wrapped by hand may continue at column 0 — that is ordinary content, and the
+check is PyYAML's own parse rather than a scan of the columns.
 
 A dict-layer **modifier** value may be a bracket path (`papers[white_lab_coat]`
 descends a nested table directly), a plain name (single-level lookup,
