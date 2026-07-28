@@ -866,3 +866,60 @@ rows:
       carrying the WRONG series is still in the papers directory, so it is still validated
       and the series check catches it. The pre-#61 byte-identity guard normalises this
       one line rather than editing the historical fixture.'
+  - id: mmd-1
+    capability: Mermaid readability
+    acceptance: Every mermaid diagram renders at its authored size regardless of the
+      content column width
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-28-mermaid-readability-design.md
+    levels: {}
+    status: not-implemented
+    notes: 'CSS: mermaid''s inline max-width caps ''width: 200rem'' to min(200rem, natural).
+      Verified in design against 182 frank diagrams (183-2394px).'
+  - id: mmd-2
+    capability: Mermaid readability
+    acceptance: A diagram wider than the column exposes a visible scroll affordance
+      without user interaction
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-28-mermaid-readability-design.md
+    levels: {}
+    status: not-implemented
+    notes: macOS overlay scrollbars paint nothing at rest (offsetHeight-clientHeight
+      == 0); needs -webkit-appearance:none plus scroll shadows. Test Plan step 2, manual.
+  - id: mmd-3
+    capability: Mermaid diagram gates
+    acceptance: A diagram exceeding the configured width budget fails the build
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-28-mermaid-readability-design.md
+    levels: {}
+    status: not-implemented
+    notes: Blocking, no baseline (operator decision). Default 1400px ~= 2x the 672px
+      column; blocks 35 of frank's 182 on day one.
+  - id: mmd-4
+    capability: Mermaid diagram gates
+    acceptance: A disabled diagram gate reports that it is disabled and how many findings
+      it would have reported
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-28-mermaid-readability-design.md
+    levels: {}
+    status: not-implemented
+    notes: Today quality.mermaid_syntax:false prints a neutral line and exits 0 — indistinguishable
+      from a pass; frank shipped a 50-finding backlog behind it.
+  - id: mmd-5
+    capability: Mermaid readability
+    acceptance: A blog can opt out of the framed scroller and keep the previous rendering
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-28-mermaid-readability-design.md
+    levels: {}
+    status: not-implemented
+    notes: features.mermaid_view defaults true; migration 005_to_006 writes it for existing
+      blogs.
+  - id: mmd-6
+    capability: Mermaid readability
+    acceptance: A scrollable diagram container is reachable and scrollable by keyboard
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-28-mermaid-readability-design.md
+    levels: {}
+    status: not-implemented
+    notes: WCAG 2.1; needs tabindex=0 via a render-codeblock-mermaid.html override.
+      Test Plan step 4, manual.
