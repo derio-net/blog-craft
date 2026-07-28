@@ -16,6 +16,8 @@ runs them. A post ships when the gate passes **and** the judgment items hold.
 - [ ] A **set-the-stage** opening states the motivation (the concrete problem), what it solves, and the one load-bearing design choice — before `Step 1`.
 - [ ] The **foundation is named**: "you need A, B, C" — with links to the earlier posts where A/B/C were built, rather than re-explaining them.
 - [ ] The `voice_level` fits the blog/post (`dry`/`balanced`/`rich`); a `balanced`+ draft reads oriented and human, not cold.
+- [ ] A building/tutorial post opens with a **lay-of-the-land** section sized to the material — the conceptual landscape, proportional to how idiosyncratic the meat is (`references/reader-arc.md`); a how-to/reference post keeps the tight three-beat opening instead.
+- [ ] The post closes with **what the reader keeps beyond this repo** — a general rule, portable heuristic, or generalizing gotcha — **not a recap** of what was done.
 
 ## The 2am test — judgment (must hold)
 

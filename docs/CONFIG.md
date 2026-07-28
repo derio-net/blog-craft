@@ -266,6 +266,49 @@ The validator ships into every blog at `scripts/validate_educational.py` (a
 byte-identical copy of `tools/validate_educational.py`), so a plain-python CI runs
 it without the plugin.
 
+### AI-tells lint (`quality.lint`)
+
+Runs with the gate above, **warnings-first**: it flags the surface patterns that
+make prose read machine-written without pushing the drafting toward
+regex-gaming. Only the conservative AI-vocabulary list *fails* by default; the
+density metrics (em-dash, negative parallelism, rule-of-three triads), cliché
+conclusion openers, and the missing what-transfers section on
+tutorial/explanation posts *warn*. Warnings print as `LINT WARN:` lines and
+never affect the exit code; `LINT FAIL:` lines exit nonzero alongside gate
+failures.
+
+```yaml
+quality:
+  lint:
+    enabled: true          # false => skip the lint entirely (gate-only run)
+    severities:            # per-check: fail | warn | off
+      vocabulary: fail     # default fail — the only failing check
+      em_dash: warn
+      negative_parallelism: warn
+      triad: warn
+      conclusion: warn
+      what_transfers: warn
+    thresholds:            # per-1000-words densities (numbers)
+      em_dash_per_1000: 8
+      negative_parallelisms_per_1000: 2
+      triads_per_1000: 3
+```
+
+Every key is optional — an **absent `quality.lint` block means defaults**
+(vocabulary fails, everything else warns). The word lists, regex patterns, and
+default thresholds live in **one source**:
+`skills/educational-writing/references/ai-tells.md` (its fenced yaml block) —
+the drafting skills apply the same catalog as prose guidance, so instruction
+and mechanics cannot drift apart. The file ships into every blog at
+`scripts/ai-tells.md` next to the validator; if it is missing (a blog whose
+`scripts/` predates it), the run prints `LINT SKIPPED:` and stays gate-only.
+The drafting skills seed `quality.lint.enabled` on their first run; until then
+the absent block simply means defaults.
+
+Mode-conditional checks (what-transfers) key off the `diataxis` frontmatter
+(tutorial/explanation), never series names. All matching runs on prose only —
+fenced code blocks, inline code spans, and frontmatter never trip the lint.
+
 ### Mermaid syntax gate (`quality.mermaid_syntax`)
 
 Separate from the post-quality gate above, and content-type-agnostic: a

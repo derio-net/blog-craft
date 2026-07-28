@@ -10,6 +10,44 @@ matching `vX.Y.Z` tag on merge (#18).
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-07-28
+
+### Added
+- **Reader-arc methodology — landscape beginning, what-transfers ending.**
+  `skills/educational-writing` gains `references/reader-arc.md`: the post is
+  organized around the reader's arc, not the work's chronology. Building and
+  tutorial posts open with a conceptual lay-of-the-land sized to the material
+  (a paragraph for a small tool, a section for a new domain) and close with a
+  what-transfers section — what the reader takes to their *next* project, not a
+  summary of this one. The drafting SKILL.md carve-out, session skeleton, and
+  review checklist all wire it in, and the contract is CI-pinned
+  (`tests/unit/test_reader_arc_contract.py`).
+- **Vendored AI-tells catalog + warnings-first lint layer in the educational
+  gate.** `references/ai-tells.md` catalogs the tells with machine-readable
+  lint data, and `validate_educational.py` grows a lint layer on top of the
+  structural gate: AI-vocabulary hits **fail** by default; em-dash density,
+  parallelism runs, rule-of-three pileups, cliché conclusions, and a missing
+  what-transfers section **warn**. Severities (`fail|warn|off`) and thresholds
+  are configurable via the new `quality.lint` config block (`docs/CONFIG.md`).
+  Code fences and frontmatter are excluded from scanning. The catalog ships
+  into consumer blogs as a `scripts/` sibling mirror of the validator; a blog
+  whose `scripts/` predates it prints a loud `LINT SKIPPED` and stays
+  gate-only — never a crash, never a silent skip.
+- **Blind cold-reader editor pass in `/blog-post` and `/post-rewrite`.**
+  `agents/cold-reader.md` — a read-only agent (Read, Grep, Glob) dispatched
+  with *no session context* — critiques every draft as a first-time reader
+  across five sections (Takeaway mirror, Lost points, Session residue, Arc
+  assessment, AI-tell instances), and
+  the draft is revised against the critique before the operator ever sees it.
+  Both drafting skills carry the dispatch sub-step ahead of the approval
+  question (`tests/unit/test_cold_reader_contract.py`).
+- **Dotted-key config seeding.** `seed_config.py` now seeds nested keys:
+  `quality.lint.enabled` creates the real nested `quality:` block the validator
+  reads (boolean value, comment attached, partially-existing blocks extended in
+  place) instead of a dead flat string key. Existing values stay byte-for-byte
+  untouched, and `/blog-post` Step 0 seeds the flag on first run in a consumer
+  blog (`tests/unit/test_seed_config.py`).
+
 ## [0.17.0] - 2026-07-27
 
 > **`site_dir` blogs: two files move on your next `/update`.** The CI workflow
