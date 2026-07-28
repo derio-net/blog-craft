@@ -16,7 +16,14 @@ jobs:
           go-version: '1.22'
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # 22, not 20: tools/validate_mermaid_layout.mjs drives headless Chrome
+          # over CDP using the GLOBAL WebSocket, which is what lets it stay
+          # dependency-free (no puppeteer, no package.json). That global arrived
+          # default-on in Node 21 and is stable in 22 — under 20 the tool exits 2
+          # and 8 of its tests fail. ubuntu-latest preinstalls 22.x, so the blogs
+          # this repo generates need no setup-node step at all; only this repo's
+          # own suite pins a version.
+          node-version: '22'
       - uses: peaceiris/actions-hugo@v3
         with:
           hugo-version: '0.157.0'

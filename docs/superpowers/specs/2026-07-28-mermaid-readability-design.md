@@ -278,8 +278,18 @@ point at." The gate reports; authors fix.
 
 ### 6. Bootstrap and update paths
 
-- New blog: `.blog-craft.yaml.tmpl` ships `version: 6` and
-  `features.mermaid_view: true`; bootstrap materializes the module.
+- New blog: bootstrap materializes the module, and the blog gets the feature
+  **without** the flag being written anywhere — `features.mermaid_view` absent
+  means true, and `tools/bootstrap-render.sh`'s `[3h]` block resolves absence
+  with `--has` before falling back to `--get-bool` (tested for true / false /
+  absent through a real bootstrap render).
+  This spec originally claimed `.blog-craft.yaml.tmpl` would ship `version: 6`
+  and the flag. That was wrong about the repo's convention, not about the code:
+  the template has read `version: 2` since the v2 schema landed (`af14c9f`) and
+  was never bumped through v3, v4 or v5 either — new blogs bootstrap at the base
+  version and ride the migration ladder up. Changing that convention is a
+  separate decision, deliberately NOT made here: a new blog starting at v6 would
+  skip every intermediate migration's side effects.
 - Existing blog: `/update` runs `005_to_006.py`, which writes the flag; the
   module arrives as new files (clean adds, no merge conflict).
 - Known interaction: blog-craft#61 — `.github/**` is materialized under

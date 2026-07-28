@@ -10,6 +10,8 @@ matching `vX.Y.Z` tag on merge (#18).
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-07-29
+
 > **The mermaid width gate lands BLOCKING, with no baseline and no allowlist.**
 > This is a deliberate operator decision, not an oversight: a baseline would let
 > the backlog sit forever, so the gate is set to *"force a focused effort to fix
