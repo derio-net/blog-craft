@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Validate a .blog-craft.yaml config (schema + layer-resolution invariants, spec §4/§4.1).
 
-Accepts schema versions 2..5 (the migration ladder's rungs); v4/v5 additions —
+Accepts schema versions 2..6 (the migration ladder's rungs); v4/v5 additions —
 site_dir, _select, character_sheet, named composition_orders — are validated
-whenever present. The engine hardcodes no layer vocabulary (spec D1), so no
+whenever present, and the v6 addition — features.mermaid_view (diagram
+rendering at natural size) + quality.mermaid_max_width (the width gate's
+budget) — likewise. The engine hardcodes no layer vocabulary (spec D1), so no
 layer NAME implies a shape.
 
 Library: `validate_config(cfg: dict) -> list[str]` (empty == valid).
@@ -17,7 +19,7 @@ RESERVED_SCENE = "scene"
 SERIES_INDEX_STYLES = frozenset({"cards", "table", "none"})
 IMAGE_OPTIMIZE_FORMATS = frozenset({"webp"})
 REQUIRED_TOP = ("project", "image", "series", "voice")
-ACCEPTED_VERSIONS = (2, 3, 4, 5)
+ACCEPTED_VERSIONS = (2, 3, 4, 5, 6)
 
 
 def _validate_select(name: str, select, errors: list[str]) -> None:
@@ -167,6 +169,16 @@ def validate_config(cfg: dict) -> list[str]:
         if not isinstance(quality["mermaid_syntax"], bool):
             errors.append("quality.mermaid_syntax must be a boolean")
 
+    # v6: quality.mermaid_max_width — the width gate's px budget. 0 disables the
+    # gate (documented, not an error); bool is guarded first since bool is an
+    # int subclass (mirrors quality.lint.thresholds below).
+    if isinstance(quality, dict) and "mermaid_max_width" in quality:
+        w = quality["mermaid_max_width"]
+        if isinstance(w, bool) or not isinstance(w, (int, float)) or w < 0:
+            errors.append(
+                f"quality.mermaid_max_width must be a non-negative number (got {w!r})"
+            )
+
     # optional quality.lint block (ai-tells lint layer): enabled bool; severities
     # a mapping whose VALUES are fail|warn|off; thresholds a mapping whose VALUES
     # are numbers. Unknown severity/threshold KEYS are allowed — forward-
@@ -234,6 +246,13 @@ def validate_config(cfg: dict) -> list[str]:
             for key in ("enabled", "first_occurrence_only"):
                 if key in gl and not isinstance(gl[key], bool):
                     errors.append(f"features.glossary.{key} must be a boolean")
+
+    # v6: features.mermaid_view — diagrams render at natural size in a framed
+    # scroller. Only checked when PRESENT; absent is legal and means true,
+    # resolved at render time (bootstrap-render.sh), not here.
+    if isinstance(feats, dict) and "mermaid_view" in feats:
+        if not isinstance(feats["mermaid_view"], bool):
+            errors.append("features.mermaid_view must be a boolean")
 
     return errors
 
