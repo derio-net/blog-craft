@@ -99,6 +99,40 @@ def test_actionable_headings_recognized():
         assert validate_post(GOOD_FM, body) == [], h
 
 
+def test_actionable_headings_recognized_in_natural_prose_form():
+    """Real headings are inflected; the bare imperative is the rare case.
+
+    THE BUG. `_ACTIONABLE` anchored its verbs with `\\b...\\b`, so `\\bverify\\b`
+    could not match "Verifying the Bootstrap" and `\\brecover\\b` could not match
+    "Recovery Path" — a check asking "is there a heading a reader can act on?"
+    rejected exactly those. The suite missed it because
+    test_actionable_headings_recognized only ever passed the bare imperative
+    ("Verify", "Recover"), which is the form writers use least.
+
+    Measured on a real 83-post blog: 34 posts failed the gate, and 27 of them
+    already carried a heading like these. Left unfixed, the "fix" is to rename
+    good prose to satisfy a regex.
+    """
+    for h in ("Verifying the Bootstrap", "Recovery Path", "The Smoke Test",
+              "Troubleshooting", "Diagnosis", "Verification", "Recovering the Node"):
+        body = f"## {h}\n\n```bash\nls\n```\n\n```mermaid\nflowchart TD; A-->B\n```\n"
+        assert validate_post(GOOD_FM, body) == [], h
+
+
+def test_narrative_headings_still_do_not_count_as_actionable():
+    """Widening the pattern must not turn it into a pass-everything check.
+
+    A matcher that accepts any heading is as useless as one that accepts none,
+    and the repo-wide assertion looks identical either way — so pin the negative
+    direction explicitly. These are real narrative headings from a production
+    blog.
+    """
+    for h in ("Background", "The Talos Bet", "Architecture", "What We Have Now",
+              "Missteps", "References", "Data Flow", "Why This Matters"):
+        body = f"## {h}\n\n```bash\nls\n```\n\n```mermaid\nflowchart TD; A-->B\n```\n"
+        assert any("actionable" in f for f in validate_post(GOOD_FM, body)), h
+
+
 def test_count_command_blocks_tilde_fences():
     body = "~~~\ncode\n~~~\n"
     assert _count_command_blocks(body) == 1

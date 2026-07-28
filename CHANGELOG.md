@@ -10,6 +10,26 @@ matching `vX.Y.Z` tag on merge (#18).
 
 ## [Unreleased]
 
+## [0.18.1] - 2026-07-28
+
+### Fixed
+- **The actionable-section check rejected the headings it exists to find.**
+  `_ACTIONABLE` anchored its verbs as `\bverify\b` / `\brecover\b`, which cannot
+  match the inflected forms writers actually use — so `## Verifying the
+  Bootstrap` and `## Recovery Path` both failed the gate, as did `## The Smoke
+  Test`, `## Troubleshooting` and `## Diagnosis`. The unit test hid it by only
+  ever passing the bare imperative ("Verify", "Recover"), the one form headings
+  rarely take. Measured on a real 83-post blog: 34 posts failed the gate and
+  **27 already carried such a heading** — so acting on the validator's output
+  would have meant renaming good prose to satisfy a regex. Verb stems
+  (`verif\w*`, `recover\w*`) now replace the anchors, and `troubleshoot\w*`,
+  `diagnos\w*` and `smoke test` join the vocabulary. Deliberately not widened
+  further: `\bsteps\b` stays anchored so "Missteps" is not a hit, and
+  `test_narrative_headings_still_do_not_count_as_actionable` pins that
+  Background / Architecture / Data Flow keep failing — a matcher that accepts
+  everything is as useless as one that accepts nothing, and the repo-wide
+  assertion looks identical either way.
+
 ## [0.18.0] - 2026-07-28
 
 ### Added
