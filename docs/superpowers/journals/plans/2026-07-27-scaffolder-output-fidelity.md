@@ -5,8 +5,8 @@
 
 The indent has to be read textually (the parsed document has no column information), but every *refusal* case — unparseable file, `images:` as a mapping, no `images:` key — is cleanly answered by a yaml.safe_load pre-parse that is needed anyway for the D2 count-before. So `sequence_indent()` never has to distinguish 'no images key' from 'images is a mapping': it returns a fallback of 2 for anything it cannot recognise, and `load_entries()` (which raises ValueError naming the shape problem) is the gate. `images:` with nothing under it parses to None and is deliberately mapped to `[]`, not an error — that is the bootstrap shape and what tests/unit/test_blog_post_create.py:37 seeds.
 
-<!-- fr:journal kind=finding scope=plan id=p1-keep-chomp-seam created=2026-07-27T21:44:38 phase=1 state=open -->
-### p1-keep-chomp-seam · finding [open] · Seam normalisation rewrites trailing blank lines — a |+ kept block scalar is the one shape that would notice (phase 1)
+<!-- fr:journal kind=finding scope=plan id=p1-keep-chomp-seam created=2026-07-27T21:44:38 phase=1 state=fixed -->
+### p1-keep-chomp-seam · finding [fixed] · Seam normalisation rewrites trailing blank lines — a |+ kept block scalar is the one shape that would notice (phase 1)
 
 `rstrip('\\n') + '\\n'` is what stops a newline-less file being fused with the appended entry (spec §3), but it also drops trailing BLANK lines. For clip (`|`) and strip (`|-`) chomping that is value-preserving, so 'every byte above the insertion point is identical' holds for every real prompts file. A final entry ending in `scene: |+` with trailing blank lines would silently lose them, and the D2 verification would not catch it (it checks the count and the last key, not scalar contents). No blog-craft template or tool emits `|+`; left as a recorded edge rather than special-cased. If it ever matters, the fix is to only strip the trailing newlines that exceed one when the file does not end inside a kept scalar.
 
@@ -30,8 +30,8 @@ tests/smoke-blog-post.sh:93 terminated the scene-line count on `/^  - key:/`. Me
 
 The rewire is `} > "$ENTRY_BLOCK"` plus `python3 "$HERE/prompts_append.py" append --file "$PROMPTS_YAML" --key "$KEY" --entry-file "$ENTRY_BLOCK"`. Three seam details: (1) `set -euo pipefail` propagates the helper's exit 2 with no wrapper needed, and step 3 (generate-images.py) therefore never runs on a refused append — asserted by test_broken_entries_file_fails_loudly_and_is_left_alone rather than trusted; (2) mktemp + `trap 'rm -f "$ENTRY_BLOCK"' EXIT` is the script's first EXIT trap, so anything later that wants one must chain, not replace; (3) blog-post-create.sh:104's `[[ -f "$PROMPTS_YAML" ]]` guard is load-bearing and stays — cmd_append does not catch OSError, so a missing file would traceback instead of erroring cleanly. The helper is located only via `$HERE` (no fallback to the blog's scripts/), which keeps it plugin-side and keeps tests/unit/test_mirrors.py out of scope.
 
-<!-- fr:journal kind=finding scope=plan id=p2-bpc12-backfill-deferred created=2026-07-27T21:56:21 phase=2 state=open -->
-### p2-bpc12-backfill-deferred · finding [open] · BPC-1/BPC-2 are satisfied as of phase 2 but stay not-implemented until phase 6 flips them (phase 2)
+<!-- fr:journal kind=finding scope=plan id=p2-bpc12-backfill-deferred created=2026-07-27T21:56:21 phase=2 state=fixed -->
+### p2-bpc12-backfill-deferred · finding [fixed] · BPC-1/BPC-2 are satisfied as of phase 2 but stay not-implemented until phase 6 flips them (phase 2)
 
 Both rows now have real end-to-end evidence — tests/unit/test_prompts_append.py (phase 1) plus the four seeded tests in tests/unit/test_blog_post_create.py and tests/smoke-blog-post.sh (phase 2). `fr plan edit --complete-phase 2` warns accordingly. The flip is deliberately NOT done here: P6.T2.S2 owns editing docs/acceptance/matrix.yaml for all of BPC-1..5 + GL-10/11 in one pass, and doing it twice would collide. This is only a real debt if the plan is delivered as per-phase PRs rather than one PR through phase 6 — in the single-PR shape the repo-wide backfill rule is satisfied by phase 6. `fr acceptance check` is exit 0 today (13 not-implemented are warnings).
 
@@ -75,8 +75,8 @@ tests/unit/test_blog_post_create.py FRANK_CFG now carries `series_index: {layers
 
 `series_index` appears nowhere else in this repo outside docs/CONFIG.md §5 and tools/gen-layer-palette.py; there is no config schema validator to teach, and templates/hugo-hextra/.blog-craft.yaml.tmpl does not declare it — so the bootstrap fixture path (tests/smoke-blog-post.sh, answers-frank-like.yaml) exercises the NO-layers branch and its output has no `layer` key. Smoke stayed at 13 passed: its B1.b-d greps are anchored (`^title:`, `^weight: 2$`, `^draft: false$`) and the two new lines (`series:`, the rewritten `tags:`) do not displace them.
 
-<!-- fr:journal kind=finding scope=plan id=d842482e5770 created=2026-07-27T22:09:33 phase=3 state=open -->
-### d842482e5770 · finding [open] · Phase 6 owes docs for four things phase 3 shipped: --layer, --tag, layer: TODO, and the tags-comment departure (phase 3)
+<!-- fr:journal kind=finding scope=plan id=d842482e5770 created=2026-07-27T22:09:33 phase=3 state=fixed -->
+### d842482e5770 · finding [fixed] · Phase 6 owes docs for four things phase 3 shipped: --layer, --tag, layer: TODO, and the tags-comment departure (phase 3)
 
 Phase 3 documented the new flags in tools/blog-post-create.sh own usage header only. Still owed by phase 6 (which owns skills/docs, and by the repo acceptance-matrix rule, docs/acceptance/matrix.yaml):
 - skills/blog-post/SKILL.md — the invocation now has --layer/--tag; Step 8 already promises series-index listing, which is finally TRUE.
@@ -97,8 +97,8 @@ Phase 4 owns `--key` (D6) and the detected `output:` default (D7). What phase 3 
 - Do not reuse `$D`-style bare unquoted interpolation for the detected output path; yaml_escape it like every other interpolated value.
 - The script trap is still `trap 'rm -f "$ENTRY_BLOCK"' EXIT` and is still the only EXIT trap — chain, do not replace.
 
-<!-- fr:journal kind=finding scope=plan id=dd2022e25525 created=2026-07-27T22:10:13 phase=3 state=open -->
-### dd2022e25525 · finding [open] · Acceptance rows BPC-3 and BPC-4 are satisfied by phase 3 but left not-implemented (phase 6 owns matrix.yaml) (phase 3)
+<!-- fr:journal kind=finding scope=plan id=dd2022e25525 created=2026-07-27T22:10:13 phase=3 state=fixed -->
+### dd2022e25525 · finding [fixed] · Acceptance rows BPC-3 and BPC-4 are satisfied by phase 3 but left not-implemented (phase 6 owns matrix.yaml) (phase 3)
 
 `fr plan edit --complete-phase 3` warned: "phase 3 completed but its acceptance rows are still not-implemented: BPC-3, BPC-4". Both are now verified in CI and only need the refs written down — phase 3 was instructed not to touch docs/acceptance/matrix.yaml. Phases share one branch and one PR, so the repo-wide "same PR" backfill rule is still met as long as phase 6 does this:
 
@@ -138,8 +138,8 @@ Ties, entries without `output`, and an unparseable file are covered at the helpe
 
 One stdout change: the entry line is now `prompts entry: key=<key> output=<path> appended to <file>`. Both halves are now variable per blog, so an operator would otherwise have to open the file to learn where the cover went. Nothing greps that line (tests/smoke-blog-post.sh asserts on the prompts file and the PNG, not the log).
 
-<!-- fr:journal kind=finding scope=plan id=b56820abcc36 created=2026-07-27T22:22:55 phase=4 state=open -->
-### b56820abcc36 · finding [open] · Phase 6 owes docs for --key and the detected output default; BPC-5 is satisfied but still not-implemented (phase 4)
+<!-- fr:journal kind=finding scope=plan id=b56820abcc36 created=2026-07-27T22:22:55 phase=4 state=fixed -->
+### b56820abcc36 · finding [fixed] · Phase 6 owes docs for --key and the detected output default; BPC-5 is satisfied but still not-implemented (phase 4)
 
 Phase 4 documented `--key` and the new `--output` default in tools/blog-post-create.sh's own usage header only (it deliberately touched no skill and not docs/acceptance/matrix.yaml). Still owed by phase 6:
 
@@ -195,8 +195,8 @@ The quote rejection: `rendered_text` does NOT reach a shortcode argument through
 
 Not done, deliberately: spec §4 line 218 mentions "the type check and the sorted-registry warning". The sorted-registry warning still checks KEY order (`keys != sorted(keys)`), untouched. The registry file is read by an operator as a keyed YAML mapping and GC / GC_GOATCOUNTER sort adjacently as keys anyway; re-basing that warning on display text would ask an operator to sort a file by a field most entries do not have. Plan task 1 lists only the type check as the deliverable. Flagged here in case phase 6's docs want to say something about file order.
 
-<!-- fr:journal kind=finding scope=plan id=c3ade469d220 created=2026-07-27T22:36:45 phase=5 state=open -->
-### c3ade469d220 · finding [open] · Phase 6 owes rendered_text docs (SKILL, CONFIG §9) and matrix rows GL-10 + GL-11, both satisfied in CI now (phase 5)
+<!-- fr:journal kind=finding scope=plan id=c3ade469d220 created=2026-07-27T22:36:45 phase=5 state=fixed -->
+### c3ade469d220 · finding [fixed] · Phase 6 owes rendered_text docs (SKILL, CONFIG §9) and matrix rows GL-10 + GL-11, both satisfied in CI now (phase 5)
 
 Phase 5 documented `rendered_text` only in the two template header comments and the validator docstring. It touched no skill, not docs/CONFIG.md and not docs/acceptance/matrix.yaml (phase 6 owns all three). Still owed:
 
