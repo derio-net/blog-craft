@@ -82,6 +82,15 @@ earlier posts, **link them** rather than re-explaining — a redirect orients
 without bloating. This turns a copy-this-exactly recipe into a foundation others
 can build their own thing on.
 
+**Mode-conditional carve-out.** The three-beat cap above is for operating
+how-to/reference posts, where steps-first is absolute. For building/tutorial/
+explanation posts the beginning grows into a real, labelled **lay-of-the-land
+section** — the conceptual landscape from general knowledge, sized to how
+idiosyncratic the material is — and that landscape *replaces* the three-beat
+cap. The full discipline (beginning/middle/end, and the what-transfers ending)
+is `references/reader-arc.md`; read it before drafting either kind of post.
+Key the choice off `diataxis`, never off a series name.
+
 ## Config seeding pattern
 
 Before using any optional `.blog-craft.yaml` key, ensure it exists in the blog's
@@ -128,6 +137,7 @@ leaves holes, the persona was carrying load it shouldn't.
 ## 4. The failure signatures — cut these on sight
 
 - **Session narrative.** "We then tried… turns out… eventually it worked." The reader doesn't need your path; they need theirs.
+- **Session-skeleton.** The outline mirrors the session's timeline: headings that are events in the work's chronology ("The first attempt", "Where it went wrong") rather than stops in the reader's arc. Subtler than session narrative — every section can be evidence-clean and the *structure* is still a diary. Re-outline by `references/reader-arc.md`.
 - **In-jokes / "you had to be there."** Zero value to someone who wasn't.
 - **Explanation crowding out how-to.** Pages of *why* before a single runnable step. Lead with the steps; move the *why* into a clearly-labelled Explanation section (or a companion post).
 - **Assertions without artifacts.** "It's fast / safe / graceful" with nothing to run or verify.
@@ -201,5 +211,5 @@ from §1.
 
 ## How the other skills use this
 
-- **`/blog-post`** loads §1–§4 to shape the draft, sets `reader_goal` + `diataxis`, and runs the §5 gate before finishing.
-- **`/post-rewrite`** diagnoses an existing post against §4, gathers missing evidence via `post-researcher`, re-shapes it by §1–§3, and re-runs the gate.
+- **`/blog-post`** loads §1–§4 to shape the draft, outlines by `references/reader-arc.md` (landscape beginning, what-transfers ending, per the §2a carve-out), sets `reader_goal` + `diataxis`, and runs the §5 gate before finishing.
+- **`/post-rewrite`** diagnoses an existing post against §4 (session-skeleton included), gathers missing evidence via `post-researcher`, re-shapes it by §1–§3 and `references/reader-arc.md`, and re-runs the gate.

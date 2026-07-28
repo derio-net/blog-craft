@@ -167,6 +167,40 @@ def validate_config(cfg: dict) -> list[str]:
         if not isinstance(quality["mermaid_syntax"], bool):
             errors.append("quality.mermaid_syntax must be a boolean")
 
+    # optional quality.lint block (ai-tells lint layer): enabled bool; severities
+    # a mapping whose VALUES are fail|warn|off; thresholds a mapping whose VALUES
+    # are numbers. Unknown severity/threshold KEYS are allowed — forward-
+    # compatible with checks this validator doesn't know about yet.
+    if isinstance(quality, dict) and "lint" in quality:
+        lint = quality["lint"]
+        if not isinstance(lint, dict):
+            errors.append("quality.lint must be a mapping")
+        else:
+            if "enabled" in lint and not isinstance(lint["enabled"], bool):
+                errors.append("quality.lint.enabled must be a boolean")
+            sev = lint.get("severities")
+            if sev is not None:
+                if not isinstance(sev, dict):
+                    errors.append("quality.lint.severities must be a mapping")
+                else:
+                    for k, v in sev.items():
+                        if v not in ("fail", "warn", "off"):
+                            errors.append(
+                                f"quality.lint.severities.{k} must be one of "
+                                f"fail | warn | off (got {v!r})"
+                            )
+            thr = lint.get("thresholds")
+            if thr is not None:
+                if not isinstance(thr, dict):
+                    errors.append("quality.lint.thresholds must be a mapping")
+                else:
+                    for k, v in thr.items():
+                        if isinstance(v, bool) or not isinstance(v, (int, float)):
+                            errors.append(
+                                f"quality.lint.thresholds.{k} must be a number "
+                                f"(got {v!r})"
+                            )
+
     # optional series_index block: style cards|table|none (default cards at render
     # time), optional layers registry (opts into layer colour-coding).
     si = cfg.get("series_index")

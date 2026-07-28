@@ -10,7 +10,7 @@ matching `vX.Y.Z` tag on merge (#18).
 
 ## [Unreleased]
 
-## [0.18.0] - 2026-07-28
+## [0.19.0] - 2026-07-28
 
 ### Fixed
 - **`/blog-post` no longer corrupts the prompts file it appends to (#65 item 1).**
@@ -152,6 +152,63 @@ matching `vX.Y.Z` tag on merge (#18).
   `skills/glossary/SKILL.md`: `glossary_apply.py` matches literal prose tokens, so
   it can only ever auto-mark the **default** sense — a bare `GC` in a post becomes
   Garbage Collection, and the second sense must be marked by hand.
+## [0.18.1] - 2026-07-28
+
+### Fixed
+- **The actionable-section check rejected the headings it exists to find.**
+  `_ACTIONABLE` anchored its verbs as `\bverify\b` / `\brecover\b`, which cannot
+  match the inflected forms writers actually use — so `## Verifying the
+  Bootstrap` and `## Recovery Path` both failed the gate, as did `## The Smoke
+  Test`, `## Troubleshooting` and `## Diagnosis`. The unit test hid it by only
+  ever passing the bare imperative ("Verify", "Recover"), the one form headings
+  rarely take. Measured on a real 83-post blog: 34 posts failed the gate and
+  **27 already carried such a heading** — so acting on the validator's output
+  would have meant renaming good prose to satisfy a regex. Verb stems
+  (`verif\w*`, `recover\w*`) now replace the anchors, and `troubleshoot\w*`,
+  `diagnos\w*` and `smoke test` join the vocabulary. Deliberately not widened
+  further: `\bsteps\b` stays anchored so "Missteps" is not a hit, and
+  `test_narrative_headings_still_do_not_count_as_actionable` pins that
+  Background / Architecture / Data Flow keep failing — a matcher that accepts
+  everything is as useless as one that accepts nothing, and the repo-wide
+  assertion looks identical either way.
+
+## [0.18.0] - 2026-07-28
+
+### Added
+- **Reader-arc methodology — landscape beginning, what-transfers ending.**
+  `skills/educational-writing` gains `references/reader-arc.md`: the post is
+  organized around the reader's arc, not the work's chronology. Building and
+  tutorial posts open with a conceptual lay-of-the-land sized to the material
+  (a paragraph for a small tool, a section for a new domain) and close with a
+  what-transfers section — what the reader takes to their *next* project, not a
+  summary of this one. The drafting SKILL.md carve-out, session skeleton, and
+  review checklist all wire it in, and the contract is CI-pinned
+  (`tests/unit/test_reader_arc_contract.py`).
+- **Vendored AI-tells catalog + warnings-first lint layer in the educational
+  gate.** `references/ai-tells.md` catalogs the tells with machine-readable
+  lint data, and `validate_educational.py` grows a lint layer on top of the
+  structural gate: AI-vocabulary hits **fail** by default; em-dash density,
+  parallelism runs, rule-of-three pileups, cliché conclusions, and a missing
+  what-transfers section **warn**. Severities (`fail|warn|off`) and thresholds
+  are configurable via the new `quality.lint` config block (`docs/CONFIG.md`).
+  Code fences and frontmatter are excluded from scanning. The catalog ships
+  into consumer blogs as a `scripts/` sibling mirror of the validator; a blog
+  whose `scripts/` predates it prints a loud `LINT SKIPPED` and stays
+  gate-only — never a crash, never a silent skip.
+- **Blind cold-reader editor pass in `/blog-post` and `/post-rewrite`.**
+  `agents/cold-reader.md` — a read-only agent (Read, Grep, Glob) dispatched
+  with *no session context* — critiques every draft as a first-time reader
+  across five sections (Takeaway mirror, Lost points, Session residue, Arc
+  assessment, AI-tell instances), and
+  the draft is revised against the critique before the operator ever sees it.
+  Both drafting skills carry the dispatch sub-step ahead of the approval
+  question (`tests/unit/test_cold_reader_contract.py`).
+- **Dotted-key config seeding.** `seed_config.py` now seeds nested keys:
+  `quality.lint.enabled` creates the real nested `quality:` block the validator
+  reads (boolean value, comment attached, partially-existing blocks extended in
+  place) instead of a dead flat string key. Existing values stay byte-for-byte
+  untouched, and `/blog-post` Step 0 seeds the flag on first run in a consumer
+  blog (`tests/unit/test_seed_config.py`).
 
 ## [0.17.0] - 2026-07-27
 

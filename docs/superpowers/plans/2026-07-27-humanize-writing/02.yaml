@@ -1,0 +1,158 @@
+schema_version: 2
+phase:
+  number: 2
+  title: Validator lint layer — checks, config schema, CLI, docs
+  tag: agentic
+  depends_on:
+  - 1
+  tracking_issue: null
+  acceptance:
+  - HW-3
+  - HW-4
+tasks:
+- number: 1
+  title: validate_config.py accepts and shape-checks quality.lint
+  steps:
+  - id: P2.T1.S1
+    text: |
+      [RED] In tests/unit/test_config_schema.py add cases (build from an existing valid fixture, varying only quality.lint):
+        - quality: {lint: {enabled: true}} -> []
+        - quality: {lint: true} -> error "quality.lint must be a mapping"
+        - quality: {lint: {enabled: "yes"}} -> error "quality.lint.enabled must be a boolean"
+        - quality: {lint: {severities: {vocabulary: "hard"}}} -> error mentioning "fail | warn | off"
+        - quality: {lint: {severities: {vocabulary: "warn", em_dash: "off"}}} -> []
+        - quality: {lint: {thresholds: {em_dash_per_1000: "many"}}} -> error "must be a number"
+        - config with no quality.lint at all -> [] (absence never errors)
+      Run: bash tests/run-unit.sh -k config_schema
+      EXPECT: RED.
+  - id: P2.T1.S2
+    text: |
+      [GREEN] In tools/validate_config.py, alongside the existing quality-block validation, add the quality.lint shape checks exactly as the tests demand (mapping; enabled bool; severities mapping with values in {fail, warn, off}; thresholds mapping with numeric values; unknown severity/threshold KEYS are allowed — forward-compatible).
+      Run: bash tests/run-unit.sh -k config_schema
+      EXPECT: GREEN, including all pre-existing cases.
+- number: 2
+  title: lint_post() core checks
+  steps:
+  - id: P2.T2.S1
+    text: |
+      [RED] Create tests/unit/test_educational_lint.py with two inline post fixtures (module-level triple-quoted strings, each with frontmatter + body):
+        CLEAN: diataxis [how-to]; ~150 words of plain prose; one fenced bash block whose text contains the word "delve" (proves code exclusion); zero tells.
+        LADEN: diataxis [tutorial]; prose containing "delve" twice and "a testament to" once; >=5 em-dashes in <200 words; two "not X, but Y" sentences; a "Speed, safety, and grace" triad plus two more triads; a final paragraph starting "In conclusion,"; NO what-transfers heading.
+      Cases for lint_post(fm, body, lint_cfg, data) -> (failures, warnings):
+        - CLEAN with defaults -> ([], [])
+        - LADEN failures: at least one entry containing "delve" and one containing "a testament to"; warnings: entries for em-dash density, negative parallelism, triads, and conclusion opener
+        - severities override {"vocabulary": "warn"} moves vocabulary hits into warnings (failures == [])
+        - severities override {"em_dash": "off"} produces no em-dash entry anywhere
+        - code blocks, inline code spans, and frontmatter are excluded from all matching
+      Run: bash tests/run-unit.sh -k educational_lint
+      EXPECT: RED — lint_post does not exist.
+  - id: P2.T2.S2
+    text: |
+      [GREEN] In tools/validate_educational.py implement:
+        - _prose_only(body): strip fenced code blocks (``` ... ```), inline code spans (`...`), and heading markup; return remaining prose.
+        - lint_post(fm, body, lint_cfg=None, data=None): data defaults to load_lint_data(); lint_cfg is the quality.lint dict (may be None). Merge severities/thresholds over built-in defaults (vocabulary: fail; em_dash, negative_parallelism, triad, conclusion, what_transfers: warn; thresholds from the data block, overridable by lint_cfg["thresholds"]).
+          Checks over _prose_only text (case-insensitive):
+            vocabulary: word/phrase-boundary count per entry; hits -> "ai-vocabulary: '<term>' (<n>x)"
+            em_dash: count of the em-dash character per 1000 words over threshold -> "em-dash density <x>/1000 words (threshold <t>)"
+            negative_parallelism, triad: regex match counts per 1000 words over thresholds -> density messages naming the pattern
+            conclusion: any paragraph starting with a conclusion_openers entry -> "cliche conclusion opener: '<opener>'"
+          Each message routed to failures or warnings by its check's severity; "off" drops it.
+      Run: bash tests/run-unit.sh -k educational_lint
+      EXPECT: GREEN.
+  - id: P2.T2.S3
+    text: |
+      [REFACTOR — optional] Extract shared word-count / density helpers if S2 left duplication; keep all educational tests green.
+- number: 3
+  title: Mode-conditional what-transfers check
+  steps:
+  - id: P2.T3.S1
+    text: |
+      [RED] Add to test_educational_lint.py:
+        - LADEN (diataxis [tutorial], no transfer heading) -> warnings include an entry containing "what-transfers"
+        - same body but diataxis [how-to, reference] -> no what-transfers entry
+        - tutorial post WITH a "## What transfers" heading -> no entry
+        - explanation-mode post without one -> entry present
+      Run: bash tests/run-unit.sh -k educational_lint
+      EXPECT: RED for the new cases.
+  - id: P2.T3.S2
+    text: |
+      [GREEN] In lint_post: when set(modes) & {"tutorial", "explanation"} (reuse _normalize_modes) and no markdown heading line case-insensitively contains any transfer_headings entry -> emit "no what-transfers closing section (expected for tutorial/explanation posts)" at severity what_transfers (default warn). Key off diataxis frontmatter ONLY — never series names.
+      Run: bash tests/run-unit.sh -k educational_lint
+      EXPECT: GREEN.
+- number: 4
+  title: CLI wiring — severities, exit codes, output
+  steps:
+  - id: P2.T4.S1
+    text: |
+      [RED] Add CLI-level cases to test_educational_lint.py (drive _main / the module CLI the same way existing validator tests do; if none exist, call _main([...]) with tmp_path files):
+        - config with quality.lint absent + LADEN post -> exit nonzero (vocabulary fails by default), stdout contains "LINT FAIL" and "LINT WARN" lines with the post path
+        - config with quality: {lint: {enabled: false}} + LADEN post -> lint skipped entirely, gate-only behavior, exit 0 (post passes the gate)
+        - CLEAN post + defaults -> exit 0, no LINT lines
+      Run: bash tests/run-unit.sh -k educational_lint
+      EXPECT: RED.
+  - id: P2.T4.S2
+    text: |
+      [GREEN] In _main: after the gate check per file, when cfg quality.lint.enabled is not false, run lint_post with the config's quality.lint block; print "LINT FAIL: <file>: <msg>" / "LINT WARN: <file>: <msg>" lines; lint failures contribute to the nonzero exit alongside gate errors; warnings never affect exit. Update the module docstring's Enforced list with the lint layer (warnings-first, quality.lint block).
+      Run: bash tests/run-unit.sh -k educational_lint
+      EXPECT: GREEN.
+- number: 5
+  title: Document quality.lint + verify (phase 2)
+  steps:
+  - id: P2.T5.S1
+    text: |
+      Document the quality.lint block in docs/CONFIG.md next to the existing quality.gate docs: full example block (enabled, severities, thresholds), the fail|warn|off vocabulary, defaults (vocabulary fails, densities warn), the single-source note (lists live in skills/educational-writing/references/ai-tells.md), and the seeding note (skills seed quality.lint.enabled on first run; absent block = defaults).
+  - id: P2.T5.S2
+    text: |
+      [VERIFY] bash tests/run-unit.sh
+      EXPECT: full suite green, no new failures.
+state:
+  steps:
+    P2.T1.S1:
+      state: x
+      ticked_at: '2026-07-27T22:50:15+00:00'
+      note: null
+    P2.T1.S2:
+      state: x
+      ticked_at: '2026-07-27T22:50:18+00:00'
+      note: null
+    P2.T2.S1:
+      state: x
+      ticked_at: '2026-07-27T22:52:05+00:00'
+      note: null
+    P2.T2.S2:
+      state: x
+      ticked_at: '2026-07-27T22:52:09+00:00'
+      note: null
+    P2.T2.S3:
+      state: '-'
+      ticked_at: '2026-07-27T22:52:12+00:00'
+      note: 'no refactor needed: pattern densities already share one loop; no duplication
+        introduced in S2'
+    P2.T3.S1:
+      state: x
+      ticked_at: '2026-07-27T22:53:04+00:00'
+      note: null
+    P2.T3.S2:
+      state: x
+      ticked_at: '2026-07-27T22:53:07+00:00'
+      note: null
+    P2.T4.S1:
+      state: x
+      ticked_at: '2026-07-27T22:55:47+00:00'
+      note: null
+    P2.T4.S2:
+      state: x
+      ticked_at: '2026-07-27T22:55:51+00:00'
+      note: null
+    P2.T5.S1:
+      state: x
+      ticked_at: '2026-07-27T23:01:32+00:00'
+      note: null
+    P2.T5.S2:
+      state: x
+      ticked_at: '2026-07-27T23:01:35+00:00'
+      note: null
+  completion:
+    at: '2026-07-27T23:01:38+00:00'
+    note: null
+    observed_prs: []

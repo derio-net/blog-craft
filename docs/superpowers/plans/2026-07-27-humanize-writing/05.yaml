@@ -1,0 +1,64 @@
+schema_version: 2
+phase:
+  number: 5
+  title: Close-out — matrix flips, CHANGELOG, version bump
+  tag: agentic
+  depends_on:
+  - 2
+  - 4
+  tracking_issue: null
+  acceptance:
+  - HW-1
+  - HW-2
+  - HW-3
+  - HW-4
+tasks:
+- number: 1
+  title: Acceptance matrix flips with evidence refs
+  steps:
+  - id: P5.T1.S1
+    text: |
+      Update docs/acceptance/matrix.yaml (via fr acceptance CLI or direct edit, matching row schema):
+        - HW-3 -> status ci, levels unit=derio-net/blog-craft:tests/unit/test_educational_lint.py (+ test_ai_tells.py)
+        - HW-4 -> status ci, levels unit=derio-net/blog-craft:tests/unit/test_cold_reader_contract.py (the Step-0 seeding grep) — adjust to the actual test that pins seeding
+        - HW-1 -> status skipped, note "what-transfers lint warn is ci (test_educational_lint.py); landscape/prose judgment is the manual phase-6 run"
+        - HW-2 -> status skipped, note "agent + dispatch contract is ci (test_cold_reader_contract.py); live critique behavior is the manual phase-6 run"
+      Run: fr acceptance check
+      EXPECT: exit 0, no unknown refs, no staleness.
+- number: 2
+  title: CHANGELOG + version bump
+  steps:
+  - id: P5.T2.S1
+    text: |
+      Add a CHANGELOG.md entry under a new version heading (follow the file's existing format): reader-arc methodology, vendored ai-tells catalog + warnings-first lint (quality.lint), cold-reader editor pass in /blog-post + /post-rewrite. Bump the plugin version with tools/bump_version.py at minor level (new feature surface) so tools/check_version_bump_needed.py is satisfied.
+      Run: python3 tools/check_version_bump_needed.py (with the diff range it expects; see its --help)
+      EXPECT: reports the bump as present/adequate.
+  - id: P5.T2.S2
+    text: |
+      [VERIFY] bash tests/run-unit.sh && fr acceptance check && fr journal check --scope plan
+      EXPECT: all green/clean.
+state:
+  steps:
+    P5.T1.S1:
+      state: x
+      ticked_at: '2026-07-27T23:37:28+00:00'
+      note: 'Satisfied by earlier phases (backfill rule): HW-3 phase 2, HW-1 phase
+        3, HW-2+HW-4 phase 4 — all ci with evidence refs. Phase 5 verified only: fr
+        acceptance check green, 54 rows, ci=46; no double-flip.'
+    P5.T2.S1:
+      state: x
+      ticked_at: '2026-07-27T23:38:57+00:00'
+      note: CHANGELOG 0.17.0 entry (reader-arc, ai-tells lint + quality.lint, cold-reader,
+        dotted-key seeding); bump_version.py minor 0.16.2->0.17.0 (pyproject+plugin.json+marketplace.json+uv.lock);
+        check_version_bump_needed.py main -> ok
+    P5.T2.S2:
+      state: x
+      ticked_at: '2026-07-27T23:47:57+00:00'
+      note: 'bash tests/run-unit.sh: 600 passed (twice; second run exercised the new
+        basetemp cleanup); fr acceptance check: 54 rows OK ci=46; fr journal check:
+        clean (p1-pytest-tmp-flake resolved fixed via run-unit.sh cleanup); bump_version.py
+        --check: 0.17.0 lockstep across all four manifests'
+  completion:
+    at: '2026-07-27T23:48:06+00:00'
+    note: null
+    observed_prs: []

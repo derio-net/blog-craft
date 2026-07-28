@@ -42,6 +42,15 @@ python3 <plugin_root>/tools/seed_config.py --config <blog_root>/.blog-craft.yaml
     --values "dry,balanced,rich"
 ```
 
+Likewise check `quality.lint.enabled` and seed it if absent:
+
+```
+python3 <plugin_root>/tools/seed_config.py --config <blog_root>/.blog-craft.yaml \
+    --key quality.lint.enabled --default true \
+    --comment "Warnings-first AI-tells lint; severities/thresholds in docs/CONFIG.md." \
+    --values "true,false"
+```
+
 ### Step 1: Find and validate the blog
 
 Walk up from CWD looking for `.blog-craft.yaml`. If not found anywhere up to root, refuse:
@@ -69,10 +78,13 @@ If `<blog-root>/<site_dir>/content/docs/<series>/<number>-<slug>/` already exist
 ### Step 4: Compose the post body and summary
 
 **Load the methodology first.** Read `<plugin_root>/skills/educational-writing/SKILL.md`
-and its `references/`. It is the standard this post is held to and the gate in
-Step 10 enforces it. In short: pick the Diátaxis mode before writing, ground
-every claim in a citable artifact, and keep the persona as a thin frame — never
-prose about the session that generated the post.
+and its `references/` — explicitly including `references/reader-arc.md` (the
+post is organized around the reader's arc, never the session's chronology) and
+`references/ai-tells.md` (the AI-writing patterns to self-revise against). It
+is the standard this post is held to and the gate in Step 10 enforces it. In
+short: pick the Diátaxis mode before writing, ground every claim in a citable
+artifact, and keep the persona as a thin frame — never prose about the session
+that generated the post.
 
 The body and summary are both written by the agent from available context, not by hand. Survey:
 
@@ -120,6 +132,18 @@ meaningfully advance the post, insert a
 `<!-- MEDIA: <type> | <description> | <capture instructions> -->` marker — see the
 blog's `MEDIA-GUIDE.md`. Reserve markers for media that genuinely deepens
 understanding; do not insert markers for decoration.
+
+**Cold-reader critique.** Dispatch the `cold-reader` subagent
+(`<plugin_root>/agents/cold-reader.md`) with ONLY the draft file path and the
+three methodology paths (`educational-writing/SKILL.md`,
+`references/reader-arc.md`, `references/ai-tells.md`) — never the evidence
+brief, session notes, or the source-repo path. The blindness is the point: it
+reads as a first-time reader, so whatever the draft fails to give it, no
+reader will have either. Revise the draft against its critique: fix the
+session residue and lost points, resize the lay-of-the-land per the arc
+assessment, and apply the ai-tells fixes. One critique round by default; the
+regen loop below re-dispatches naturally. When you show the draft below,
+include a one-paragraph summary of what the critique changed.
 
 **Summary.** Compose a one-sentence summary (≤25 words) for the frontmatter `summary:` field. The summary is what shows up in series indexes, RSS, and search results — it should state what the post is about, not tease at it. Match the blog's voice. Single line, no markdown, no trailing period if the voice avoids them; double-quotes inside the summary are fine (they'll be escaped on insertion).
 
@@ -244,7 +268,7 @@ The helper (all paths resolved from `.blog-craft.yaml` — `site_dir`, `image.pr
 1. Creates the page bundle at `<blog_root>/<site_dir>/content/docs/<series>/<number>-<slug>/index.md` with frontmatter in convention order — `title`, **`series: ["<series>"]`** (always), **`layer`** (from `--layer`; `layer: TODO` + a stderr warning when the blog declares layers and none was given; omitted entirely when it declares none), `date`, `draft: false`, **`tags`** (from `--tag`; `tags: []  # TODO: add tags` when none), the **approved summary**, weight `<number>+1`, **`reader_goal`**, and **`diataxis`** — and the **approved body** (markers and all) below it.
 2. Appends a v5 `key: <key>` entry to `<image.prompts_file>` **at that file's own `images:` sequence indentation** (atomically), then re-reads the file from disk to verify the entry landed (restoring the original bytes and failing loudly if it did not — `tools/prompts_append.py`). Whether the append is possible at all is checked **before** step 1 creates anything — by performing the entire append in memory over the real entry block and not writing it — so a refusal leaves no half-scaffolded post: the entry goes at end of file, so `images:` must be the **last top-level key** in the entries file, in a single document, holding a block (not flow) sequence. The resolved `<key>` is validated too, whether it came from `--key` or from `<series>-<number>`: it must be a plain slug that YAML will not retype (so `2026-07 27` is refused, naming the positionals), and `<number>` must be 2-3 digits. The entry carries a `composition:` block with `modifiers:` (`series:` + each `--entry-field` pair), the **scene only** under `scene: |`, an `output:` following the file's cover convention, and — when the config declares `image.reference_image` — an explicit `reference_images.primary` (v5 references are explicit; docs/CONFIG.md §4.1).
 3. Without `--no-generate`, runs `python <site_dir>/scripts/generate-images.py --only <key>` (with it, prints the preview command instead — this skill's flow). No reference image is required — the generator's own precedence (CLI override → `image.reference_image` → pool by series → generic pool → none) decides. Requires PyYAML + Pillow + google-genai installed (see the blog's `README.md` for venv setup). Generation honors the `<api_key_env>` from Step 7.
-4. Does **not** touch the series overview — and does not need to, **because the frontmatter it writes carries `series`**: the `{{< series-index >}}` shortcode derives its list from the pages that declare the series, so the new post appears on the next Hugo build. That is only true since 0.17.0; a scaffolded post used to omit `series` entirely and therefore never appeared in its own overview (#65 item 2).
+4. Does **not** touch the series overview — and does not need to, **because the frontmatter it writes carries `series`**: the `{{< series-index >}}` shortcode derives its list from the pages that declare the series, so the new post appears on the next Hugo build. That is only true since 0.19.0; a scaffolded post used to omit `series` entirely and therefore never appeared in its own overview (#65 item 2).
 
 If the helper exits non-zero, surface the error and stop.
 

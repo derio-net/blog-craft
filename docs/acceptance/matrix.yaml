@@ -897,6 +897,82 @@ rows:
       CLEAN before this change — the field never needed permission, it needed a type check.
       The validator ships into blogs as templates/hugo-hextra/scripts/validate_glossary.py
       byte-identical, guarded by tests/unit/test_mirrors.py.'
+  - id: HW-1
+    capability: Reader-arc post structure
+    acceptance: Building/tutorial posts open with a conceptual landscape section sized
+      to the material and close with a what-transfers section
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-27-humanize-writing-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_reader_arc_contract.py
+      - blog-craft:tests/unit/test_educational_lint.py
+    status: ci
+    notes: 'CI pins the mechanical envelope: the reader-arc.md methodology contract
+      (organizing rule, lay-of-the-land beginning, what-transfers ending,
+      mode-conditional + proportional sizing), the SKILL.md carve-out and
+      Session-skeleton signature, and the checklist items
+      (test_reader_arc_contract.py), plus the diataxis-keyed what-transfers lint
+      warn (test_educational_lint.py). Prose quality on a real post stays operator
+      judgment — the manual live-run phase exercises it.'
+  - id: HW-2
+    capability: Cold-reader editor pass
+    acceptance: Every /blog-post and /post-rewrite draft is critiqued by a blind cold-reader
+      agent (no session context) and revised before the operator sees it
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-27-humanize-writing-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_cold_reader_contract.py
+    status: ci
+    notes: 'Mechanical envelope CI-pinned: agents/cold-reader.md exists with
+      read-only tools (Read, Grep, Glob only), the five critique sections, and
+      the verbatim blindness sentence; both drafting SKILL.md files load
+      reader-arc.md + ai-tells.md and carry the cold-reader dispatch sub-step
+      before the approval question. The blindness itself is a prompt-level
+      contract — that a live run actually withholds the session context stays
+      operator judgment in the manual live-run phase.'
+  - id: HW-3
+    capability: AI-tells lint in the gate
+    acceptance: validate_educational.py fails on AI-vocabulary hits and warns on em-dash/parallelism/rule-of-three
+      density and cliche conclusions, thresholds configurable via quality.lint
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-27-humanize-writing-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_educational_lint.py
+      - blog-craft:tests/unit/test_ai_tells.py
+      - blog-craft:tests/unit/test_config_schema.py
+    status: ci
+    notes: 'Lint layer CI-pinned end-to-end against clean and tell-laden fixtures:
+      vocabulary fails by default, densities/conclusions/what-transfers warn,
+      severities fail|warn|off + thresholds honored from quality.lint (schema
+      checked in test_config_schema.py), code/frontmatter excluded, CLI exit
+      codes + LINT FAIL/WARN lines, blog-side sibling ai-tells.md fallback and
+      loud LINT SKIPPED (stderr) when the data file is absent. Review-pass
+      hardening also pinned: CommonMark nested-fence closing, prose-only
+      heading scan for what-transfers, boundary-aware conclusion openers,
+      curly-apostrophe normalization, verb inflections in the fail vocabulary.'
+  - id: HW-4
+    capability: quality.lint config seeding
+    acceptance: A consumer blog missing quality.lint gets it seeded with defaults and
+      comments on first skill run, existing values untouched
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-27-humanize-writing-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_seed_config.py
+      - blog-craft:tests/unit/test_cold_reader_contract.py
+    status: ci
+    notes: 'seed_config.py gained dotted-key seeding (quality.lint.enabled
+      creates the real nested block the validator reads, boolean value, comment
+      included; existing values byte-for-byte untouched; partial quality blocks
+      extended in place; flow-style/scalar ancestors bail out loudly with the
+      file untouched; child indent follows the ancestor''s existing children)
+      — test_seed_config.py. The Step 0 invocations in BOTH drafting skills
+      (/blog-post and /post-rewrite) are pinned by the seeding greps in
+      test_cold_reader_contract.py. Live seeding into a consumer blog is
+      verified in the manual live-run phase.'
   - id: UPD-R1
     capability: update-path-roots
     acceptance: /update accepts the documented relative --config/--blog invocation from

@@ -1,0 +1,35 @@
+schema_version: 2
+phase:
+  number: 6
+  title: '[manual] Live acceptance — /blog-post run on a consumer blog'
+  tag: manual
+  depends_on:
+  - 5
+  tracking_issue: null
+  acceptance:
+  - HW-1
+  - HW-2
+tasks:
+- number: 1
+  title: Operator-driven live run
+  steps:
+  - id: P6.T1.S1
+    text: |
+      [MANUAL] In a consumer blog (frank or gondor-blog) with this blog-craft version: run /blog-post for a real building-series topic. Verify: (1) quality.lint.enabled got seeded into the blog's .blog-craft.yaml with the comment; (2) the cold-reader critique ran before the draft was shown, with the one-paragraph revision summary; (3) the draft opens with a lay-of-the-land section sized to the material and closes with a what-transfers section; (4) validate_educational.py lint output is clean (no LINT FAIL; review any LINT WARN).
+  - id: P6.T1.S2
+    text: |
+      [MANUAL] If the live run holds, optionally advance HW-1/HW-2 notes in docs/acceptance/matrix.yaml (e.g. "proven live <date>") and push to this PR. Complete the phase: fr plan complete-phase 6 --note "<result>" (or tick via --complete-phase on the PR branch).
+state:
+  steps:
+    P6.T1.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P6.T1.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+  completion:
+    at: null
+    note: null
+    observed_prs: []
