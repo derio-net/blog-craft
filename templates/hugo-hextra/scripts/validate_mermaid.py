@@ -131,9 +131,10 @@ def _main(argv):
             failed[p] = fails
 
     if not gate_enabled:
-        # A disabled gate must still SCAN and still be LOUD about it — a gate
-        # nobody runs must report nothing, including how far behind it is
-        # (frank 77e68e37). Always exits 0: visible, never build-breaking.
+        # A disabled gate must still SCAN and still be LOUD about it. The
+        # principle, from frank 77e68e37: "a gate nobody runs reports nothing,
+        # including how far behind you are" — that is the FAILURE being fixed,
+        # not the goal. Always exits 0: visible, never build-breaking.
         total = sum(len(fs) for fs in failed.values())
         plural = "" if total == 1 else "s"
         print(f"GATE DISABLED (quality.mermaid_syntax: false) — would report "
