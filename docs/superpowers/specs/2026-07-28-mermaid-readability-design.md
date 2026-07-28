@@ -185,14 +185,61 @@ Runs **after** `hugo build`, against `public/`.
 - Per-diagram opt-out: a `%% blog-craft: wide-ok — <reason>` comment in the
   mermaid source (`%%` is a mermaid comment), mirroring `diagram_exempt:`.
 
-**Headless mechanism.** puppeteer-core attached to the runner's preinstalled
-Chrome, avoiding a ~150MB browser download per CI run; `@mermaid-js/mermaid-cli`
-is the fallback if that proves unavailable. *The plan must verify runner Chrome
-availability before committing to the primary path.* The prototype rendered all
-182 of frank's diagrams with zero failures, so the approach itself is proven.
+#### Why a real browser is required (verified, not assumed)
+
+frank already ships a Node mermaid validator (`scripts/validate-mermaid.mjs`,
+`mermaid.parse()` under jsdom) and the obvious move is to extend it. **That does
+not work for width**, and the reason is structural rather than fixable:
+
+| jsdom probe | Result |
+|---|---|
+| `SVGTextElement.getBBox` | **not present** |
+| `getComputedTextLength` | **not present** |
+| `getBoundingClientRect()` | `{width: 0, height: 0}` |
+| `mermaid.render()` under jsdom | throws `ReferenceError: CSSStyleSheet is not defined` |
+
+Mermaid derives every node's size from text measurement, so under jsdom each
+node is zero-width and any resulting diagram width is meaningless. **Syntax
+checking is legitimately a jsdom job — width measurement is not.** The two gates
+therefore stay separate tools rather than merging.
+
+#### Runner capabilities (verified against the ubuntu-24.04 image manifest)
+
+| Requirement | `ubuntu-latest` |
+|---|---|
+| Google Chrome | 150.0.7871.128, preinstalled |
+| Chromium | 150.0.7871.0, preinstalled |
+| Node.js / npm | 22.23.1 / 10.9.8, preinstalled |
+| `CHROME_BIN` | **not defined** — only `CHROMEWEBDRIVER`, `EDGEWEBDRIVER`, `GECKOWEBDRIVER` |
+
+Every workflow involved already runs `ubuntu-latest` (blog-craft's own CI,
+`blog-ci.yml.tmpl`, and frank's live workflow), and none uses `setup-node`.
+So no browser download and no toolchain install is needed — but the Chrome
+executable must be **discovered, not hardcoded**, since the image defines no
+browser path variable and `ubuntu-latest` will roll to a newer image. Resolution
+order: `$CHROME_BIN` → `google-chrome` → `google-chrome-stable` → `chromium` →
+`chromium-browser`, failing with an actionable message naming what it looked
+for. Headless Chrome on a runner needs `--no-sandbox --disable-dev-shm-usage`.
+
+#### Zero-dependency implementation (recommended)
+
+Because the gate loads **the built site's own mermaid bundle** from
+`public/js/mermaid.*.js`, it needs no `mermaid` npm package. And Node 22 ships a
+global `WebSocket`, so it can drive headless Chrome over CDP directly — meaning
+the gate can be a **single dependency-free `.mjs`**: no `package.json`, no
+`npm install` step, no supply-chain surface added to any consumer blog. This is
+the same shape as the prototype that rendered all 182 of frank's diagrams with
+zero failures, and it matches the repo's existing posture (vendored asciinema,
+same-origin assets, no third parties in the request path).
+
+The alternative is `puppeteer-core` (pure JS, no bundled browser) for less
+hand-rolled CDP code, at the cost of a `package.json` + `npm install` in every
+adopting blog's CI. **Recommendation: zero-dependency.** The plan should take
+the CDP route first and fall back only if driving Chrome proves fiddly.
 
 CI: a new step in `blog-ci.yml.tmpl` after the Hugo build, gated on
-`quality.mermaid_max_width > 0`.
+`quality.mermaid_max_width > 0`, so a blog that sets `0` invokes no browser at
+all.
 
 ### 4. Disabled gates must be loud
 
@@ -236,7 +283,9 @@ Unit (`tests/unit/`):
 - `test_migration_ladder.py` — `005_to_006.py` bumps version and sets the flag;
   idempotent; refuses a wrong `FROM_VERSION`.
 - `test_mermaid_layout_gate.py` — over-budget diagram fails; at-budget passes;
-  `wide-ok` comment waives; `mermaid_max_width: 0` disables; report format.
+  `wide-ok` comment waives; `mermaid_max_width: 0` disables; report format;
+  browser discovery falls through the candidate list and fails with an
+  actionable message when none is found.
 - `test_mermaid_validator.py` — disabled gate prints `GATE DISABLED` **and** the
   would-be finding count, still exits 0.
 - `test_mirrors.py` — new validator + its shipped mirror registered.
