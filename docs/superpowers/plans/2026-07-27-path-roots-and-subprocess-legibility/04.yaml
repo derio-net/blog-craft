@@ -1,0 +1,80 @@
+schema_version: 2
+phase:
+  number: 4
+  title: '#61 — relocation: /update stops re-adding the dead file'
+  tag: agentic
+  depends_on:
+  - 2
+  - 3
+  acceptance:
+  - UPD-R4
+  tracking_issue: null
+tasks:
+- number: 1
+  title: 'legacy_dests: in the manifest + legacy_dest() resolution'
+  steps:
+  - id: P4.T1.S1
+    text: |
+      [RED] tests/unit/test_update_relocation.py:
+        1. legacy_dests('.github/workflows/blog-ci.yml', cfg with site_dir=blog) == ['blog/.github/workflows/blog-ci.yml'];
+        2. with site_dir '.' (or absent) the same call returns [] — the legacy destination COINCIDES with the current one, so it is not a relocation;
+        3. legacy_dests('.claude/hookify.warn-hextra-weight-zero.local.md', any cfg) yields '<site>/.hookify.warn-hextra-weight-zero.md' and is non-empty even when site_dir is '.' (the rename applies to every blog);
+        4. a path with no legacy row returns [].
+      Run: bash tests/run-unit.sh -k relocation
+      EXPECT: RED.
+  - id: P4.T1.S2
+    text: |
+      [GREEN] Add a `legacy_dests:` mapping to templates/manifest.yaml (current materialized path -> list of destinations earlier releases wrote it to, with '{site}/' expanding to '<site_dir>/' and to '' when site_dir is '.'), with a comment explaining that ONE table covers both axes — a root change AND a rename. Add legacy_dests(path, cfg, manifest) to tools/update.py, dropping any entry equal to the current map_dest.
+      Run: bash tests/run-unit.sh -k relocation
+      EXPECT: green.
+- number: 2
+  title: plan_update + apply_plan + dry_run_diff relocate and prune
+  steps:
+  - id: P4.T2.S1
+    text: |
+      [RED] Extend tests/unit/test_update_relocation.py against the table in spec §B3, using site_dir=blog and a manifest-declared legacy path:
+        1. dest absent + legacy present + identical to incoming -> action 'relocate', entry carries legacy; apply moves it (new path exists, old gone);
+        2. dest absent + legacy present + framework class + differs -> 'replace' at dest, legacy pruned;
+        3. dest absent + legacy present + merged class + non-conflicting local edit -> 'merge' with the OPERATOR'S EDIT PRESERVED at the new destination (the whole point: their file moves, it is not re-added blank);
+        4. merged + CONFLICT -> nothing written, NOTHING removed, both paths reported (the never-auto-resolve contract);
+        5. dest present + legacy present + dest up to date -> a 'prune' entry that removes only the stale duplicate;
+        6. IDEMPOTENCE: re-planning after a successful apply yields no action for that path — #61's 'the next /update re-adds the dead file' loop is closed;
+        7. apply prunes a directory left empty by the move (blog/.github/workflows and blog/.github), and does NOT prune a directory that still holds operator files;
+        8. dry_run_diff names BOTH sides so the dry-run IS the migration notice.
+      Run: bash tests/run-unit.sh -k relocation
+      EXPECT: RED.
+  - id: P4.T2.S2
+    text: |
+      [GREEN] Implement in tools/update.py: plan_update picks the legacy file as the local side when the mapped dest is absent, records entry['legacy']; emits 'relocate' for a pure move and 'prune' for a stale duplicate under an up-to-date dest; apply_plan writes dest first, then unlinks legacy and prunes newly-empty parent dirs (never above the blog root), and does neither on 'conflict'; dry_run_diff renders 'RELOCATE <legacy> -> <dest>' and 'PRUNE <legacy> ... (stale — now at <dest>)'. Conflicts returned by apply_plan must name both paths.
+      Run: bash tests/run-unit.sh -k "relocation or update_flow or update_mapping"
+      EXPECT: green.
+  - id: P4.T2.S3
+    text: |
+      Extend tests/smoke-update.sh with a site_dir end-to-end leg: bootstrap a site_dir blog, plant a stale blog/.github/workflows/blog-ci.yml with an operator edit, run plan+apply, assert the file moved to the repo root WITH the edit intact and the stale copy gone, and that a second plan is empty. Run: bash tests/smoke-update.sh
+      EXPECT: all PASS.
+state:
+  steps:
+    P4.T1.S1:
+      state: x
+      ticked_at: '2026-07-27T16:20:23+00:00'
+      note: null
+    P4.T1.S2:
+      state: x
+      ticked_at: '2026-07-27T16:20:23+00:00'
+      note: null
+    P4.T2.S1:
+      state: x
+      ticked_at: '2026-07-27T16:20:23+00:00'
+      note: null
+    P4.T2.S2:
+      state: x
+      ticked_at: '2026-07-27T16:20:23+00:00'
+      note: null
+    P4.T2.S3:
+      state: x
+      ticked_at: '2026-07-27T16:20:24+00:00'
+      note: null
+  completion:
+    at: '2026-07-27T16:20:24+00:00'
+    note: null
+    observed_prs: []

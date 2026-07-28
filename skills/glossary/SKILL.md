@@ -21,7 +21,9 @@ Three helpers do the deterministic work. **Do not re-implement any of it in pros
 
 - **`<plugin_root>/tools/glossary_scan.py`** — `--config <cfg> <path…>`, prints JSON candidates to stdout. Finds 2–10 character uppercase tokens that are genuinely in prose, skipping code fences, inline code, frontmatter, headings, links, URLs, existing shortcodes and HTML tags. Returns `{term, display, file, line, sentence, occurrences, known}` per term, deduped.
 - **`<plugin_root>/tools/glossary_apply.py`** — `--config <cfg> [--all] <path…>`, inserts `{{< abbr "TERM" >}}` at the first occurrence per post, where `TERM` is the literal token it matched in the prose. Idempotent: running it twice changes nothing. It cannot reach a key no token spells — see `rendered_text` in Step 4.
-- **`<plugin_root>/tools/validate_glossary.py`** — `--config <cfg> <path…>`, the CI gate. Errors on a marker with no registry entry, an entry with no name/description, and a `rendered_text` that is not a non-empty quote-free string. Two entries sharing a `rendered_text` are never reported.
+- **`<plugin_root>/tools/validate_glossary.py`** — `--config <cfg> <path…>`, the CI gate. Errors on a marker with no registry entry, an entry with no name/description, a `rendered_text` that is not a non-empty quote-free string, or a marker inside a shortcode body that is renderer source rather than prose (currently `{{< papers/landscape >}}`, whose body Hugo hands to mermaid). Two entries sharing a `rendered_text` are never reported.
+
+  That last error means the marker **renders into a diagram** and breaks the build. The registry key is usually valid, so adding an entry will not clear it — delete the marker and leave the term as plain text. The scanner no longer proposes markers there, but it cannot remove ones an earlier sweep inserted: `glossary_apply` is idempotent and only ever adds.
 
 ## Discovery contract
 

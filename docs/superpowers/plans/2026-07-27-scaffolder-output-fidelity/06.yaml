@@ -13,8 +13,8 @@ phase:
   - BPC-3
   - BPC-4
   - BPC-5
-  - GL-10
   - GL-11
+  - GL-12
 tasks:
 - number: 1
   title: Skill and config docs
@@ -42,9 +42,9 @@ tasks:
       EXPECT: GREEN.
   - id: P6.T2.S2
     text: |
-      Flip the acceptance rows added for this spec from not-implemented to ci, attaching the test refs: BPC-1/2 -> tests/unit/test_prompts_append.py + tests/unit/test_blog_post_create.py (unit) and tests/smoke-blog-post.sh (int); BPC-3/4/5 -> tests/unit/test_blog_post_create.py; GL-10 -> tests/unit/test_glossary_hugo.py; GL-11 -> tests/unit/test_glossary_validator.py. Edit the rows in docs/acceptance/matrix.yaml (levels + status + notes recording the evidence).
+      Flip the acceptance rows added for this spec from not-implemented to ci, attaching the test refs: BPC-1/2 -> tests/unit/test_prompts_append.py + tests/unit/test_blog_post_create.py (unit) and tests/smoke-blog-post.sh (int); BPC-3/4/5 -> tests/unit/test_blog_post_create.py; GL-11 -> tests/unit/test_glossary_hugo.py; GL-12 -> tests/unit/test_glossary_validator.py. Edit the rows in docs/acceptance/matrix.yaml (levels + status + notes recording the evidence).
       Run: fr acceptance check
-      EXPECT: exit 0, and none of BPC-1..5 / GL-10..11 appear as not-implemented warnings.
+      EXPECT: exit 0, and none of BPC-1..5 / GL-11..12 appear as not-implemented warnings.
 - number: 3
   title: Verify (phase 6)
   steps:

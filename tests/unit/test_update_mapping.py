@@ -45,6 +45,29 @@ def test_map_dest_config_rooted_paths_not_site_prefixed():
     assert map_dest(".blog-craft.yaml", FRANK_CFG) == ".blog-craft.yaml"
 
 
+# --- repo-rooted paths (#61) --------------------------------------------------
+# A path whose location is defined by a tool OUTSIDE Hugo is never placed under
+# site_dir. Getting this wrong is silent — a workflow in the wrong directory is
+# not an error, it is an inert YAML document that looks exactly like a workflow.
+
+def test_github_workflows_stay_at_the_repository_root():
+    """GitHub Actions loads workflows from <repo>/.github/workflows/ ONLY (#61)."""
+    assert map_dest(".github/workflows/blog-ci.yml", FRANK_CFG) == \
+        ".github/workflows/blog-ci.yml"
+
+
+def test_claude_dir_stays_at_the_repository_root():
+    """hookify globs .claude/hookify.*.local.md from the project root (#61)."""
+    assert map_dest(".claude/hookify.warn-hextra-weight-zero.local.md", FRANK_CFG) == \
+        ".claude/hookify.warn-hextra-weight-zero.local.md"
+
+
+def test_dotfiles_are_not_the_rule_ownership_of_the_location_is():
+    """`.gitignore` is site-rooted; `.github/**` is not. Not "is it a dotfile?"."""
+    assert map_dest(".gitignore", FRANK_CFG) == "blog/.gitignore"
+    assert map_dest(".github/workflows/blog-ci.yml", FRANK_CFG).startswith(".github/")
+
+
 def test_map_dest_relocates_pool_and_prompts_by_config():
     cfg = {"site_dir": "blog",
            "image": {"reference_pool": "assets/pool",

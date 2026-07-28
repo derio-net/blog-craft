@@ -39,6 +39,36 @@ Inside `templates/hugo-hextra/`:
 
 The renderer at `tools/render-template/main.go` enforces this convention.
 
+## The path manifest answers two different questions
+
+`templates/manifest.yaml` is consulted by the reproduction harness and `/update`.
+It carries two independent classifications of every materialized path, and they
+are easy to conflate:
+
+- **Class** — *who owns this file?* `framework` (shipped, overwritten),
+  `merged` (config-templated, 3-way merged), `content` (operator's, never
+  touched). Guard: `tests/unit/test_path_manifest.py`.
+- **Root** — *who defines this path's location?* `site` (Hugo's layout — lands
+  under `site_dir`) or `repo` (a contract outside Hugo — never prefixed).
+  Guard: `tests/unit/test_path_roots.py`.
+
+The root model exists because getting it wrong is **silent**. A workflow at
+`<site_dir>/.github/workflows/` is not an error and not a skipped run — it is an
+inert YAML document that looks exactly like a workflow, and blog-craft shipped
+one to every `site_dir` blog until #61. The deciding question is never "is this a
+dotfile": `.gitignore` is site-rooted (nested gitignores govern their own
+subtree) while `.github/**` is not.
+
+Both guards require **exactly one** match per materialized path, so a new
+template file cannot merge without a reviewer answering both questions. At
+runtime an undeclared root falls back to `site`, so a missed declaration is a
+failing test, never a broken blog.
+
+A third section, `legacy_dests:`, records where earlier releases put a path that
+has since moved. `/update` uses it to relocate the operator's copy instead of
+adding a fresh one beside it — without it, `plan_update` reads an absent managed
+path as `add` and re-creates the dead file on every run.
+
 ## Wizard → config → skill data flow
 
 ```
@@ -124,6 +154,23 @@ code, frontmatter, but *not* headings — used by the validator, because a post
 that documents `{{< abbr >}}` inside a fence must not be gated on its own
 example, while a marker in a heading really does execute and really must be
 validated.
+
+`excluded_spans()` also covers the **body** of any shortcode in
+`OPAQUE_BODY_SHORTCODES` — currently just `papers/landscape`, whose `.Inner`
+Hugo wraps in `<pre class="mermaid">`. That body is renderer source, not prose:
+a marker there expands to a `<button popovertarget>` tree inside a chart axis
+and the diagram fails to parse. The criterion is deliberately *the body is
+handed to a renderer*, not *the shortcode has a body* — `papers/pullquote` and
+`papers/scar` take prose bodies that must stay markable, and excluding every
+shortcode body would silently drop legitimate markers.
+
+`misplaced_markers()` is the fourth consumer. It reports markers an earlier
+sweep already wrote into such a body, which `excluded_spans()` alone cannot
+reach: the applier is idempotent, so it never removes what it would no longer
+add. It subtracts `code_spans()` for exactly the reason above — a post
+documenting the shortcode inside a fence must not be failed by its own example,
+and two functions disagreeing about what counts as a marker is precisely the
+drift this shared scanner exists to prevent.
 
 That import is why `glossary_scan.py` is mirrored into
 `templates/hugo-hextra/scripts/` alongside `validate_glossary.py`: a

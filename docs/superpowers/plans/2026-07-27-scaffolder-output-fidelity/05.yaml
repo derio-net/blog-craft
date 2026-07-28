@@ -7,8 +7,8 @@ phase:
   depends_on: []
   tracking_issue: null
   acceptance:
-  - GL-10
   - GL-11
+  - GL-12
 tasks:
 - number: 1
   title: The validator accepts the field, typed

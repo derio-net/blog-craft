@@ -1,0 +1,44 @@
+schema_version: 2
+phase:
+  number: 5
+  title: '#61 — a repo-rooted workflow needs repo-rooted paths'
+  tag: agentic
+  depends_on: []
+  acceptance:
+  - UPD-R5
+  tracking_issue: null
+tasks:
+- number: 1
+  title: blog-ci.yml.tmpl renders from the repository root
+  steps:
+  - id: P5.T1.S1
+    text: |
+      [RED] Extend tests/unit/test_ci_template.py — render with site_dir: blog and assert per spec §B5:
+        1. every scripts/ invocation is 'blog/scripts/...';
+        2. every content glob is 'blog/content/docs/*/*/index.md';
+        3. '--config .blog-craft.yaml' is NOT prefixed (repo-rooted; CI's cwd IS the config root);
+        4. the dossier glob '{{ .dossier_dir }}/*/dossier.md' is NOT prefixed (sync_dossier_to_data.py resolves it against Path(--config).resolve().parent — config-root-relative by contract);
+        5. the Hugo build step carries working-directory: blog;
+        6. the rendered YAML still parses;
+        7. with site_dir absent or '.', the rendered file is UNCHANGED from today (byte-identical for every existing blog) and carries no empty working-directory key.
+      Run: bash tests/run-unit.sh -k ci_template
+      EXPECT: RED.
+  - id: P5.T1.S2
+    text: |
+      [GREEN] Add the site-prefix variable to templates/hugo-hextra/.github/workflows/blog-ci.yml.tmpl ({{- $site := "" }}{{- with .site_dir }}{{- if ne . "." }}{{- $site = printf "%s/" . }}{{- end }}{{- end }} — `with` guards the absent key so there is no nil comparison; text/template, Go 1.22) and apply it to exactly the site-relative arguments. Guard the Hugo step's working-directory behind the same conditional so a site_dir-less blog renders identically. Comment WHY the config and dossier paths are not prefixed.
+      Run: bash tests/run-unit.sh -k ci_template
+      EXPECT: green.
+state:
+  steps:
+    P5.T1.S1:
+      state: x
+      ticked_at: '2026-07-27T16:23:16+00:00'
+      note: null
+    P5.T1.S2:
+      state: x
+      ticked_at: '2026-07-27T16:23:16+00:00'
+      note: null
+  completion:
+    at: '2026-07-27T16:23:16+00:00'
+    note: null
+    observed_prs: []

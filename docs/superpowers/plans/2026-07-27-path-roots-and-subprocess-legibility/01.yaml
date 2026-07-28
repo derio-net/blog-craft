@@ -1,0 +1,119 @@
+schema_version: 2
+phase:
+  number: 1
+  title: '#59 — legible subprocess failures + absolute paths at every cd boundary'
+  tag: agentic
+  depends_on: []
+  acceptance:
+  - UPD-R1
+  - UPD-R2
+  tracking_issue: null
+tasks:
+- number: 1
+  title: tools/proc.py — run_checked surfaces the child's own streams
+  steps:
+  - id: P1.T1.S1
+    text: |
+      [RED] tests/unit/test_proc.py:
+        1. run_checked on a command that exits 0 returns a CompletedProcess with stdout captured;
+        2. run_checked on a command that writes a distinctive line to stderr and exits 1 raises CommandFailed whose str() contains that line, the exit code, and the command;
+        3. stdout is included too when the child wrote to it;
+        4. CommandFailed is a subclass of subprocess.CalledProcessError (so existing `except CalledProcessError` handlers still catch it) and still exposes .returncode/.cmd/.stderr;
+        5. run_checked passes through kwargs (cwd=).
+      Run: bash tests/run-unit.sh -k test_proc
+      EXPECT: RED (module absent).
+  - id: P1.T1.S2
+    text: |
+      [GREEN] Write tools/proc.py: CommandFailed(subprocess.CalledProcessError) overriding __str__ to append the captured stderr then stdout (each labelled, blank-line separated, trailing whitespace trimmed, omitted when empty); run_checked(cmd, **kw) sets capture_output=True, text=True defaults, runs, and raises CommandFailed on returncode != 0. Docstring must say WHY: a bare CalledProcessError points at subprocess.run in the stdlib and reads like a blog-craft internals bug when the real cause is one line the child already printed (#59).
+      Run: bash tests/run-unit.sh -k test_proc
+      EXPECT: green.
+- number: 2
+  title: Route all four swallowed sites through run_checked
+  steps:
+  - id: P1.T2.S1
+    text: |
+      [RED] Extend tests/unit/test_proc.py: reproduce.apply() against a config path that does not exist raises an error whose message contains the renderer's own 'load answers' stderr line (not a bare CalledProcessError repr). Use a real bootstrap-render.sh invocation with a bogus --config; assert on str(excinfo.value).
+      Run: bash tests/run-unit.sh -k test_proc
+      EXPECT: RED.
+  - id: P1.T2.S2
+    text: |
+      [GREEN] Replace the swallowed subprocess.run calls with proc.run_checked:
+        - tools/reproduce.py:32 (bootstrap-render.sh)
+        - tools/reproduce.py:98 (hugo --buildDrafts in render_and_diff)
+        - tools/update.py:143 (git archive <blog_craft_version> — an unreachable tag is the exact failure the /update guardrail warns about)
+        - tools/update.py:147 (bootstrap-render.sh at the old tag)
+      Leave tools/update.py:146 (tar -xf, check=True, uncaptured) alone — its output already reaches the terminal.
+      Both modules already do sys.path.insert(0, tools/) then import siblings; import proc the same way.
+      Run: bash tests/run-unit.sh -k test_proc
+      EXPECT: green.
+- number: 3
+  title: Resolve paths where the cd is — bootstrap-render.sh
+  steps:
+  - id: P1.T3.S1
+    text: |
+      [RED] tests/unit/test_update_paths.py: run bash tools/bootstrap-render.sh with a RELATIVE answers path and a RELATIVE target, with cwd set to a tmp dir holding the fixture (tests/fixtures/stoa-v2.expected.yaml copied in). Assert exit 0 and that the target tree materialized. This is the documented invocation from #59.
+      Run: bash tests/run-unit.sh -k test_update_paths
+      EXPECT: RED.
+  - id: P1.T3.S2
+    text: |
+      [GREEN] In tools/bootstrap-render.sh, immediately after ANSWERS/TARGET are parsed, resolve both to absolute paths BEFORE anything cds. Constraints verified in the spec: ANSWERS must resolve before the blog_craft_version grep and before the AUGMENTED mktemp swap; TARGET must still be preflight-checked and mkdir -p'd at the same location, so resolve TARGET without requiring it to exist (e.g. mkdir -p first, then `cd "$TARGET" && pwd`, or a pure-string join with $PWD for a relative path). ANSWERS must exist — fail with a clear message naming the path if it does not, rather than letting the Go renderer report it after the cd.
+      Run: bash tests/run-unit.sh -k test_update_paths
+      EXPECT: green.
+- number: 4
+  title: Resolve at the Python API boundary + every CLI path argument
+  steps:
+  - id: P1.T4.S1
+    text: |
+      [RED] Extend tests/unit/test_update_paths.py:
+        1. update.py's CLI accepts the DOCUMENTED relative invocation (--config .blog-craft.yaml --blog .) run with cwd=<a bootstrapped blog>, exit 0, plan printed;
+        2. reproduce.py's CLI accepts relative --config AND relative --scratch from the same cwd (the third and fourth instances of the bug, never reported);
+        3. update.render_staging / update.base_by_rerender called as a LIBRARY with a relative config from a different cwd still work (the fix is at the API boundary, not only in _main).
+      Run: bash tests/run-unit.sh -k test_update_paths
+      EXPECT: RED for the cases not yet fixed.
+  - id: P1.T4.S2
+    text: |
+      [GREEN] Resolve at the boundary:
+        - reproduce.apply(): Path(config_path).resolve() and Path(scratch_dir).resolve() before the bash call;
+        - update.render_staging() and update.base_by_rerender(): same for config (and base_dir);
+        - update._main: resolve a.config, a.blog, a.base; reproduce._main: resolve a.config, a.scratch, a.reference.
+      Keep the resolved config for the yaml.safe_load(open(...)) read too, so the plan and the render see one identical file.
+      Run: bash tests/run-unit.sh -k "test_update_paths or test_proc or update_flow or update_mapping"
+      EXPECT: green.
+state:
+  steps:
+    P1.T1.S1:
+      state: x
+      ticked_at: '2026-07-27T16:04:43+00:00'
+      note: null
+    P1.T1.S2:
+      state: x
+      ticked_at: '2026-07-27T16:04:43+00:00'
+      note: null
+    P1.T2.S1:
+      state: x
+      ticked_at: '2026-07-27T16:04:44+00:00'
+      note: null
+    P1.T2.S2:
+      state: x
+      ticked_at: '2026-07-27T16:04:44+00:00'
+      note: null
+    P1.T3.S1:
+      state: x
+      ticked_at: '2026-07-27T16:04:44+00:00'
+      note: null
+    P1.T3.S2:
+      state: x
+      ticked_at: '2026-07-27T16:04:44+00:00'
+      note: null
+    P1.T4.S1:
+      state: x
+      ticked_at: '2026-07-27T16:04:44+00:00'
+      note: null
+    P1.T4.S2:
+      state: x
+      ticked_at: '2026-07-27T16:04:44+00:00'
+      note: null
+  completion:
+    at: '2026-07-27T16:04:45+00:00'
+    note: null
+    observed_prs: []

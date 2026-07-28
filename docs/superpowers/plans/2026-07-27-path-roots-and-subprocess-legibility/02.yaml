@@ -1,0 +1,64 @@
+schema_version: 2
+phase:
+  number: 2
+  title: '#61 — model the ROOT: who defines this path''s location'
+  tag: agentic
+  depends_on: []
+  acceptance:
+  - UPD-R3
+  tracking_issue: null
+tasks:
+- number: 1
+  title: 'manifest roots: + path_ownership.root_of()'
+  steps:
+  - id: P2.T1.S1
+    text: |
+      [RED] tests/unit/test_path_roots.py:
+        1. root_of('.github/workflows/blog-ci.yml', m) == 'repo'; root_of('layouts/x.html', m) == 'site'; root_of('.claude/hookify.warn-hextra-weight-zero.local.md', m) == 'repo';
+        2. an UNDECLARED path defaults to 'site' (fail-safe: byte-identical to today's behaviour, so a forgotten declaration can never break a blog);
+        3. COMPLETENESS GUARD: walk every --src root bootstrap-render.sh renders (templates/hugo-hextra, templates/content-type-papers/shared, templates/content-type-explainers/shared, templates/features/read-tracker, templates/features/analytics, templates/features/glossary), strip .tmpl, and assert each path matches EXACTLY ONE root glob — so a new template file cannot merge without a reviewer answering "who defines this location?".
+      Run: bash tests/run-unit.sh -k test_path_roots
+      EXPECT: RED.
+  - id: P2.T1.S2
+    text: |
+      [GREEN] Add a `roots:` section to templates/manifest.yaml with the repo/site lists from spec §B2, and a comment stating the decision rule (who defines this location — Hugo, or a tool that reads it from the repo root?) plus WHY each repo-rooted entry is repo-rooted. Add root_of(relpath, manifest) -> 'repo'|'site' to tools/path_ownership.py reusing _glob_to_regex, defaulting to 'site'. load_manifest currently filters to CLASSES — it must carry roots through without breaking classify (keep the class keys separate from the roots key).
+      Run: bash tests/run-unit.sh -k "test_path_roots or test_path_manifest"
+      EXPECT: green.
+- number: 2
+  title: map_dest consults the declared root
+  steps:
+  - id: P2.T2.S1
+    text: |
+      [RED] Extend tests/unit/test_update_mapping.py:
+        1. map_dest('.github/workflows/blog-ci.yml', FRANK_CFG) == '.github/workflows/blog-ci.yml' (NOT blog/.github/...) — the #61 regression;
+        2. map_dest('.claude/hookify.warn-hextra-weight-zero.local.md', FRANK_CFG) is unprefixed;
+        3. every existing mapping assertion in the file still holds (site paths still prefix, .reference-pool/prompts still relocate by config).
+      Run: bash tests/run-unit.sh -k update_mapping
+      EXPECT: RED on the new cases.
+  - id: P2.T2.S2
+    text: |
+      [GREEN] Rewrite update.map_dest to take the manifest into account: keep the two config-DECLARED relocations (prompt_for_images.yaml -> image.prompts_file, .reference-pool/** -> image.reference_pool) in code, then consult root_of(); 'repo' returns the path unchanged, 'site' prefixes site_dir. map_dest's signature gains an optional manifest arg defaulting to default_manifest() so every existing caller (and the tests) keeps working; plan_update passes the manifest it already has. Update the docstring to state the root model, not the allowlist.
+      Run: bash tests/run-unit.sh -k "update_mapping or update_flow"
+      EXPECT: green.
+state:
+  steps:
+    P2.T1.S1:
+      state: x
+      ticked_at: '2026-07-27T16:12:50+00:00'
+      note: null
+    P2.T1.S2:
+      state: x
+      ticked_at: '2026-07-27T16:12:50+00:00'
+      note: null
+    P2.T2.S1:
+      state: x
+      ticked_at: '2026-07-27T16:12:51+00:00'
+      note: null
+    P2.T2.S2:
+      state: x
+      ticked_at: '2026-07-27T16:12:51+00:00'
+      note: null
+  completion:
+    at: '2026-07-27T16:13:06+00:00'
+    note: null
+    observed_prs: []

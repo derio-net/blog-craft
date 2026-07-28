@@ -1,0 +1,76 @@
+schema_version: 2
+phase:
+  number: 6
+  title: Docs, acceptance rows, version bump, changelog — the contract catches up
+  tag: agentic
+  depends_on:
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  acceptance:
+  - UPD-R1
+  - UPD-R2
+  - UPD-R3
+  - UPD-R4
+  - UPD-R5
+  tracking_issue: null
+tasks:
+- number: 1
+  title: Docs
+  steps:
+  - id: P6.T1.S1
+    text: |
+      Update, in the repo's own voice:
+        - skills/update/SKILL.md "Path mapping (site_dir blogs)": replace the allowlist description with the ROOT model (who defines this location), name .github/** and .claude/** as repo-rooted, and document the RELOCATE/PRUNE actions + what a conflict during a relocation means;
+        - docs/CONFIG.md site_dir block: note that repo-rooted paths are never placed under site_dir and point at the manifest's roots: section as the registry;
+        - docs/ARCHITECTURE.md if it describes the manifest;
+        - README.md if it lists materialized paths.
+      Then re-sync the OpenCode mirrors: python scripts/sync-opencode.py
+      Run: bash tests/run-unit.sh -k "opencode or mirrors"
+      EXPECT: green.
+- number: 2
+  title: Acceptance rows + version + changelog
+  steps:
+  - id: P6.T2.S1
+    text: |
+      Add the five acceptance rows UPD-R1..UPD-R5 from the spec via `fr acceptance add` (capability: 'update + path roots'; origin blog-craft:docs/superpowers/specs/2026-07-27-path-roots-and-subprocess-legibility-design.md; status ci with the unit refs). Then: fr acceptance check
+      EXPECT: exit 0.
+  - id: P6.T2.S2
+    text: |
+      Bump the version: python3 tools/bump_version.py minor (0.13.1 -> 0.14.0), then python3 tools/bump_version.py --check for the manifest lockstep. Add a CHANGELOG.md entry in the file's existing style covering BOTH issues, and call out explicitly for site_dir blogs: the CI workflow relocates to the repository root and the stale copy is pruned; the hookify rule relocates to .claude/ and is renamed.
+      Run: python3 tools/bump_version.py --check
+      EXPECT: ok.
+- number: 3
+  title: Full verification
+  steps:
+  - id: P6.T3.S1
+    text: |
+      Run everything CI runs:
+        bash tests/run-unit.sh tests/unit tests/reproduction
+        for s in bootstrap media papers update character-sheet; do bash "tests/smoke-$s.sh"; done
+        BLOG_CRAFT_TEST_MODE=1 bash tests/smoke-blog-post.sh
+      EXPECT: green throughout. Record any failure as a plan-scope finding before fixing it.
+state:
+  steps:
+    P6.T1.S1:
+      state: x
+      ticked_at: '2026-07-27T16:33:52+00:00'
+      note: null
+    P6.T2.S1:
+      state: x
+      ticked_at: '2026-07-27T16:33:52+00:00'
+      note: null
+    P6.T2.S2:
+      state: x
+      ticked_at: '2026-07-27T16:33:52+00:00'
+      note: null
+    P6.T3.S1:
+      state: x
+      ticked_at: '2026-07-27T16:33:53+00:00'
+      note: null
+  completion:
+    at: '2026-07-27T16:33:53+00:00'
+    note: null
+    observed_prs: []
