@@ -1,0 +1,97 @@
+schema_version: 2
+phase:
+  number: 2
+  title: Feature module — mermaid-view.css and the render-codeblock-mermaid.html override
+  tag: agentic
+  tier: standard
+  depends_on:
+  - 1
+  tracking_issue: null
+  acceptance:
+  - mmd-1
+  - mmd-2
+  - mmd-6
+tasks:
+- number: 1
+  title: Natural-size rendering and the frame
+  steps:
+  - id: P2.T1.S1
+    text: |
+      [RED] Create tests/unit/test_mermaid_view.py asserting the shipped stylesheet templates/features/mermaid-view/assets/css/mermaid-view.css exists and contains:
+        - `.content .mermaid` with `overflow-x: auto`
+        - `.content .mermaid svg` with `width: 200rem`
+        - NO `max-width` override on the svg (the whole mechanism depends on mermaid's INLINE max-width winning; a stylesheet max-width would break self-scaling)
+        - a `color-mix(` derived border and background (one rule serving both themes)
+      Run: bash tests/run-unit.sh -k mermaid_view
+      EXPECT: RED (file absent).
+  - id: P2.T1.S2
+    text: |
+      [GREEN] Create templates/features/mermaid-view/assets/css/mermaid-view.css. Header comment must record the load-bearing mechanism in the repo's house style: mermaid writes style="max-width:<natural>px" INLINE on the SVG; inline beats stylesheet and max-width beats width, so `width: 200rem` resolves to min(200rem, natural) — every diagram renders at authored size and never larger, with no per-diagram tuning, and it survives the dark/light re-render that templates/features/mermaid-csp/assets/js/mermaid-init.js:48-61 performs by resetting innerHTML.
+      Frame: 1px border, 8px radius, padding, background tint, all via color-mix(in srgb, currentColor …).
+      Run: bash tests/run-unit.sh -k mermaid_view
+      EXPECT: GREEN.
+- number: 2
+  title: Scroll affordances — the two that are mutually exclusive
+  steps:
+  - id: P2.T2.S1
+    text: |
+      [RED] Extend tests/unit/test_mermaid_view.py:
+        - `::-webkit-scrollbar` rule carries `-webkit-appearance: none` (sizing alone does NOT opt out of macOS overlay scrollbars — measured offsetHeight-clientHeight == 0 without it, 9px with it)
+        - `scrollbar-width` / `scrollbar-color` appear ONLY inside an `@supports not selector(::-webkit-scrollbar)` block — set alongside the WebKit pseudo-elements they win and disable them, silently restoring the invisible bar
+        - scroll shadows present: `background-attachment` with the local,local,scroll,scroll ordering
+        - a `--frame-bg` custom property with a `.dark` override (a black shadow is invisible on a dark frame, so the cue inverts with the theme)
+      Run: bash tests/run-unit.sh -k mermaid_view
+      EXPECT: RED.
+  - id: P2.T2.S2
+    text: |
+      [GREEN] Add the affordance rules to mermaid-view.css, each carrying a comment naming the failure it prevents (the repo documents CSS reasoning inline — see the .paper-capability-matrix block at templates/hugo-hextra/assets/css/custom.css.tmpl:294-318 for the house style).
+      Run: bash tests/run-unit.sh -k mermaid_view
+      EXPECT: GREEN.
+- number: 3
+  title: render-codeblock-mermaid.html — keyboard reachability without losing the
+    theme's contract
+  steps:
+  - id: P2.T3.S1
+    text: |
+      [RED] Extend tests/unit/test_mermaid_view.py to assert templates/features/mermaid-view/layouts/_markup/render-codeblock-mermaid.html:
+        - adds tabindex="0" to the scrolling <pre class="mermaid"> (WCAG 2.1: a scroll container must be keyboard-scrollable)
+        - PRESERVES role="img", the aria-label with its i18n `(T "mermaidDiagram") | default "Diagram"` fallback, and `.Page.Store.Set "hasMermaid" true` — the theme's own scripts partial consumes that store, so dropping it breaks mermaid loading site-wide
+        - keeps the `.Inner | htmlEscape | safeHTML` body
+      Run: bash tests/run-unit.sh -k mermaid_view
+      EXPECT: RED.
+  - id: P2.T3.S2
+    text: |
+      [GREEN] Create the override, based on the theme hook at
+      $HUGO_CACHE/modules/.../hextra@v0.12.1/layouts/_markup/render-codeblock-mermaid.html (4 lines + the store set). Comment that it pins to the theme hook's shape and must be re-checked on a Hextra bump; blog-craft already overrides _markup/render-image.html, so this is an established pattern.
+      Run: bash tests/run-unit.sh -k mermaid_view
+      EXPECT: GREEN.
+state:
+  steps:
+    P2.T1.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T1.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T2.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T2.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T3.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T3.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+  completion:
+    at: null
+    note: null
+    observed_prs: []

@@ -1,0 +1,42 @@
+schema_version: 2
+phase:
+  number: 6
+  title: CI wiring — run the width gate after the Hugo build
+  tag: agentic
+  tier: mechanical
+  depends_on:
+  - 5
+  tracking_issue: null
+  acceptance:
+  - mmd-3
+tasks:
+- number: 1
+  title: blog-ci.yml.tmpl step, gated on the budget
+  steps:
+  - id: P6.T1.S1
+    text: |
+      [RED] Add a test rendering templates/hugo-hextra/.github/workflows/blog-ci.yml.tmpl:
+        - with quality.mermaid_max_width > 0 -> a "Validate mermaid layout" step exists, runs AFTER the Hugo build step (it needs public/), and invokes {{ $site }}scripts/validate_mermaid_layout.mjs
+        - with 0 -> the step is absent entirely (no browser, no cost)
+        - no actions/setup-node step is added (Node 22 is preinstalled on ubuntu-latest)
+      Run: bash tests/run-unit.sh -k mermaid_layout_gate
+      EXPECT: RED.
+  - id: P6.T1.S2
+    text: |
+      [GREEN] Add the gated step to the template, following the existing `{{- with .content_types }}` gating style and the $site path convention.
+      Run: bash tests/run-unit.sh -k mermaid_layout_gate
+      EXPECT: GREEN.
+state:
+  steps:
+    P6.T1.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P6.T1.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+  completion:
+    at: null
+    note: null
+    observed_prs: []

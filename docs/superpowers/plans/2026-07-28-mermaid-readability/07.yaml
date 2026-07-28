@@ -1,0 +1,64 @@
+schema_version: 2
+phase:
+  number: 7
+  title: Authoring guidance and documentation
+  tag: agentic
+  tier: standard
+  depends_on:
+  - 1
+  - 2
+  - 5
+  tracking_issue: null
+tasks:
+- number: 1
+  title: 'Diagram orientation: change the default, with the evidence'
+  steps:
+  - id: P7.T1.S1
+    text: |
+      Edit skills/educational-writing/SKILL.md. The "Keep the layout clean" list currently says (line ~170) "Match direction to shape — TD for tiers/pipelines, LR for a left-to-right flow; try both, keep the one that crosses less." Replace with a WIDTH-first default: prefer `TD`; reserve `LR` for short, genuinely left-to-right pipelines.
+      Ground it in the measurement (all 182 of frank's diagrams rendered): median 873px, p90 1622px, max 2394px against a 672px content column; every sampled LR diagram overflowed (4/4) but one TD diagram measured 1895px — so direction is a strong signal, NOT a rule. Add the width budget and that exceeding it fails the build, plus the `%% blog-craft: wide-ok — <reason>` waiver.
+      Run: python3 tools/validate_educational.py --help >/dev/null && bash tests/run-unit.sh -k educational
+      EXPECT: GREEN (no test asserts this prose; the gate must stay green).
+- number: 2
+  title: docs/CONFIG.md and CHANGELOG
+  steps:
+  - id: P7.T2.S1
+    text: |
+      Add docs/CONFIG.md §12 "Mermaid rendering (features.mermaid_view)" after §11, covering: what the feature does, the inline-max-width mechanism, the opt-out, and the two scroll affordances with the reason each exists. Add a quality.mermaid_max_width row to the §7 table with the budget derivation (~2x the 672px content column) and the wide-ok waiver. Update the doc title's "(v5)" to "(v6)".
+      Run: bash tests/run-unit.sh
+      EXPECT: GREEN.
+  - id: P7.T2.S2
+    text: |
+      Add the CHANGELOG.md entry. State plainly that the width gate lands BLOCKING with no baseline, and that an adopting blog should expect red CI until its diagram backlog is worked down (frank: 35 of 182 over a 1400px budget).
+      Run: bash tests/run-unit.sh
+      EXPECT: full suite GREEN.
+- number: 3
+  title: Flip the acceptance rows that now have evidence
+  steps:
+  - id: P7.T3.S1
+    text: |
+      Move MMD-1, MMD-3, MMD-4, MMD-5 to status ci with their test refs (`fr acceptance` — never hand-edit the YAML shape). MMD-2 and MMD-6 stay not-implemented with a note pointing at the post-merge Test Plan: both are browser-observable behaviours (a visible scroll affordance, keyboard scrolling) that no build assertion can stand in for.
+      Run: fr acceptance check
+      EXPECT: exit 0, rows OK.
+state:
+  steps:
+    P7.T1.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P7.T2.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P7.T2.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P7.T3.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+  completion:
+    at: null
+    note: null
+    observed_prs: []

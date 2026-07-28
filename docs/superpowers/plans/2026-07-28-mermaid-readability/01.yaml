@@ -1,0 +1,108 @@
+schema_version: 2
+phase:
+  number: 1
+  title: Config surface — schema v6, features.mermaid_view, quality.mermaid_max_width,
+    migration 005_to_006
+  tag: agentic
+  tier: mechanical
+  depends_on: []
+  tracking_issue: null
+  acceptance:
+  - mmd-5
+tasks:
+- number: 1
+  title: Accept schema v6 and validate features.mermaid_view
+  steps:
+  - id: P1.T1.S1
+    text: |
+      [RED] Add cases to tests/unit/test_config_schema.py:
+        - a v6 config validates (ACCEPTED_VERSIONS currently (2,3,4,5) so v6 errors today)
+        - a v5 config STILL validates (the ladder keeps old rungs)
+        - features.mermaid_view: "yes" -> error "features.mermaid_view must be a boolean"
+        - features.mermaid_view: true / false / absent -> no error
+      Run: bash tests/run-unit.sh -k config_schema
+      EXPECT: RED (v6 rejected, no boolean check exists).
+  - id: P1.T1.S2
+    text: |
+      [GREEN] In tools/validate_config.py: extend ACCEPTED_VERSIONS to (2, 3, 4, 5, 6) and update the module docstring line "Accepts schema versions 2..5" to 2..6, naming the v6 addition (mermaid view + width budget).
+      Add a features.mermaid_view boolean check beside the existing features.glossary block (~line 191): only validate when the key is present; absent means "default true", resolved at render time, not here.
+      Run: bash tests/run-unit.sh -k config_schema
+      EXPECT: GREEN.
+- number: 2
+  title: Validate quality.mermaid_max_width
+  steps:
+  - id: P1.T2.S1
+    text: |
+      [RED] Add cases to tests/unit/test_config_schema.py:
+        - quality.mermaid_max_width: 1400 -> valid
+        - 0 -> valid (documented "disables the gate")
+        - "1400" (string) -> error naming the key and that it must be a non-negative number
+        - -5 -> error
+        - True (bool) -> error (bool is an int subclass; mirror the isinstance(v, bool) guard used by quality.lint.thresholds at validate_config.py:196)
+      Run: bash tests/run-unit.sh -k config_schema
+      EXPECT: RED.
+  - id: P1.T2.S2
+    text: |
+      [GREEN] Add the check inside the existing `quality` block of tools/validate_config.py, following the quality.lint.thresholds precedent for the bool guard.
+      Run: bash tests/run-unit.sh -k config_schema
+      EXPECT: GREEN.
+- number: 3
+  title: migrations/005_to_006.py — write the flag so existing blogs adopt via /update
+  steps:
+  - id: P1.T3.S1
+    text: |
+      [RED] Add cases to tests/unit/test_migration_ladder.py mirroring the 004_to_005 cases:
+        - migrate({version: 5, ...}) -> version 6 and features.mermaid_view is True
+        - a config that already sets features.mermaid_view: false KEEPS false (never re-enable an operator opt-out)
+        - idempotence: running the full ladder twice is a no-op
+        - migrate({version: 4}) raises ValueError naming 005_to_006 and the expected version
+        - the ladder head (tools/migrate_config.py latest) is now 6
+      Run: bash tests/run-unit.sh -k migration_ladder
+      EXPECT: RED (file absent).
+  - id: P1.T3.S2
+    text: |
+      [GREEN] Create migrations/005_to_006.py modelled byte-for-byte on migrations/004_to_005.py's shape: module docstring explaining WHY (diagrams render at 31% scale; the flag is default-on so existing blogs get the fix through /update rather than hand-editing), FROM_VERSION = 5, TO_VERSION = 6, pure + idempotent `migrate(cfg: dict) -> dict` that raises ValueError on a wrong FROM_VERSION and uses setdefault semantics so an explicit false survives.
+      Run: bash tests/run-unit.sh -k migration_ladder
+      EXPECT: GREEN.
+- number: 4
+  title: REFACTOR + quality gate
+  steps:
+  - id: P1.T4.S1
+    text: |
+      [REFACTOR - optional] If the two new validate_config checks duplicate shape, extract a small local helper; otherwise skip. Add no behavior.
+      Run: bash tests/run-unit.sh
+      EXPECT: full suite GREEN.
+state:
+  steps:
+    P1.T1.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T1.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T2.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T2.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T3.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T3.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T4.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+  completion:
+    at: null
+    note: null
+    observed_prs: []

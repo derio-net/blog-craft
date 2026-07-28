@@ -356,3 +356,9 @@ Post-merge, on frank (operator-run, needs a real browser and a real deploy):
   separately.
 - The unimplemented `2026-07-16-diagram-quality-gate-design.md` (*requires* a
   diagram in how-to/tutorial posts) — adjacent, independent, untouched.
+
+## Implementation Plans
+
+| Plan | Repo | File | Depends on |
+|---|---|---|---|
+| 2026-07-28-mermaid-readability | `derio-net/blog-craft` | `2026-07-28-mermaid-readability` | — |

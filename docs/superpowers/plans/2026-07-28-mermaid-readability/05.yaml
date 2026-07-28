@@ -1,0 +1,122 @@
+schema_version: 2
+phase:
+  number: 5
+  title: The blocking width gate — zero-dependency headless render over CDP
+  tag: agentic
+  tier: hard
+  depends_on:
+  - 1
+  tracking_issue: null
+  acceptance:
+  - mmd-3
+tasks:
+- number: 1
+  title: Browser discovery — never hardcode a path
+  steps:
+  - id: P5.T1.S1
+    text: |
+      [RED] Create tests/unit/test_mermaid_layout_gate.py. With a stub PATH containing none of the candidates, the tool exits non-zero with a message naming every candidate it looked for, in order: $CHROME_BIN, google-chrome, google-chrome-stable, chromium, chromium-browser.
+      Rationale to encode in the test's docstring: the ubuntu-24.04 runner image ships Google Chrome 150 and Chromium but defines NO CHROME_BIN (only CHROMEWEBDRIVER/EDGEWEBDRIVER/GECKOWEBDRIVER), and ubuntu-latest will roll to a newer image — so discovery, not a hardcoded path.
+      Run: bash tests/run-unit.sh -k mermaid_layout_gate
+      EXPECT: RED.
+  - id: P5.T1.S2
+    text: |
+      [GREEN] Create tools/validate_mermaid_layout.mjs with the discovery function and its failure message. No npm dependencies: Node 22 (preinstalled on the runner) ships a global WebSocket, and the diagrams are rendered with the SITE'S OWN mermaid bundle, so neither puppeteer nor the mermaid package is needed.
+      Run: bash tests/run-unit.sh -k mermaid_layout_gate
+      EXPECT: GREEN.
+- number: 2
+  title: Extract diagram sources from built HTML
+  steps:
+  - id: P5.T2.S1
+    text: |
+      [RED] Add cases over a fixture public/ tree:
+        - walks public/**/*.html and finds every <pre class="mermaid"> body, HTML-decoded
+        - reports by page URL + block index (built HTML has no source line numbers)
+        - finds diagrams emitted by SHORTCODES, not just fenced blocks — this is the case a markdown-level check misses, and it is where frank's real breakage was (abbr markers injected into papers/landscape quadrantChart source)
+        - locates the mermaid bundle via public/js/mermaid.*.js
+      Run: bash tests/run-unit.sh -k mermaid_layout_gate
+      EXPECT: RED.
+  - id: P5.T2.S2
+    text: |
+      [GREEN] Implement the walker + extractor + bundle locator.
+      Run: bash tests/run-unit.sh -k mermaid_layout_gate
+      EXPECT: GREEN.
+- number: 3
+  title: Render, measure, and block
+  steps:
+  - id: P5.T3.S1
+    text: |
+      [RED] Add cases (real Chrome; skip with a clear reason when no browser is discoverable so the suite stays runnable on a bare machine):
+        - a narrow diagram (< budget) passes
+        - a wide diagram (> budget) fails, exit 1, reporting page, index, measured width, budget and overage
+        - width is read from the rendered SVG's inline max-width — the same value the CSS rule keys off, so gate and renderer cannot disagree
+        - `%% blog-craft: wide-ok — <reason>` in the source waives that one diagram (%% is a mermaid comment)
+        - quality.mermaid_max_width: 0 disables the gate and invokes no browser
+        - a diagram that FAILS to render is reported as an error, not silently skipped
+      Run: bash tests/run-unit.sh -k mermaid_layout_gate
+      EXPECT: RED.
+  - id: P5.T3.S2
+    text: |
+      [GREEN] Implement: launch the discovered browser headless with --no-sandbox --disable-dev-shm-usage, drive it over CDP with the global WebSocket, load the site's mermaid bundle, render each extracted block, read the inline max-width, compare to the budget, report and exit.
+      Run: bash tests/run-unit.sh -k mermaid_layout_gate
+      EXPECT: GREEN.
+  - id: P5.T3.S3
+    text: |
+      [REFACTOR - optional] Extract the CDP send/await helper if the render loop repeats it; stay green, add no behavior.
+      Run: bash tests/run-unit.sh -k mermaid_layout_gate
+      EXPECT: GREEN.
+- number: 4
+  title: Ship it into blogs and register the mirror
+  steps:
+  - id: P5.T4.S1
+    text: |
+      [RED] Add ("tools/validate_mermaid_layout.mjs", "templates/hugo-hextra/scripts/validate_mermaid_layout.mjs") to MIRRORS in tests/unit/test_mirrors.py.
+      Run: bash tests/run-unit.sh -k mirrors
+      EXPECT: RED (shipped copy absent).
+  - id: P5.T4.S2
+    text: |
+      [GREEN] Copy the tool to templates/hugo-hextra/scripts/validate_mermaid_layout.mjs byte-for-byte.
+      Run: bash tests/run-unit.sh -k mirrors
+      EXPECT: GREEN.
+state:
+  steps:
+    P5.T1.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P5.T1.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P5.T2.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P5.T2.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P5.T3.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P5.T3.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P5.T3.S3:
+      state: ' '
+      ticked_at: null
+      note: null
+    P5.T4.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P5.T4.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+  completion:
+    at: null
+    note: null
+    observed_prs: []
