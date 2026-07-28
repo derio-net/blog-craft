@@ -17,8 +17,8 @@ tools/migrate_config.py's latest_version() auto-discovers migrations/NNN_to_MMM.
 
 Any later phase adding fixtures/tests that assert an absolute 'latest version' number should grep for 'latest_version()' and 'version.*== 5' before trusting an old assumption.
 
-<!-- fr:journal kind=finding scope=plan id=ec26e1be81b4 created=2026-07-28T22:13:41 phase=1 state=open -->
-### ec26e1be81b4 · finding [open] · Acceptance matrix rows MMD-1..6 not yet added; fr plan edit warns on MMD-5 (phase 1)
+<!-- fr:journal kind=finding scope=plan id=ec26e1be81b4 created=2026-07-28T22:13:41 phase=1 state=fixed -->
+### ec26e1be81b4 · finding [fixed] · Acceptance matrix rows MMD-1..6 not yet added; fr plan edit warns on MMD-5 (phase 1)
 
 'fr plan edit --complete-phase 1' warned: 'phase 1 completed but its acceptance rows are still not-implemented: mmd-5'. This is expected at this point in the plan — MMD-5 ('a blog can opt out of the framed scroller and keep prior rendering') is verified by tests/unit/test_mermaid_view_hugo.py, which is Phase 3 scope, not Phase 1. No acceptance rows were added in this phase since Phase 1 ships no user-visible/testable acceptance surface of its own (config validation only, no MMD-* row cites it directly). Whichever phase adds tests/unit/test_mermaid_view_hugo.py (Phase 3 per the plan) should run 'fr acceptance add' for MMD-1 and MMD-5 at that point, and Phase 5 for MMD-3, Phase 4 for MMD-4. MMD-2 and MMD-6 stay manual/not-implemented until the post-merge Test Plan per the spec.
 
@@ -89,8 +89,8 @@ Verified in tools/render-template/main.go: --get-bool prints to stderr 'key %q n
 
 Added a {{- with resources.Get "css/mermaid-view.css" }} block to templates/hugo-hextra/layouts/partials/custom/head-end.html, placed and commented exactly like the existing glossary.css block, and BEFORE the $customCSS assignment — same reasoning phase 2 already found in custom.css.tmpl:142-143 (a blog's own override only wins if the feature sheet loads first). Updated the partial's header comment list to name the new gate. Test (test_head_end_loads_mermaid_view_css_before_custom_css in tests/unit/test_mermaid_view.py) strips Go template comments first (the same _hook()-style trap phase 2 already hit: the glossary and mermaid-csp blocks' own header comments quote 'css/glossary.css' and 'mermaid-init.js', so a raw substring search risks matching prose, not emitted markup) then asserts str.find() ordering. Mutation-tested by moving the whole block after custom.css: failed with the exact ordering assertion, confirming it is load-bearing and not vacuous. Not covered here (out of phase-3 scope, per the dispatch): a real Hugo build asserting the <link> tags' order in built HTML — the wiring test only pins the template source, matching test_mermaid_csp_init.py's split between template-level and hugo-build-level assertions, and no dispatch step asked for the latter.
 
-<!-- fr:journal kind=finding scope=plan id=56824360c28d created=2026-07-28T22:58:08 phase=3 state=open -->
-### 56824360c28d · finding [open] · fr acceptance CLI (v3.19.0) has no command to flip an existing row's status; MMD-1/MMD-5 left as not-implemented (phase 3)
+<!-- fr:journal kind=finding scope=plan id=56824360c28d created=2026-07-28T22:58:08 phase=3 state=fixed -->
+### 56824360c28d · finding [fixed] · fr acceptance CLI (v3.19.0) has no command to flip an existing row's status; MMD-1/MMD-5 left as not-implemented (phase 3)
 
 Phase 3 gives MMD-1 and MMD-5 real new evidence: MMD-1's cited unit ref (tests/unit/test_mermaid_view.py) now also proves the stylesheet is actually wired (loads before custom.css) and materializes on a real bootstrap render; MMD-5 ('a blog can opt out of the framed scroller') is now DIRECTLY asserted by test_bootstrap_materializes_mermaid_view_true_false_and_absent's features.mermaid_view=false case, which currently has levels: {} in the matrix. Checked the installed fr acceptance CLI (fr 3.19.0, fr/commands/acceptance_cmd.py): the only mutating subcommand is `add`, which appends a brand-new row and hard-errors on a duplicate id ('duplicate row id: ...') — there is no update/edit/set-status subcommand. The repo rule (.claude/rules/acceptance-matrix.md) says agents 'never hand-edit matrix.yaml', so I did NOT hand-edit docs/acceptance/matrix.yaml to flip mmd-1's status or add mmd-5's level ref, even though the evidence now supports it. Left both rows exactly as phase 1 left them (status: not-implemented). This is a tooling gap the orchestrator or phase 7 needs to resolve — either an fr acceptance CLI addition (e.g. `fr acceptance set-status` / `fr acceptance add-level`) or an explicit operator-approved exception to hand-edit these two fields for this PR.
 
@@ -109,8 +109,8 @@ Mirrored byte-for-byte to templates/hugo-hextra/scripts/validate_mermaid.py per
 tests/unit/test_mirrors.py:29's existing pair registration — test_mirrors_identical went RED the
 moment the canonical copy changed (proving the guard), green again after `cp`.
 
-<!-- fr:journal kind=finding scope=plan id=32a4502c02bc created=2026-07-28T23:22:40 phase=4 state=open -->
-### 32a4502c02bc · finding [open] · MMD-4 has real test evidence but the matrix row stays not-implemented — phase 7's flip, not phase 4's (phase 4) (phase 4)
+<!-- fr:journal kind=finding scope=plan id=32a4502c02bc created=2026-07-28T23:22:40 phase=4 state=fixed -->
+### 32a4502c02bc · finding [fixed] · MMD-4 has real test evidence but the matrix row stays not-implemented — phase 7's flip, not phase 4's (phase 4) (phase 4)
 
 tests/unit/test_mermaid_validator.py now directly proves MMD-4 ("A disabled diagram gate reports
 that it is disabled and how many findings it would have reported"):
@@ -149,8 +149,8 @@ THE INVOCATION (CI runs at repo root, after the Hugo build step):
 
 Ran the shipped tool against frank's live public/ (CHROME_BIN=Google Chrome, budget 1400): exit 1, '35 of 203 diagram(s)' blocked — the spec's day-one prediction was 35 of 182, and all 35 pages match; /docs/building/22-health-monitoring/ #1 measured 2132px, the spec's headless design measurement to the pixel. 0 render errors across all 203. The count is 203 (not 182) because built-HTML extraction picks up the SHORTCODE-emitted papers/landscape quadrantCharts that never appear as fenced blocks — the /docs/papers/*/ '#5' findings are exactly those, i.e. the frank-breakage class a markdown-level check misses is demonstrably inside the gate's reach. Numbers phase 7 can quote: 35/203 blocked at 1400px, widest 2394px (/docs/building/27-cicd-platform/ #2), narrowest finding 4px over (/docs/operating/21-vk-remote/ #1).
 
-<!-- fr:journal kind=finding scope=plan id=1e673e5f708c created=2026-07-29T00:02:44 phase=5 state=open -->
-### 1e673e5f708c · finding [open] · MMD-3 evidence landed and executed for real; the matrix flip stays with phase 7 (phase 5)
+<!-- fr:journal kind=finding scope=plan id=1e673e5f708c created=2026-07-29T00:02:44 phase=5 state=fixed -->
+### 1e673e5f708c · finding [fixed] · MMD-3 evidence landed and executed for real; the matrix flip stays with phase 7 (phase 5)
 
 tests/unit/test_mermaid_layout_gate.py (13 tests) directly proves MMD-3 ('a diagram exceeding the width budget fails the build'). On this machine every one EXECUTED — no skips: the 6 browser tests ran against real headless Chrome (found via a macOS app-path probe, passed to the tool as CHROME_BIN), and the real-bundle contract test ran against frank's production mermaid.min bundle (BLOG_CRAFT_MERMAID_BUNDLE env override; it also probes sibling checkouts ../*/public/js and ../*/*/public/js). On a bare machine/CI the hermetic tests (discovery failure, extraction listing, disabled gate, bundle location, budget-0 sentinel) still run wherever node exists; the browser tests skip WITH a visible reason. All 13 were mutation-checked: 13 mutations total (candidate dropped/reordered, class filter dropped, index.html not stripped, silent disabled gate, bundle-missing exit 0, at-budget blocks, waiver ignored, render-error skipped, budget-0 branch deleted, viewBox-first readout, overage hardcoded, min-bundle preference dropped) — every one produced a named failure. Per phases 3/4's identical finding, fr acceptance (3.19.0) has no update verb, so mmd-3's not-implemented row is untouched; 'fr plan edit --complete-phase 5' will warn — phase 7 owns the flip (cite unit=blog-craft:tests/unit/test_mermaid_layout_gate.py).
 
@@ -204,8 +204,8 @@ ordering and site_dir assertions since the step vanished entirely), dropping
 the `{{ $site }}` prefix from --public (site_dir assertion), and adding a real
 actions/setup-node step (no-setup-node assertion).
 
-<!-- fr:journal kind=finding scope=plan id=a04be13cae1a created=2026-07-29T00:24:34 phase=6 state=open -->
-### a04be13cae1a · finding [open] · MMD-3's matrix row still not-implemented; phase 6 gives it a THIRD piece of evidence (CI wiring), the flip stays phase 7's (phase 6)
+<!-- fr:journal kind=finding scope=plan id=a04be13cae1a created=2026-07-29T00:24:34 phase=6 state=fixed -->
+### a04be13cae1a · finding [fixed] · MMD-3's matrix row still not-implemented; phase 6 gives it a THIRD piece of evidence (CI wiring), the flip stays phase 7's (phase 6)
 
 Same tooling gap phases 3/4/5 already hit (fr acceptance 3.19.0 has no
 update/set-status verb, only `add`, which hard-errors on a duplicate id) -
