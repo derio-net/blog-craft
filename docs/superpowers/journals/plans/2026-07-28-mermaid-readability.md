@@ -93,3 +93,37 @@ Added a {{- with resources.Get "css/mermaid-view.css" }} block to templates/hugo
 ### 56824360c28d · finding [open] · fr acceptance CLI (v3.19.0) has no command to flip an existing row's status; MMD-1/MMD-5 left as not-implemented (phase 3)
 
 Phase 3 gives MMD-1 and MMD-5 real new evidence: MMD-1's cited unit ref (tests/unit/test_mermaid_view.py) now also proves the stylesheet is actually wired (loads before custom.css) and materializes on a real bootstrap render; MMD-5 ('a blog can opt out of the framed scroller') is now DIRECTLY asserted by test_bootstrap_materializes_mermaid_view_true_false_and_absent's features.mermaid_view=false case, which currently has levels: {} in the matrix. Checked the installed fr acceptance CLI (fr 3.19.0, fr/commands/acceptance_cmd.py): the only mutating subcommand is `add`, which appends a brand-new row and hard-errors on a duplicate id ('duplicate row id: ...') — there is no update/edit/set-status subcommand. The repo rule (.claude/rules/acceptance-matrix.md) says agents 'never hand-edit matrix.yaml', so I did NOT hand-edit docs/acceptance/matrix.yaml to flip mmd-1's status or add mmd-5's level ref, even though the evidence now supports it. Left both rows exactly as phase 1 left them (status: not-implemented). This is a tooling gap the orchestrator or phase 7 needs to resolve — either an fr acceptance CLI addition (e.g. `fr acceptance set-status` / `fr acceptance add-level`) or an explicit operator-approved exception to hand-edit these two fields for this PR.
+
+<!-- fr:journal kind=discovery scope=plan id=c42ad7df7264 created=2026-07-28T23:22:26 phase=4 -->
+### c42ad7df7264 · discovery · Disabled-gate banner: scan always runs, branch only decides print/exit (phase 4) (phase 4)
+
+Reworked tools/validate_mermaid.py's early-return: the scan (open each path, validate_file) now
+always runs before any flag check. gate_enabled = (cfg.get("quality") or {}).get("mermaid_syntax",
+True) is not False, computed after the scan so `failed`/`checked` are populated either way. When
+disabled it prints to stderr (matching the file's existing findings/errors-to-stderr convention):
+"GATE DISABLED (quality.mermaid_syntax: false) — would report N finding(s) across M file(s)
+checked", followed by the same per-finding lines the enabled path prints on failure, then always
+returns 0. Enabled path is byte-for-byte unchanged below the new branch.
+
+Mirrored byte-for-byte to templates/hugo-hextra/scripts/validate_mermaid.py per
+tests/unit/test_mirrors.py:29's existing pair registration — test_mirrors_identical went RED the
+moment the canonical copy changed (proving the guard), green again after `cp`.
+
+<!-- fr:journal kind=finding scope=plan id=32a4502c02bc created=2026-07-28T23:22:40 phase=4 state=open -->
+### 32a4502c02bc · finding [open] · MMD-4 has real test evidence but the matrix row stays not-implemented — phase 7's flip, not phase 4's (phase 4) (phase 4)
+
+tests/unit/test_mermaid_validator.py now directly proves MMD-4 ("A disabled diagram gate reports
+that it is disabled and how many findings it would have reported"):
+test_cli_disabled_gate_still_scans_and_reports_count and
+test_cli_disabled_gate_clean_reports_zero_findings, both mutation-checked (hardcoding the count to
+0, dropping the finding-line listing, and flipping the enabled/disabled branch condition each
+produced a named failure at the expected assertion).
+
+Per phase 3's finding (56824360c28d): the installed fr acceptance CLI (v3.19.0) has only `add`,
+which hard-errors on a duplicate id, so mmd-4's existing not-implemented row (matrix.yaml:915)
+cannot be flipped from here without either a CLI verb this phase doesn't have or a hand-edit the
+repo rule (.claude/rules/acceptance-matrix.md) forbids for agents. `fr plan edit --complete-phase
+4` surfaced the same gap as its own warning: "phase 4 completed but its acceptance rows are still
+not-implemented: mmd-4". Left untouched by design, per this phase's dispatch instructions — phase
+7 owns the flip (status: not-implemented -> ci/skipped, cite
+unit=blog-craft:tests/unit/test_mermaid_validator.py under levels).
