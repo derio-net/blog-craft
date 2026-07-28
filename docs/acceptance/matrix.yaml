@@ -883,7 +883,7 @@ rows:
       cannot make a wide diagram''s left edge unreachable). Deliberately still
       not-implemented: nothing yet asserts a BUILT page carries the stylesheet, because
       the module is not wired until phase 3 — that is where this flips, citing
-      tests/unit/test_mermaid_view_hugo.py.'
+      tests/unit/test_mermaid_view.py.'
   - id: mmd-2
     capability: Mermaid readability
     acceptance: A diagram wider than the column exposes a visible scroll affordance

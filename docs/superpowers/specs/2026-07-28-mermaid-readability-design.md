@@ -289,7 +289,7 @@ Unit (`tests/unit/`):
 - `test_mermaid_validator.py` — disabled gate prints `GATE DISABLED` **and** the
   would-be finding count, still exits 0.
 - `test_mirrors.py` — new validator + its shipped mirror registered.
-- `test_mermaid_view_hugo.py` — module materializes only when flagged;
+- `test_mermaid_view.py` — module materializes only when flagged;
   stylesheet is linked before `custom.css`; the render hook preserves
   `hasMermaid` and adds `tabindex="0"`.
 
@@ -334,7 +334,7 @@ Post-merge, on frank (operator-run, needs a real browser and a real deploy):
 ## Acceptance rows (matrix backfill — same PR)
 
 - **MMD-1** — "Every mermaid diagram renders at its authored size regardless of
-  column width" — `unit=blog-craft:tests/unit/test_mermaid_view_hugo.py`.
+  column width" — `unit=blog-craft:tests/unit/test_mermaid_view.py`.
 - **MMD-2** — "A diagram wider than the column exposes a visible scroll
   affordance without user interaction" — Test Plan step 2, `manual`.
 - **MMD-3** — "A diagram exceeding the width budget fails the build" —
@@ -342,7 +342,7 @@ Post-merge, on frank (operator-run, needs a real browser and a real deploy):
 - **MMD-4** — "A disabled diagram gate reports that it is disabled and what it
   would have found" — `unit=blog-craft:tests/unit/test_mermaid_validator.py`.
 - **MMD-5** — "A blog can opt out of the framed scroller and keep prior
-  rendering" — `unit=blog-craft:tests/unit/test_mermaid_view_hugo.py`.
+  rendering" — `unit=blog-craft:tests/unit/test_mermaid_view.py`.
 - **MMD-6** — "A diagram container is scrollable by keyboard" — Test Plan
   step 4, `manual`.
 
