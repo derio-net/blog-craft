@@ -1,0 +1,62 @@
+schema_version: 2
+phase:
+  number: 3
+  title: Wiring — head-end.html load order and the bootstrap [3h] gate
+  tag: agentic
+  tier: mechanical
+  depends_on:
+  - 2
+  tracking_issue: null
+  acceptance:
+  - mmd-1
+  - mmd-5
+tasks:
+- number: 1
+  title: head-end.html loads the stylesheet before custom.css
+  steps:
+  - id: P3.T1.S1
+    text: |
+      [RED] Extend tests/unit/test_mermaid_view.py: templates/hugo-hextra/layouts/partials/custom/head-end.html contains a `resources.Get "css/mermaid-view.css"` block, and its offset in the file is BEFORE the custom.css block — a blog overrides feature styling in its own custom.css, which only works if the feature sheet loads first (the glossary.css block at the top of that file documents the same rule).
+      Run: bash tests/run-unit.sh -k mermaid_view
+      EXPECT: RED.
+  - id: P3.T1.S2
+    text: |
+      [GREEN] Add the `{{- with resources.Get "css/mermaid-view.css" }}` block beside the glossary one, with a comment explaining it is present only when features.mermaid_view materialized it, and update the partial's header comment list.
+      Run: bash tests/run-unit.sh -k mermaid_view
+      EXPECT: GREEN.
+- number: 2
+  title: bootstrap-render.sh [3h] — materialize only when flagged
+  steps:
+  - id: P3.T2.S1
+    text: |
+      [RED] Add a materialization test (model on tests/unit/test_css_split.py's renderer-subprocess pattern): render a target with features.mermaid_view true -> assets/css/mermaid-view.css AND layouts/_markup/render-codeblock-mermaid.html exist; with false -> NEITHER exists.
+      Run: bash tests/run-unit.sh -k mermaid_view
+      EXPECT: RED.
+  - id: P3.T2.S2
+    text: |
+      [GREEN] Add the `[3h] mermaid-view` block to tools/bootstrap-render.sh, copying the `[3g] mermaid-csp-init` block's shape (--get-bool features.mermaid_view, SKIPPED echo on the else branch). [3h] is the next free label after [3c] read-tracker, [3d] analytics, [3e] layer-palette, [3f] glossary, [3g] mermaid-csp-init.
+      NOTE the default-on asymmetry: --get-bool returns false for an ABSENT key, while the config contract says absent means true. Handle it explicitly (treat absent as true) and test that a config with no features.mermaid_view key still materializes the module — otherwise a blog that never ran the migration silently loses the fix.
+      Run: bash tests/run-unit.sh -k mermaid_view
+      EXPECT: GREEN.
+state:
+  steps:
+    P3.T1.S1:
+      state: x
+      ticked_at: '2026-07-28T20:52:31+00:00'
+      note: null
+    P3.T1.S2:
+      state: x
+      ticked_at: '2026-07-28T20:52:32+00:00'
+      note: null
+    P3.T2.S1:
+      state: x
+      ticked_at: '2026-07-28T20:54:55+00:00'
+      note: null
+    P3.T2.S2:
+      state: x
+      ticked_at: '2026-07-28T20:54:57+00:00'
+      note: null
+  completion:
+    at: '2026-07-28T21:09:55+00:00'
+    note: null
+    observed_prs: []

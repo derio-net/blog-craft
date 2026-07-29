@@ -67,7 +67,7 @@ def test_versions_2_through_5_accepted():
 
 
 def test_out_of_range_versions_rejected():
-    for v in (1, 6, "2"):
+    for v in (1, 7, "2"):
         cfg = _valid()
         cfg["version"] = v
         assert validate_config(cfg), f"version {v!r} should be invalid"
@@ -352,3 +352,62 @@ def test_quality_lint_unknown_keys_allowed():
     cfg["quality"] = {"lint": {"severities": {"future_check": "warn"},
                                "thresholds": {"future_per_1000": 4.5}}}
     assert validate_config(cfg) == []
+
+
+# --- v6: features.mermaid_view + quality.mermaid_max_width (mermaid readability) ---
+
+def test_version_6_accepted():
+    cfg = _valid()
+    cfg["version"] = 6
+    assert validate_config(cfg) == []
+
+
+def test_version_5_still_valid_at_v6_ladder():
+    cfg = _valid()
+    cfg["version"] = 5
+    assert validate_config(cfg) == []
+
+
+def test_features_mermaid_view_must_be_bool():
+    cfg = _valid()
+    cfg["features"] = {"mermaid_view": "yes"}
+    assert any("features.mermaid_view must be a boolean" in e for e in validate_config(cfg))
+
+
+def test_features_mermaid_view_bool_or_absent_ok():
+    cfg = _valid()
+    cfg["features"] = {"mermaid_view": True}
+    assert validate_config(cfg) == []
+    cfg["features"] = {"mermaid_view": False}
+    assert validate_config(cfg) == []
+    cfg.pop("features", None)
+    assert validate_config(cfg) == []
+
+
+def test_quality_mermaid_max_width_valid_values():
+    cfg = _valid()
+    cfg["quality"] = {"mermaid_max_width": 1400}
+    assert validate_config(cfg) == []
+    cfg["quality"] = {"mermaid_max_width": 0}
+    assert validate_config(cfg) == []
+
+
+def test_quality_mermaid_max_width_rejects_string():
+    cfg = _valid()
+    cfg["quality"] = {"mermaid_max_width": "1400"}
+    errs = validate_config(cfg)
+    assert any("mermaid_max_width" in e and "non-negative number" in e for e in errs)
+
+
+def test_quality_mermaid_max_width_rejects_negative():
+    cfg = _valid()
+    cfg["quality"] = {"mermaid_max_width": -5}
+    errs = validate_config(cfg)
+    assert any("mermaid_max_width" in e and "non-negative number" in e for e in errs)
+
+
+def test_quality_mermaid_max_width_rejects_bool():
+    cfg = _valid()
+    cfg["quality"] = {"mermaid_max_width": True}
+    errs = validate_config(cfg)
+    assert any("mermaid_max_width" in e and "non-negative number" in e for e in errs)

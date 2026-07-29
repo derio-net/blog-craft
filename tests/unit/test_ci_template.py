@@ -222,6 +222,65 @@ def test_a_blog_without_site_dir_renders_byte_identically(tmp_path):
     assert "blog/" not in a
 
 
+# --- mermaid width gate (docs/superpowers/specs/2026-07-28-mermaid-readability-design.md §CI) ---
+# quality.mermaid_max_width > 0 wires a "Validate mermaid layout" step after the
+# Hugo build (it needs public/ to exist); 0 means loud-disabled at the SCRIPT
+# level (still scans, never launches a browser) but per the spec ("gated on
+# quality.mermaid_max_width > 0, so a blog that sets 0 invokes no browser at
+# all") the step is omitted from the rendered workflow entirely at 0 — no
+# browser, no cost, nothing in the Actions log to even skip.
+
+def _steps(y):
+    import yaml as _yaml
+    return _yaml.safe_load(y)["jobs"]["validate"]["steps"]
+
+
+def test_mermaid_layout_gate_present_and_defaults_to_1400(tmp_path):
+    y = _render({"ci": {"deploy": {"kind": "none"}}}, tmp_path)
+    step = next(s for s in _steps(y) if s.get("name") == "Validate mermaid layout")
+    assert "scripts/validate_mermaid_layout.mjs" in step["run"]
+    assert "--public public" in step["run"]
+    assert "--max-width 1400" in step["run"]
+
+
+def test_mermaid_layout_gate_uses_the_configured_budget(tmp_path):
+    y = _render({"quality": {"mermaid_max_width": 800}, "ci": {"deploy": {"kind": "none"}}}, tmp_path)
+    step = next(s for s in _steps(y) if s.get("name") == "Validate mermaid layout")
+    assert "--max-width 800" in step["run"]
+
+
+def test_mermaid_layout_gate_absent_entirely_when_budget_is_zero(tmp_path):
+    y = _render({"quality": {"mermaid_max_width": 0}, "ci": {"deploy": {"kind": "none"}}}, tmp_path)
+    assert "Validate mermaid layout" not in y
+    assert "validate_mermaid_layout.mjs" not in y
+    yaml.safe_load(y)   # still parses
+
+
+def test_mermaid_layout_gate_runs_after_the_hugo_build_step(tmp_path):
+    names = [s.get("name") for s in _steps(_render({"ci": {"deploy": {"kind": "none"}}}, tmp_path))]
+    assert names.index("Hugo build") < names.index("Validate mermaid layout")
+
+
+def test_mermaid_layout_gate_runs_at_repo_root_not_site_dir(tmp_path):
+    # public/ needs the SITE's public dir, but the step itself must run at the
+    # repository root like every other validator, not under working-directory
+    # (only "Hugo build" gets that, since hugo needs its go.mod at site root).
+    y = _render({"site_dir": "blog", "ci": {"deploy": {"kind": "none"}}}, tmp_path)
+    step = next(s for s in _steps(y) if s.get("name") == "Validate mermaid layout")
+    assert "working-directory" not in step
+    assert "blog/scripts/validate_mermaid_layout.mjs" in step["run"]
+    assert "--public blog/public" in step["run"]
+
+
+def test_mermaid_layout_gate_adds_no_setup_node_step(tmp_path):
+    # Node >= 22 is preinstalled on ubuntu-latest; the tool is zero-dependency.
+    # (The comment prose on the new step is allowed to NAME setup-node/npm
+    # install to explain why they're absent — assert no STEP actually uses them.)
+    y = _render({"ci": {"deploy": {"kind": "none"}}}, tmp_path)
+    assert not any(s.get("uses", "").startswith("actions/setup-node") for s in _steps(y))
+    assert not any("npm install" in s.get("run", "") for s in _steps(y))
+
+
 @pytest.mark.parametrize("deploy", ["none", "pages", "container_pages"])
 def test_site_dir_less_render_matches_the_pre_site_dir_template(tmp_path, deploy):
     """The site-prefix machinery is inert without site_dir — proven against the
@@ -254,5 +313,14 @@ def test_site_dir_less_render_matches_the_pre_site_dir_template(tmp_path, deploy
     # SITE-PREFIX machinery is inert without site_dir.
     old = re.sub(r"(validate_papers\.py[^\n]*?)content/docs/\*/\*/index\.md",
                  r"\1content/docs/papers/*/index.md", old)
+
+    # Second intentional, narrow difference: phase 6 (mermaid readability)
+    # added a "Validate mermaid layout" step long after this fixture was
+    # frozen. It is unconditional-by-default (absent `quality.mermaid_max_width`
+    # defaults to a positive budget) and orthogonal to the site-prefix question
+    # this test exists to guard, so strip it out of `new` rather than teach the
+    # frozen fixture about a feature that postdates it.
+    new = re.sub(r"\n      # Mermaid width gate:.*?\n      - name: Validate mermaid layout\n        run:[^\n]*",
+                 "", new, flags=re.DOTALL)
 
     assert new == old, f"a site_dir-less blog's CI changed ({deploy} deploy)"

@@ -124,3 +124,27 @@ def test_cli_disabled_flag(tmp_path):
 def test_cli_clean_passes(tmp_path):
     r = _run(_cfg(tmp_path), _post(tmp_path, "```mermaid\nflowchart TD\n A-->B\n```\n"))
     assert r.returncode == 0, r.stderr
+
+
+# --- disabled gate must be loud (MMD-4) ------------------------------------
+
+def test_cli_disabled_gate_still_scans_and_reports_count(tmp_path):
+    # frank's real failure mode: quality.mermaid_syntax: false must not read as
+    # a silent pass — it must still scan, still exit 0, and say how far behind
+    # it is (frank 77e68e37: "a gate nobody runs reports nothing").
+    r = _run(_cfg(tmp_path, mermaid_syntax=False), _post(tmp_path, BAD))
+    out = r.stdout + r.stderr
+    assert r.returncode == 0
+    assert "GATE DISABLED" in out
+    assert "quality.mermaid_syntax" in out
+    assert "1 finding" in out  # the would-be count, not a neutral sentence
+    assert "index.md:" in out  # it actually scanned — not a canned message
+
+
+def test_cli_disabled_gate_clean_reports_zero_findings(tmp_path):
+    r = _run(_cfg(tmp_path, mermaid_syntax=False),
+             _post(tmp_path, "```mermaid\nflowchart TD\n A-->B\n```\n"))
+    out = r.stdout + r.stderr
+    assert r.returncode == 0
+    assert "GATE DISABLED" in out
+    assert "0 finding" in out

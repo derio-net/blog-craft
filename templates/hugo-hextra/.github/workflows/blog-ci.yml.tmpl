@@ -29,6 +29,19 @@
   so it is still validated, and the series check is exactly what catches it.
 */ -}}
 {{- $papers := "papers" }}{{- with .series }}{{- range . }}{{- $ct := "" }}{{- with .content_type }}{{- $ct = . }}{{- end }}{{- if eq $ct "papers" }}{{- $papers = .key }}{{- end }}{{- end }}{{- end -}}
+{{- /*
+  quality.mermaid_max_width — the width gate's px budget. Absent means the
+  contract default of 1400 (docs/superpowers/specs/2026-07-28-mermaid-
+  readability-design.md), so a blog that has never touched this key still
+  gets the gate. `0` disables it, and disabling means OMITTING the step
+  entirely — no browser, no cost — not merely passing `--max-width 0`.
+
+  Bare `default 1400 .mermaid_max_width` is not enough on its own: an empty or
+  absent `quality` block would skip the `with` entirely and never reach
+  `default`, so `$mmw` is seeded to 1400 up front and only overwritten when
+  `quality` is actually present.
+*/ -}}
+{{- $mmw := 1400 }}{{- with .quality }}{{- $mmw = default 1400 .mermaid_max_width }}{{- end -}}
 name: blog
 on:
   push:
@@ -94,6 +107,25 @@ jobs:
         working-directory: {{ .site_dir }}
 {{- end }}
         run: hugo --minify
+{{- if $mmw }}
+      # Mermaid width gate: a diagram measuring wider than {{ $mmw }}px fails
+      # CI (waive one with a `%% blog-craft: wide-ok — …` comment inside the
+      # fence). Needs public/ to exist, so it runs after the Hugo build step
+      # above — but from the REPOSITORY ROOT cwd like every other validator,
+      # with no per-step cwd override: this workflow file only executes there
+      # in the first place (GitHub Actions reads .github/workflows/ from the
+      # repo root only — a copy materialized under site_dir is inert and
+      # gates nothing while looking like it does; blog-craft#61).
+      # Zero npm dependencies, so no actions/setup-node / npm install: the
+      # tool needs only the Node >= 22 that ubuntu-latest already preinstalls.
+      # Disable with `quality.mermaid_max_width: 0` — loud at the script level
+      # (still scans every diagram, reports how many it would have blocked,
+      # never launches a browser) and, at render time, loud in a different
+      # sense: the step is omitted from the workflow entirely, so an opted-out
+      # blog invokes no browser and pays no CI cost for a gate it turned off.
+      - name: Validate mermaid layout
+        run: node {{ $site }}scripts/validate_mermaid_layout.mjs --public {{ $site }}public --max-width {{ $mmw }}
+{{- end }}
 {{- with .ci }}
 {{- if eq .deploy.kind "pages" }}
 
