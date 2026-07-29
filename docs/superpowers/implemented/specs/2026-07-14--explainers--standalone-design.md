@@ -116,4 +116,4 @@ post-merge Test Plan. Bump patch version on merge.
 
 | Plan | Repo | File | Depends on |
 |------|------|------|------------|
-| 2026-07-14-explainers-standalone | `derio-net/blog-craft` | standalone mode | explainers-content-type |
+| 2026-07-14-explainers-standalone | `derio-net/blog-craft` | `2026-07-14-explainers-standalone` | `2026-07-14-explainers-content-type` |
