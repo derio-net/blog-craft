@@ -1,0 +1,62 @@
+schema_version: 2
+phase:
+  number: 4
+  title: Loud disabled-gate reporting in validate_mermaid.py (+ shipped mirror)
+  tag: agentic
+  tier: mechanical
+  depends_on: []
+  tracking_issue: null
+  acceptance:
+  - mmd-4
+tasks:
+- number: 1
+  title: A disabled gate says so, and says how far behind it is
+  steps:
+  - id: P4.T1.S1
+    text: |
+      [RED] Add cases to tests/unit/test_mermaid_validator.py for the CLI path with quality.mermaid_syntax: false:
+        - stdout/stderr contains "GATE DISABLED" (today it prints the neutral "mermaid syntax check disabled" and exits 0 — indistinguishable from a pass in an Actions log, which is how frank shipped a 50-finding backlog)
+        - it still scans and reports the COUNT it would have found, naming quality.mermaid_syntax
+        - exit code is still 0 (a disabled gate must not fail the build — it must be visible)
+        - a disabled gate over clean files reports 0 findings
+      Run: bash tests/run-unit.sh -k mermaid_validator
+      EXPECT: RED.
+  - id: P4.T1.S2
+    text: |
+      [GREEN] Rework the early-return at tools/validate_mermaid.py:117-119: run the scan regardless, then branch on the flag — disabled prints the GATE DISABLED banner + would-be count and returns 0; enabled keeps today's behavior exactly.
+      Run: bash tests/run-unit.sh -k mermaid_validator
+      EXPECT: GREEN.
+- number: 2
+  title: Re-mirror the shipped copy
+  steps:
+  - id: P4.T2.S1
+    text: |
+      [RED] Run: bash tests/run-unit.sh -k mirrors
+      EXPECT: RED — test_mirrors_identical fails on the tools/validate_mermaid.py pair (already registered at tests/unit/test_mirrors.py:29), proving the guard catches the drift the edit just introduced.
+  - id: P4.T2.S2
+    text: |
+      [GREEN] Copy tools/validate_mermaid.py over templates/hugo-hextra/scripts/validate_mermaid.py byte-for-byte.
+      Run: bash tests/run-unit.sh -k mirrors
+      EXPECT: GREEN.
+state:
+  steps:
+    P4.T1.S1:
+      state: x
+      ticked_at: '2026-07-28T21:21:14+00:00'
+      note: null
+    P4.T1.S2:
+      state: x
+      ticked_at: '2026-07-28T21:21:22+00:00'
+      note: null
+    P4.T2.S1:
+      state: x
+      ticked_at: '2026-07-28T21:21:30+00:00'
+      note: null
+    P4.T2.S2:
+      state: x
+      ticked_at: '2026-07-28T21:21:39+00:00'
+      note: null
+  completion:
+    at: '2026-07-28T21:21:56+00:00'
+    note: null
+    observed_prs: []

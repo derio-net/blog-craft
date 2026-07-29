@@ -1,11 +1,11 @@
-# `.blog-craft.yaml` — config contract (v5)
+# `.blog-craft.yaml` — config contract (v6)
 
 The single per-repo file that distinguishes one blog-craft blog from another.
 Validated by `tools/validate_config.py --check <path>` (accepts schema
-versions 2–5; `tools/migrate_config.py` climbs the ladder; `tools/migrate_prompts.py` migrates the entries file).
+versions 2–6; `tools/migrate_config.py` climbs the ladder; `tools/migrate_prompts.py` migrates the entries file).
 
 ```yaml
-version: 5
+version: 6
 blog_craft_version: "<release applied>"   # set by bootstrap/update; see §11
 
 project: { name, tagline, base_url, base_path, module_path }
@@ -76,6 +76,11 @@ features:                 # series_overview_posts, read_tracker, banners,
   glossary:               # optional; abbreviation glossary (see §9). Absent => off.
     enabled: true
     first_occurrence_only: true
+  mermaid_view: true      # v6; DEFAULT TRUE (absent => on, unlike every other
+                          # features.* flag). Diagrams render at their authored
+                          # size in a framed horizontal scroller instead of being
+                          # shrunk to the 672px column. `false` restores the
+                          # pre-v6 rendering. See §12.
 voice: |
   <tone>
 voice_level: balanced     # optional; dry | balanced | rich — how thick the persona
@@ -254,6 +259,7 @@ that legitimately needs no diagram waives *just* that one check with
 | `gate.min_command_blocks` | `1` | Minimum fenced command/output code blocks (mermaid fences don't count). |
 | `gate.require_actionable_section` | `true` | At least one heading a reader under pressure can follow (Reproduce / Runbook / Steps / Verify / Recover / …). |
 | `gate.require_diagram` | `true` | A post whose `diataxis` includes `how-to` or `tutorial` must carry ≥ 1 ` ```mermaid ` block — for visual learners a topology/flow diagram is the difference between understanding and guessing. Waive one post with `diagram_exempt: <reason>`. |
+| `mermaid_max_width` | `1400` (px) | **Blocks.** Maximum rendered width of any mermaid diagram in the built site. Not a per-post gate: it runs after `hugo` against `public/**/*.html` and **fails CI** for every diagram over budget, naming page, block index, measured width and overage. `1400` is ~2× the 672px content column — a diagram needing more than two column-widths of scrolling can't be held in the reader's head. Waive one diagram with a `%% blog-craft: wide-ok — <reason>` comment in its own source; set `0` to disable the gate (still loud: it lists what it did not measure). See §12. |
 
 Run it directly:
 
@@ -603,3 +609,105 @@ blog_craft_version: "v0.16.1" #    time: comments, key order and all
 
 Delete it only to deliberately forget what was last synced; `/update` will then
 warn and rebuild it from whatever the config says today.
+
+## §12 Mermaid rendering (`features.mermaid_view`)
+
+```yaml
+features:
+  mermaid_view: true    # v6; default TRUE — absent means on
+```
+
+Mermaid renders with `useMaxWidth: true`, which scales every SVG down to fit its
+container. Hextra caps the content column at 672px on every viewport (the shell
+is `80rem`, so a 3840px 4K panel gets the same column a 1440px laptop does), so a
+diagram whose natural width is 2139px renders at **31% scale** — label text
+authored at 14px paints at 4.4px. This is not a wide-screen problem; every reader
+gets the same 31%.
+
+With this feature on, each diagram renders at its **authored size** inside a
+framed, horizontally scrollable block — the way a wide table behaves. Nothing is
+scaled down, so nothing becomes illegible; a diagram that fits is untouched.
+
+### The mechanism — and the one edit that would destroy it
+
+Mermaid writes `style="max-width: <natural>px"` **inline** on each rendered SVG.
+Inline author declarations beat stylesheet ones, and `max-width` beats `width`
+regardless of origin. So one rule does the whole job:
+
+```css
+.content .mermaid svg { width: 200rem; }
+```
+
+which resolves to `min(200rem, natural)`. A 428px diagram stays 428px and never
+scrolls; a 2139px one renders full size in the scroller; nothing is ever enlarged
+past its authored size. No per-diagram tuning, and because it is pure CSS it
+survives the dark/light re-render that `mermaid-init.js` performs by resetting
+`innerHTML` (see §10) — a JS-attached wrapper would not.
+
+**Do not add a `max-width` to the SVG in your own stylesheet.** It competes with
+the inline value the whole feature keys off. (`.content .mermaid svg { max-width:
+100% }` shipped in `custom.css.tmpl` long before this feature and is *inert* once
+mermaid has rendered, for exactly the same reason — the inline declaration wins.
+Removing it is neither necessary nor sufficient.) `mermaid-view.css` is loaded
+**before** `custom.css`, so everything the frame sets is a default you can
+override in your own sheet; the width line is the one to leave alone.
+
+### The two scroll affordances, and why one is not enough
+
+A scroller nobody can see they can scroll is a diagram that is silently truncated
+— it *looks* complete, and the reader never learns the right-hand third exists.
+Two independent cues ship, because each fails in a case the other covers:
+
+1. **A scrollbar that is actually painted.** macOS (and iPadOS, and Chrome with
+   overlay scrollbars) defaults to an overlay bar that paints nothing at rest.
+   Measured on the prototype: `offsetHeight - clientHeight == 0` without the fix,
+   `9px` with it. Only `-webkit-appearance: none` on `::-webkit-scrollbar` opts
+   out of the overlay — *sizing the pseudo-element alone does not.*
+2. **Scroll shadows.** `background-attachment: local, local, scroll, scroll`:
+   cover gradients in the frame colour travel with the content, sitting on top of
+   edge shadows pinned to the scroller. Scroll right and the left cover slides
+   away, uncovering the shadow. Self-cancelling at both ends, no JS. The colours
+   are custom properties that **invert** with the theme, since a black shadow is
+   invisible against a `#111` frame.
+
+The standard `scrollbar-width` / `scrollbar-color` properties are gated behind
+`@supports not selector(::-webkit-scrollbar)`, and that gate is load-bearing, not
+tidiness: in Chrome and Safari those two properties **win over the WebKit
+pseudo-elements and disable them**, silently restoring the invisible overlay bar.
+Hoisting them out of the feature query to "support both engines" turns affordance
+1 back off, with no error and nothing in devtools to see. Firefox, which has no
+`::-webkit-scrollbar`, is the only engine that reads them.
+
+### Keyboard reachability
+
+A scroll container that only a trackpad can reach fails WCAG 2.1 SC 2.1.1. The
+feature therefore overrides Hextra's `_markup/render-codeblock-mermaid.html` to
+add `tabindex="0"` to the `<pre>`, so the diagram takes focus and the arrow keys
+scroll it. The override otherwise reproduces the theme hook exactly — including
+`role="img"`, its i18n `aria-label`, and `.Page.Store.Set "hasMermaid" true`,
+which the theme's own scripts partial depends on to load mermaid at all. That
+pins the feature to the theme hook's shape: re-check it on a Hextra bump.
+
+### Turning it off
+
+```yaml
+features:
+  mermaid_view: false
+```
+
+`false` is the only way to opt out — **absent means on**, unlike every other
+`features.*` flag, so a blog that has never heard of this key still gets the fix.
+With `false` the module is not materialized at all (no stylesheet, no render-hook
+override) and diagrams render exactly as they did before v6. `/update` runs
+`migrations/005_to_006.py`, which writes `mermaid_view: true` for existing blogs
+but leaves an explicit `false` alone.
+
+### Related: the width gate
+
+Rendering at authored size makes wide diagrams legible; it does not make them
+*followable*. `quality.mermaid_max_width` (§7, default `1400`px) fails the build
+for any diagram that would need more than ~2 column-widths of scrolling. The two
+are deliberately separate knobs: turning the scroller off does not turn the gate
+off, and vice versa. The gate measures a real render of the **built** site with
+the site's **own** mermaid bundle — reading width from the same inline
+`max-width` the CSS keys off, so gate and renderer cannot disagree.

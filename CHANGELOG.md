@@ -10,6 +10,72 @@ matching `vX.Y.Z` tag on merge (#18).
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-07-29
+
+> **The mermaid width gate lands BLOCKING, with no baseline and no allowlist.**
+> This is a deliberate operator decision, not an oversight: a baseline would let
+> the backlog sit forever, so the gate is set to *"force a focused effort to fix
+> them."* **Expect red CI on your first build after adopting this release** —
+> measured against frank's live site, **35 of 203 diagrams** exceed the default
+> 1400px budget. Three ways forward, in order of preference: fix the diagram
+> (split it, shorten labels, `LR` → `TD`), waive that one diagram in its own
+> source with `%% blog-craft: wide-ok — <reason>`, or raise/disable the budget
+> with `quality.mermaid_max_width` (`0` disables — and says so loudly in the log).
+
+### Added
+- **Mermaid diagrams render at their authored size, in a framed scroller
+  (`features.mermaid_view`, default on).** Mermaid's `useMaxWidth` shrinks every
+  SVG to fit Hextra's content column, which is capped at **672px on every
+  viewport** — a 2139px diagram rendered at **31% scale**, painting 14px labels
+  at 4.4px. It was not a wide-screen problem: a 4K panel got the same 31% as a
+  laptop. Diagrams now render full size inside a horizontally scrollable, framed
+  block — the way a wide table behaves — with two independent scroll affordances,
+  because one is not enough: a persistent scrollbar (macOS overlay scrollbars
+  paint *nothing* at rest — measured `offsetHeight - clientHeight` 0 → 9px once
+  `-webkit-appearance: none` is set) and self-cancelling scroll shadows that
+  invert with the theme. The container is keyboard-focusable (`tabindex="0"` via
+  a `render-codeblock-mermaid.html` override), since a scroller only a trackpad
+  can reach fails WCAG 2.1 SC 2.1.1. Pure CSS, so it survives the dark/light
+  re-render that resets `innerHTML`. Config surface goes to **schema v6**;
+  `migrations/005_to_006.py` adopts existing blogs through `/update`, and
+  `features.mermaid_view: false` restores the previous rendering. See
+  `docs/CONFIG.md` §12.
+- **A blocking diagram-width gate (`quality.mermaid_max_width`, default
+  1400px).** Rendering at authored size makes a wide diagram legible; it does not
+  make it *followable*. `scripts/validate_mermaid_layout.mjs` runs after `hugo`,
+  measures every diagram in the **built** site with the site's **own** mermaid
+  bundle, and fails CI on anything over budget, naming page, block index,
+  measured width and overage. 1400 is ~2× the 672px column: more than two
+  column-widths of scrolling cannot be held in the reader's head. It measures
+  rather than guesses — width is read from the rendered SVG's inline
+  `max-width`, the same value the stylesheet keys off, so gate and renderer
+  cannot disagree. Zero npm dependencies: Node 22's global `WebSocket` drives
+  preinstalled headless Chrome over CDP, so no `package.json`, no `npm install`,
+  and no supply-chain surface is added to any adopting blog. Because it reads
+  built HTML rather than markdown, it also catches shortcode-emitted diagrams
+  that no markdown scan sees — which is where the original breakage actually was.
+- **Width-first diagram guidance.** `skills/educational-writing` now defaults to
+  `flowchart TD` and reserves `LR` for short, genuinely left-to-right pipelines,
+  grounded in a render of all 182 markdown-fenced diagrams in one blog (median
+  873px, p90 1622px, max 2394px against a 672px column). Stated as a strong
+  default rather than a rule, because the data says direction *predicts* width
+  without determining it: every sampled `LR` diagram overflowed (4/4), but one
+  `TD` diagram still measured 1895px. No mechanical rewrite of existing diagrams
+  — the gate reports, authors fix.
+
+### Changed
+- **A disabled diagram gate now says how far behind it is.** Previously
+  `quality.mermaid_syntax: false` printed a neutral line and exited 0 —
+  indistinguishable from a pass in an Actions log, which is how a 50-finding
+  backlog shipped unreported. `validate_mermaid.py` now **always scans**, and
+  when disabled prints `GATE DISABLED (quality.mermaid_syntax: false) — would
+  report N finding(s) across M file(s) checked` plus every finding, still exiting
+  0. The new width gate behaves the same way at `mermaid_max_width: 0`: it lists
+  the diagrams it did *not* measure, and invokes no browser. **This is a visible
+  behaviour change for any blog that had these gates switched off and saw a quiet
+  pass** — the build still goes green, the log no longer pretends there is
+  nothing there.
+
 ## [0.18.1] - 2026-07-28
 
 ### Fixed

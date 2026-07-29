@@ -18,7 +18,10 @@ def _load_005():
 
 
 def test_latest_version_is_5():
-    assert latest_version() == 5
+    # NB: the ladder head has moved to 6 (005_to_006, mermaid readability
+    # config surface) — this checks that 004_to_005 still reaches its own
+    # target rung, not that 5 is still the overall latest.
+    assert latest_version() >= 5
 
 
 def test_single_order_becomes_hero():
@@ -45,5 +48,5 @@ def test_version_gate():
 def test_ladder_reaches_5_from_2():
     cfg = {"version": 2, "image": {"layers": {}, "composition_order": ["scene"]}, "features": {}}
     out = upgrade(cfg)
-    assert out["version"] == 5
+    assert out["version"] == 6   # ladder now runs through 005_to_006 too
     assert out["image"]["composition_orders"]["hero"] == ["scene"]
