@@ -675,7 +675,7 @@ rows:
     acceptance: 'A scaffolded prompts entry leaves the entries file parseable whatever
       indentation the file''s own images: sequence uses'
     origin:
-    - blog-craft:docs/superpowers/specs/2026-07-27-scaffolder-output-fidelity-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-07-27-scaffolder-output-fidelity-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_prompts_append.py
@@ -705,7 +705,7 @@ rows:
     acceptance: An append that would corrupt the entries file fails loudly and leaves
       the file byte-identical
     origin:
-    - blog-craft:docs/superpowers/specs/2026-07-27-scaffolder-output-fidelity-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-07-27-scaffolder-output-fidelity-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_prompts_append.py
@@ -771,7 +771,7 @@ rows:
     acceptance: A scaffolded post appears in its series overview — frontmatter carries
       the series the shortcode derives from
     origin:
-    - blog-craft:docs/superpowers/specs/2026-07-27-scaffolder-output-fidelity-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-07-27-scaffolder-output-fidelity-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_blog_post_create.py
@@ -790,7 +790,7 @@ rows:
     acceptance: layer and tags are set from the invocation, and their absence is visible
       in the file rather than silent
     origin:
-    - blog-craft:docs/superpowers/specs/2026-07-27-scaffolder-output-fidelity-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-07-27-scaffolder-output-fidelity-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_blog_post_create.py
@@ -812,7 +812,7 @@ rows:
     acceptance: The entry key is overridable and the cover output default follows the
       conventions the entries file already shows
     origin:
-    - blog-craft:docs/superpowers/specs/2026-07-27-scaffolder-output-fidelity-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-07-27-scaffolder-output-fidelity-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_blog_post_create.py
@@ -855,7 +855,7 @@ rows:
     acceptance: Two expansions of the same abbreviation can both be defined and both
       render as that abbreviation, inline and in the index
     origin:
-    - blog-craft:docs/superpowers/specs/2026-07-27-scaffolder-output-fidelity-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-07-27-scaffolder-output-fidelity-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_glossary_hugo.py
@@ -880,7 +880,7 @@ rows:
     acceptance: The glossary validator accepts rendered_text as a typed optional field
       and never rejects two entries for sharing one
     origin:
-    - blog-craft:docs/superpowers/specs/2026-07-27-scaffolder-output-fidelity-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-07-27-scaffolder-output-fidelity-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_glossary_validator.py
