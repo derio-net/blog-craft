@@ -280,3 +280,50 @@ Post-merge, operator-driven (not automatable here — needs the real blog):
     existing entries, and the post appears in the `operating` series overview.
 12. Add the `GC` / `GC_GOATCOUNTER` pair to that blog's `data/glossary.yaml`,
     render a page carrying `{{< glossary-index >}}`, and confirm both read `GC`.
+
+## §6 Post-merge evidence (2026-07-30)
+
+Merged as `1665bfc` (#66, blog-craft 0.20.0); issue #65 closed.
+
+**Step 11 — verified against the real artifact, not a fixture.** The reporting
+blog's own `blog/prompt_for_images.yaml` was copied byte-identically
+(md5 `d140bbcf42f8674c6fc2f3b4b79263ec`, 1751 lines, 87 entries) into a scratch
+tree with that blog's real `.blog-craft.yaml` (`site_dir: blog`), and the
+scaffolder **as it exists on `main`** was run against it:
+
+- `sequence_indent` reads the file's own indentation as **0** — the exact shape
+  that corrupted it (§1). The entry lands at column 0.
+- The result **parses**: 88 entries, the last one the appended key.
+- The original 1751 lines are a **byte-identical prefix** of the result; nothing
+  above the insertion point was rewritten (D1).
+- `output:` detection (D7) resolved to
+  `blog/content/docs/operating/30-silent-failure/cover.png` — the page-bundle
+  convention **83 of that blog's 87 entries** already use, which the old
+  hard-coded default got wrong every time.
+- `generate-images.py --print-prompt <key>` runs and prints the composed prompt,
+  exit 0 — the Step 6 preview the issue reports as impossible.
+- Frontmatter carries `series: ["operating"]`, `layer: obs`, and
+  `tags: ["operations", "slo"]`.
+
+`--key ops-30-silent-failure` was passed, matching that blog's
+`<series>-<NN>-<slug>` keys. This is D6 working as designed and as documented:
+nothing in the config could have derived `ops` from `operating`, so the skill
+step that tells the agent to read an existing entry is what makes the flag get
+used.
+
+**What step 11 did NOT cover.** The blog itself was never modified — per D10
+that repo owns its own repair, and it has already applied the manual workaround
+(its file parses today). So `/update`-ing that blog to 0.20.0 and rendering the
+`operating` overview to see the new post listed remain genuinely unexercised;
+`series` reaching the frontmatter is verified, the Hugo render of it is not.
+
+**Step 12 is not drivable and its premise no longer holds.** That blog has
+`features.glossary` **absent** — the feature is off and there is no
+`data/glossary.yaml` at all — and its checkout is pinned at
+`blog_craft_version: v0.10.0`. The collision the issue predicts is nonetheless
+real and confirmed: its config sets `analytics.provider: goatcounter`, and
+GoatCounter is named in 6 posts, so the day that blog enables the glossary and
+adds `GC` for Garbage Collection, `rendered_text` is what keeps both senses
+definable. The CI evidence (GL-11, GL-12) is a real Hugo build, so the behaviour
+is pinned regardless; what is missing is only the confirmation on this
+particular blog.
