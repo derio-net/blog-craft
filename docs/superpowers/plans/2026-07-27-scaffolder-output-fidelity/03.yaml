@@ -1,0 +1,100 @@
+schema_version: 2
+phase:
+  number: 3
+  title: Frontmatter — series always, layer and tags visible (#65 item 2)
+  tag: agentic
+  depends_on:
+  - 2
+  tracking_issue: null
+  acceptance:
+  - BPC-3
+  - BPC-4
+tasks:
+- number: 1
+  title: series
+  steps:
+  - id: P3.T1.S1
+    text: |
+      [RED] Add to tests/unit/test_blog_post_create.py: the generated index.md frontmatter parses (yaml.safe_load of the frontmatter block) and `series == ["<series arg>"]`, for both the default-shaped and frank-shaped configs. Assert field ORDER too — title, series, layer?, date, draft, tags, summary, weight, reader_goal?, diataxis? — since the issue documents the blog's convention as an order, and a diff against sibling posts is how an author reviews a scaffold.
+      Run: bash tests/run-unit.sh -k blog_post_create
+      EXPECT: RED.
+  - id: P3.T1.S2
+    text: |
+      [GREEN] Emit `series: ["$SERIES"]` in tools/blog-post-create.sh's frontmatter block, positioned per the order above. Use the existing yaml_escape for the value.
+      Run: bash tests/run-unit.sh -k blog_post_create
+      EXPECT: GREEN.
+- number: 2
+  title: --layer, validated against the blog's own registry
+  steps:
+  - id: P3.T2.S1
+    text: |
+      [RED] Add cases (the frank-shaped config gains `series_index: {layers: [{code: obs, name: Observability}, {code: bld, name: Build}]}`; the default-shaped config declares none):
+        - `--layer obs` -> frontmatter `layer: obs`
+        - `--layer nope` -> exit NON-ZERO, stderr names the valid codes (obs, bld)
+        - omitted, blog DECLARES layers -> frontmatter `layer: TODO` and a warning on stderr
+        - omitted, blog declares NO layers -> the frontmatter has no `layer` key at all (yaml.safe_load of the frontmatter: "layer" not in it)
+        - `--layer` on a blog that declares no layers -> accepted verbatim (nothing to validate against; a blog may add the registry later)
+      Run: bash tests/run-unit.sh -k blog_post_create
+      EXPECT: RED.
+  - id: P3.T2.S2
+    text: |
+      [GREEN] Add the `--layer <code>` flag. Read the registry with an inline PyYAML heredoc over $CONFIG (the pattern at tools/scaffold-paper.sh:26-34 and tools/scaffold-explainer.sh:220-227) — blog_config.py get cannot serve it, it flow-dumps non-scalars (tools/blog_config.py:52). `layer: TODO` is deliberate, not a comment: it matches tools/scaffold-paper.sh:59, it is greppable, and it is inert because templates/hugo-hextra/layouts/shortcodes/series-index.html:79-80 looks the code up behind a `with` guard, so an unmatched code renders as a neutral card with no badge.
+      Run: bash tests/run-unit.sh -k blog_post_create
+      EXPECT: GREEN.
+- number: 3
+  title: --tag
+  steps:
+  - id: P3.T3.S1
+    text: |
+      [RED] Add cases:
+        - `--tag operations --tag slo` -> frontmatter parses and `tags == ["operations", "slo"]`
+        - a tag containing a double quote and a backslash -> survives round-trip through yaml.safe_load (reuse the yaml_escape discipline the title/summary already have; tests/unit/test_blog_post_create.py:133 is the model)
+        - no --tag -> the frontmatter LINE is `tags: []` carrying a TODO comment, and yaml.safe_load gives `tags == []` (NOT ["TODO"]: unlike scaffold-paper.sh/scaffold-explainer.sh this scaffolder emits draft: false, so a literal TODO tag would publish a bogus taxonomy term)
+      Run: bash tests/run-unit.sh -k blog_post_create
+      EXPECT: RED.
+  - id: P3.T3.S2
+    text: |
+      [GREEN] Add the repeatable `--tag <t>` flag and emit the tags line accordingly.
+      Run: bash tests/run-unit.sh -k blog_post_create
+      EXPECT: GREEN.
+- number: 4
+  title: Verify (phase 3)
+  steps:
+  - id: P3.T4.S1
+    text: |
+      [VERIFY] bash tests/run-unit.sh && BLOG_CRAFT_TEST_MODE=1 PYTHON=python3 bash tests/smoke-blog-post.sh
+      EXPECT: green. The smoke test asserts frontmatter fields (B1.b-d) — confirm the new fields did not displace what it greps for.
+state:
+  steps:
+    P3.T1.S1:
+      state: x
+      ticked_at: '2026-07-27T22:02:55+00:00'
+      note: null
+    P3.T1.S2:
+      state: x
+      ticked_at: '2026-07-27T22:03:35+00:00'
+      note: null
+    P3.T2.S1:
+      state: x
+      ticked_at: '2026-07-27T22:04:00+00:00'
+      note: null
+    P3.T2.S2:
+      state: x
+      ticked_at: '2026-07-27T22:04:40+00:00'
+      note: null
+    P3.T3.S1:
+      state: x
+      ticked_at: '2026-07-27T22:05:01+00:00'
+      note: null
+    P3.T3.S2:
+      state: x
+      ticked_at: '2026-07-27T22:05:31+00:00'
+      note: null
+    P3.T4.S1:
+      state: x
+      ticked_at: '2026-07-27T22:08:53+00:00'
+      note: null
+  completion:
+    at: '2026-07-27T22:09:49+00:00'
+    note: null
+    observed_prs: []

@@ -1,0 +1,83 @@
+schema_version: 2
+phase:
+  number: 5
+  title: Glossary rendered_text — display text decoupled from the registry key (#65
+    item 4)
+  tag: agentic
+  depends_on: []
+  tracking_issue: null
+  acceptance:
+  - GL-11
+  - GL-12
+tasks:
+- number: 1
+  title: The validator accepts the field, typed
+  steps:
+  - id: P5.T1.S1
+    text: |
+      [RED] Add to tests/unit/test_glossary_validator.py:
+        - an entry with `rendered_text: GC` validates clean
+        - TWO entries (GC, GC_GOATCOUNTER) sharing `rendered_text: GC` validate clean — that is the intended use, not a collision
+        - `rendered_text: 123` (non-string) is an ERROR; `rendered_text: ""` / whitespace-only is an ERROR
+        - `rendered_text` containing a double quote is an ERROR (same reasoning as the key check at tools/validate_glossary.py:65-70 — it reaches a shortcode argument)
+        - keys differing only in case are STILL an error (tools/validate_glossary.py:72-79 must not regress)
+      Run: bash tests/run-unit.sh -k glossary_validator
+      EXPECT: RED.
+  - id: P5.T1.S2
+    text: |
+      [GREEN] Implement in tools/validate_glossary.py, then re-mirror to templates/hugo-hextra/scripts/validate_glossary.py — byte-identical, guarded by tests/unit/test_mirrors.py:34.
+      Run: bash tests/run-unit.sh -k "glossary_validator or mirrors"
+      EXPECT: GREEN.
+- number: 2
+  title: Both surfaces resolve display text the same way
+  steps:
+  - id: P5.T2.S1
+    text: |
+      [RED] Add to tests/unit/test_glossary_hugo.py (which builds a real Hugo site — REGISTRY fixture at :22-28 gains the GC / GC_GOATCOUNTER pair):
+        - `{{< abbr "GC_GOATCOUNTER" >}}` renders ">GC<" in the trigger, with title="GoatCounter" — the key never appears as visible text
+        - its aria-label says "GC", not "GC_GOATCOUNTER" (abbr.html:47 interpolates $key there today, so the raw key leaks to screen readers as well as to the index)
+        - the call-site arg still WINS: `{{< abbr "GC_GOATCOUNTER" "GCs" >}}` renders ">GCs<"
+        - an entry WITHOUT rendered_text is unchanged (the existing display-override test at :152 must still pass)
+        - `{{< glossary-index >}}` renders "GC" for both entries and the literal "GC_GOATCOUNTER" appears NOWHERE in the output
+        - the index is still alphabetical (the existing assertion at :175) and the two GC senses are adjacent
+      Run: bash tests/run-unit.sh -k glossary_hugo
+      EXPECT: RED.
+  - id: P5.T2.S2
+    text: |
+      [GREEN] In templates/features/glossary/layouts/shortcodes/abbr.html replace `{{- $display := default $key (.Get 1) -}}` with `{{- $display := or (.Get 1) $entry.rendered_text $key -}}` — note this must move BELOW the $entry lookup, and the errorf guard for a missing entry must still fire first. Use $display in the aria-label too. Keep $id/$anchor derived from $key: they are identifiers, and anchorize over a shared display text would collide two senses onto one anchor.
+      In glossary-index.html resolve the same way per entry and render that instead of `{{ $k }}`; sort on the resolved text with the key as tiebreaker (a no-op wherever rendered_text is absent, since display == key there).
+      Run: bash tests/run-unit.sh -k glossary_hugo
+      EXPECT: GREEN.
+- number: 3
+  title: Verify (phase 5)
+  steps:
+  - id: P5.T3.S1
+    text: |
+      [VERIFY] bash tests/run-unit.sh
+      EXPECT: green. Specifically confirm test_glossary_css.py, test_glossary_gating.py and test_templates_csp_safe.py still pass — the templates changed.
+state:
+  steps:
+    P5.T1.S1:
+      state: x
+      ticked_at: '2026-07-27T22:26:21+00:00'
+      note: null
+    P5.T1.S2:
+      state: x
+      ticked_at: '2026-07-27T22:27:36+00:00'
+      note: null
+    P5.T2.S1:
+      state: x
+      ticked_at: '2026-07-27T22:32:00+00:00'
+      note: null
+    P5.T2.S2:
+      state: x
+      ticked_at: '2026-07-27T22:32:01+00:00'
+      note: null
+    P5.T3.S1:
+      state: x
+      ticked_at: '2026-07-27T22:36:49+00:00'
+      note: null
+  completion:
+    at: '2026-07-27T22:36:49+00:00'
+    note: null
+    observed_prs: []

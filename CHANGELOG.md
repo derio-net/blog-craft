@@ -10,6 +10,148 @@ matching `vX.Y.Z` tag on merge (#18).
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-07-29
+
+### Fixed
+- **`/blog-post` no longer corrupts the prompts file it appends to (#65 item 1).**
+  `blog-post-create.sh` wrote the new entry with `>>` at a hard-coded two-space
+  indent, having never read the file's own `images:` sequence indentation. A
+  sequence at **column 0** — valid YAML, and what `bootstrap` plus 88 prior
+  entries produced in the reporting blog — took the appended `  - key:` as a
+  continuation of the previous entry's mapping, and the file stopped parsing:
+  `expected <block end>, but found '-'`. The scaffolder exited **0**. Nothing
+  re-read what it wrote, so the failure surfaced later, from a different tool
+  (`generate-images.py`, which every subsequent run of the whole image pipeline
+  goes through), against a ~1900-line file the operator then had to repair by
+  hand. A file with no trailing newline was worse than that: the appended entry
+  was swallowed into the previous entry's `scene:` block scalar, so the file
+  still parsed, still held one entry, and would have generated the wrong image
+  for the wrong key with nothing anywhere to say so. The append now goes through
+  the new `tools/prompts_append.py`, which detects the file's own sequence
+  indentation, re-indents the entry block (shifting continuation lines by the
+  same delta, so block scalars survive), ensures a newline at the seam (leaving
+  trailing blank lines alone — in a `|+` kept block scalar they are content),
+  writes the result to a sibling temp file and **`os.replace`s it into place**, and
+  then **re-reads the bytes from disk to verify**: the file must load, `images`
+  must still be a list, it must have grown by exactly one entry, and that entry's
+  `key` must be the new key. The swap is what makes "leaves the file
+  byte-identical" true rather than aspirational — a plain truncate-then-write turns
+  a short write (ENOSPC, disk quota, `RLIMIT_FSIZE`, SIGINT) into a truncated
+  ~1900-line file whose original bytes existed only in the dying process's memory.
+  Any failure — including a failed write, which now reports instead of
+  tracebacking — restores the pre-append bytes (atomically too) and exits 2, so a
+  refused append leaves the file byte-identical and image generation never runs on
+  it. That verification is what turns this whole class of bug from silent into
+  loud, independently of the indentation fix. Four consequences of swapping a file
+  instead of writing into it are recorded rather than fixed (`tools/prompts_append.py`
+  docstring): a `chmod 444` entries file is now modified successfully and a writable
+  one in a read-only directory now fails (a rename is governed by *directory*
+  permission), `os.replace` breaks hardlinks, and the rename is not crash-durable —
+  the temp file is fsynced, the directory is not. None of them can lose the original
+  bytes, which is the property the swap exists for. Every file the helper reads is read
+  as explicit UTF-8: the composed `description:` always carries an em dash, so a
+  locale-dependent read failed the append under `LC_ALL=C` — and, in the
+  `output-style` path, silently answered `output_dir` for a bundle-style blog,
+  putting the cover where Hugo's page resources never look. Detecting the
+  indentation was chosen over the issue's own suggested load-append-dump:
+  `yaml.safe_dump` over a real entries file reflows every block scalar, re-quotes
+  every string and reorders keys, so the scaffolder would have stopped corrupting
+  the file and started rewriting it.
+- **A refused append no longer leaves a half-scaffolded post behind.** The page
+  bundle is written before the entry is appended, so any refusal exited 2 with
+  `content/docs/<series>/<NN>-<slug>/index.md` already on disk and no matching
+  entry — an operator had to know to go and delete it. `prompts_append.py check
+  --file` now answers "would an append be accepted?" without writing anything, and
+  the scaffolder asks it before it creates the bundle: the scaffold is
+  all-or-nothing. It answers by *performing* the append — reading the file,
+  resolving the sequence indent, re-indenting the real entry block, concatenating,
+  parsing and verifying — and simply not writing the result, so it cannot accept a
+  file the append then refuses. (It could: sharing only the refusal predicates left
+  `check` blind to the indent resolution and the verification, so a flow-style
+  `images:` value and a quoted `"images":` key passed `check` and were refused by
+  `append`, with the page bundle already on disk.) Three layouts an end-of-file
+  append cannot be correct for are refused up front, each named accurately instead
+  of surfacing as `expected <block end>, but found '-'`: a **top-level key after the
+  `images:` sequence** (`images:` must be the last one — it is the only documented
+  one), a **second document or a `...` document-end marker**, and a **flow-style
+  `images: [...]` value**, which no appended line can extend. That question is put
+  to PyYAML's own parse rather than to the columns, so an entries file whose content
+  legally continues at column 0 — a `description:` or a `tags: [...]` list an
+  operator wrapped by hand — is ordinary content and not a "trailing top-level key",
+  and a quoted `"images":` is the same key as `images:`.
+- **The entry key is validated wherever it came from, and so is `<number>`.** The
+  guard admitted `1.5`, `123`, `0x1f`, `no`, `on`, `y` — all plain slugs, all emitted
+  bare, all read back as a float/int/bool rather than the key that was asked for. The
+  append verification then failed with a message about the *prompts file*, blaming the
+  file for the caller's value. A key now needs at least one letter, must not be one of
+  the YAML 1.1 boolean/null words, and must not look like a date; the check runs on the
+  **resolved** key, so `<series> <number>` of `2026-07 27` (key `2026-07-27`, retyped by
+  YAML to a date) is refused too, and the error names whether the value came from
+  `--key` or from `<series>-<number>`. `<number>` itself must be the 2-3 digits the
+  skill documents: a non-numeric one used to reach the frontmatter heredoc as
+  `weight: $WEIGHT` and die under `set -u` with `WEIGHT: unbound variable`, exit 1,
+  page bundle already written.
+- **A scaffolded post now actually appears in its own series overview (#65
+  item 2).** `{{< series-index >}}` is page-derived from frontmatter `series`, and
+  the scaffolder emitted a fixed field list that never included it — while Step 8
+  of `skills/blog-post/SKILL.md` promised the overview "lists the new post
+  automatically". The post simply was not in the index, with no error and nothing
+  missing from the page itself; the promise in the skill was the reason nobody
+  went looking. Frontmatter now always carries `series: ["<series>"]`, and the
+  skill says the overview lists the post *because* of that field rather than by
+  magic.
+- **The entry `key` and cover `output:` defaults stop ignoring the blog's own
+  conventions (#65 item 3).** Both were hard-coded — `<series>-<number>` and
+  `<image.output_dir>/<key>-cover.png` — with no override for `key` at all. A blog
+  keying entries `ops-30-silent-failure` or keeping covers inside page bundles got
+  a scaffold unlike its other 88 entries, silently, on every run. `output:` is now
+  detected from the entries the file already holds (bundle-shaped covers →
+  `<site_dir>/content/docs/<series>/<NN>-<slug>/cover.png`, otherwise
+  `output_dir`, and `output_dir` when the file has no entries); `--output` still
+  wins. Every blog in the field keeps the default it had.
+
+### Added
+- **`--layer <code>` and repeatable `--tag <t>` on `blog-post-create.sh`, and a
+  `/blog-post` step that asks for both.** The frontmatter is now, in convention
+  order: `title`, `series`, `layer?`, `date`, `draft`, `tags`, `summary`,
+  `weight`, `reader_goal?`, `diataxis?`. `--layer` is validated against the blog's
+  own `series_index.layers[].code` registry and an unknown code errors naming the
+  valid ones. Omitted on a blog that declares layers → a greppable `layer: TODO`
+  plus a stderr warning (an unmatched code renders exactly like no layer, so the
+  placeholder is inert, not broken); omitted on a blog that declares none → no
+  `layer` key at all, because that blog does not use layers. With no `--tag`,
+  `tags: []` carries a `# TODO: add tags` **comment** rather than the sibling
+  scaffolders' literal `tags: ["TODO"]` — those emit `draft: true`, this one emits
+  `draft: false`, so a placeholder tag here would publish a bogus taxonomy term on
+  the next build. A comment cannot.
+- **`--key <key>` — an explicit override, deliberately not a detection.** The
+  reporting blog's `ops-30-silent-failure` needs an `operating` → `ops`
+  abbreviation that exists in no config field (`series[]` carries
+  `{key, title, description, content_type}` and nothing else), so any detection
+  would be guesswork applied to the one field that *names* the entry. Instead
+  `skills/blog-post/SKILL.md` Step 8 now tells the agent to read an existing entry
+  in the blog's prompts file and pass `--key` when the convention differs —
+  without that step the flag would exist and never be used.
+- **Glossary `rendered_text` — one abbreviation, two expansions (#65 item 4).** A
+  registry key is an identifier and must be unique, so two senses of `GC` could
+  not both be defined. An entry may now declare the text it *renders* as
+  (`GC_GOATCOUNTER:` + `rendered_text: GC`), resolved by one precedence chain in
+  both surfaces: **call-site argument 1 › `rendered_text` › the key.** `abbr.html`
+  uses it in the `<abbr>` body **and** the `aria-label`, which leaked the raw key
+  before; `glossary-index.html` renders it instead of the key, which leaked any
+  disambiguating suffix onto the page, and now sorts on the resolved display text
+  with the key as tiebreaker so the two senses sit adjacent instead of being
+  separated by an identifier the reader cannot see. The key remains the identifier
+  everywhere it matters — lookup, panel `id`, CSS anchor name — so two senses on
+  one page get two anchors and #49's placement fix is untouched.
+  `validate_glossary.py` type-checks the field (non-empty, quote-free string —
+  a quote would break the shortcode an author copies it into) and **never** reports
+  two entries for sharing one; that is the feature. `data/**` is `content`-class,
+  so the field is purely additive to a file blog-craft does not own and no
+  migration is owed. Documented in `docs/CONFIG.md` §9, with the honest half in
+  `skills/glossary/SKILL.md`: `glossary_apply.py` matches literal prose tokens, so
+  it can only ever auto-mark the **default** sense — a bare `GC` in a post becomes
+  Garbage Collection, and the second sense must be marked by hand.
 ## [0.19.0] - 2026-07-29
 
 > **The mermaid width gate lands BLOCKING, with no baseline and no allowlist.**

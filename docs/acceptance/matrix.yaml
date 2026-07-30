@@ -670,6 +670,233 @@ rows:
       lists them on the one run that can still tell. Pinned in both directions: fires
       on a fallback-base run with NOOPs, silent on a snapshot-backed run and on a fallback
       run with none, and reports mapped destinations (site_dir-aware).'
+  - id: BPC-1
+    capability: post-scaffold-fidelity
+    acceptance: 'A scaffolded prompts entry leaves the entries file parseable whatever
+      indentation the file''s own images: sequence uses'
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-27-scaffolder-output-fidelity-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_prompts_append.py
+      - blog-craft:tests/unit/test_blog_post_create.py
+      int:
+      - blog-craft:tests/smoke-blog-post.sh
+    status: ci
+    notes: '#65 item 1 (data-corrupting). tools/prompts_append.py detects the file''s
+      own images: sequence indentation and blog-post-create.sh appends through it instead
+      of `>>` at a hard-coded 2 spaces. Pinned at both levels: test_prompts_append.py
+      drives column-0, 2-space, 4-space, empty-sequence and no-trailing-newline files
+      directly; test_blog_post_create.py scaffolds end to end over each shape through
+      a prompts_seed fixture hook and asserts the file still parses with exactly 2 entries.
+      The column-0 seed is the diagnostic one — it reproduced the reported ParserError
+      before the fix, and the newline-less seed reproduced the silent variant (the entry
+      swallowed into the previous scene: block scalar, file still parsing, still 1 entry).
+      The pre-existing empty-sequence seed could see neither, which is why 6 passing tests
+      coexisted with the defect. smoke-blog-post.sh drives the real script end to end;
+      its scene-line awk terminator was relaxed to ^[[:space:]]*- key: (hard-coded 2 spaces
+      ran to EOF on a column-0 file). The indent is now read off the PARSED node''s start
+      mark rather than a `^images\s*:` regex, after the adversarial verification found the
+      regex missed a quoted `"images":` key and silently fell back to 2 — pinned by
+      test_a_quoted_images_key_appends_at_the_files_own_indent (unit) and
+      test_a_quoted_images_key_scaffolds_at_the_files_own_indent (end to end).'
+  - id: BPC-2
+    capability: post-scaffold-fidelity
+    acceptance: An append that would corrupt the entries file fails loudly and leaves
+      the file byte-identical
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-27-scaffolder-output-fidelity-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_prompts_append.py
+      - blog-craft:tests/unit/test_blog_post_create.py
+      int:
+      - blog-craft:tests/smoke-blog-post.sh
+    status: ci
+    notes: '#65 spec D2 — the verify-after-write pass, the thing that makes this whole
+      bug class loud rather than silent. prompts_append.py re-parses after writing (file
+      loads, images is still a list, grown by exactly one, last key == the new key) and
+      restores the pre-append bytes on any failure. test_prompts_append.py asserts the
+      refusals byte-for-byte: an unparseable file, images: as a mapping, and a missing
+      images: key all exit 2 with the parser error and leave the file unchanged.
+      test_blog_post_create.py::test_broken_entries_file_fails_loudly_and_is_left_alone
+      carries the consequence that matters — a refused append propagates through
+      `set -euo pipefail`, so generate-images.py never runs over a corrupt file.
+      Strengthened after the #65 code review, which found "byte-identical" was only
+      true for a write that COMPLETED: the write is now a sibling temp file plus
+      os.replace and the verification re-reads the bytes from disk, pinned by
+      test_a_write_that_cannot_complete_leaves_the_file_byte_identical (a real short
+      write under `ulimit -f 2` — exit 2 with a message, no traceback, no temp file
+      left, file byte-identical). Two more refusals joined the same set: a top-level
+      key AFTER the images: sequence (an end-of-file append cannot be correct for it)
+      and the check-before-scaffold ordering, so a refusal leaves no half-written page
+      bundle — test_a_top_level_key_after_the_sequence_is_refused_with_an_accurate_message,
+      test_a_refused_append_leaves_no_half_scaffolded_post,
+      test_a_trailing_top_level_key_is_refused_up_front_with_an_accurate_message and the
+      `check` subcommand cases. Both file reads are explicit UTF-8
+      (test_a_non_ascii_entry_block_appends_under_a_c_locale,
+      test_detection_is_not_locale_dependent): every composed entry carries an em dash,
+      so the locale-dependent read failed the append under LC_ALL=C and — worse, because
+      the except swallowed it — silently answered output_dir for a bundle-style blog.
+      test_a_kept_block_scalar_keeps_its_trailing_blank_line closes the recorded
+      p1-keep-chomp-seam edge: the seam ensures a final newline instead of collapsing
+      the ones already there. Strengthened again after the adversarial verification of
+      that review commit, which REFUTED two of its fixes. (a) The "images: last" check
+      was a line scanner whose premise ("column-0 content cannot occur inside the
+      sequence") is false, so it REFUSED valid files — a hand-wrapped `description:`,
+      a `tags: [one,\ntwo]` — and killed every scaffold on such a blog. It is now
+      yaml.compose()''s own key order, pinned by
+      test_column_zero_continuations_are_not_trailing_keys (four valid files),
+      test_an_explicit_document_end_marker_is_named_for_what_it_is and
+      test_a_multi_document_stream_is_named_for_what_it_is (a `...` marker used to be
+      reported as "a top-level key `...`"), plus
+      test_a_hand_wrapped_description_does_not_block_the_scaffold end to end. (b) `check`
+      passed five files `append` then refused (flow-style values, a quoted `images` key),
+      leaving content/docs/.../index.md on disk — it modelled the refusal predicates but
+      neither the indent resolution nor the verification. `check` now runs the entire
+      append in memory over the real entry block and does not write:
+      test_check_answers_exactly_what_append_would_do (all five inputs, exit codes must
+      match), test_a_flow_style_images_value_is_refused_with_an_accurate_message,
+      test_every_images_shape_scaffolds_all_or_nothing and
+      test_the_preflight_is_handed_the_real_entry_block (the compose -> check -> bundle ->
+      append order). Two more crash paths closed: a close() that raises no longer leaks a
+      sibling .tmp or masks the errno with EBADF
+      (test_a_close_that_raises_still_unlinks_the_temp_file_and_keeps_the_errno), and a
+      RecursionError from a deeply nested document is treated as an unreadable file rather
+      than an exit-1 traceback (test_a_deeply_nested_document_is_refused_without_a_traceback,
+      test_check_refuses_a_deeply_nested_document_without_a_traceback,
+      test_output_style_never_fails_on_an_unreadable_document).'
+  - id: BPC-3
+    capability: post-scaffold-fidelity
+    acceptance: A scaffolded post appears in its series overview — frontmatter carries
+      the series the shortcode derives from
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-27-scaffolder-output-fidelity-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_blog_post_create.py
+    status: ci
+    notes: '#65 item 2. {{< series-index >}} is page-derived from frontmatter series:,
+      which the scaffolder never emitted — so a scaffolded post never appeared in its
+      own overview while skills/blog-post/SKILL.md Step 8 promised it did. series:
+      ["<series>"] is now unconditional, pinned by test_series_always_emitted_default_shaped
+      and test_series_always_emitted_frank_shaped across both fixture config shapes.
+      test_frontmatter_field_order_minimal / _full additionally assert the whole key
+      ORDER (title, series, layer?, date, draft, tags, summary, weight, reader_goal?,
+      diataxis?), not just presence — an author reviews a scaffold by diffing it against
+      a sibling post, so field order is part of the acceptance.'
+  - id: BPC-4
+    capability: post-scaffold-fidelity
+    acceptance: layer and tags are set from the invocation, and their absence is visible
+      in the file rather than silent
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-27-scaffolder-output-fidelity-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_blog_post_create.py
+    status: ci
+    notes: '#65 item 2, second half. Nine tests pin both halves of "set from the invocation"
+      and "visible rather than silent": test_layer_flag_emitted_when_code_is_registered,
+      test_unknown_layer_code_is_an_error_naming_the_valid_ones,
+      test_layer_omitted_with_registry_is_todo_and_warns (greppable layer: TODO + a stderr
+      warning), test_layer_omitted_without_registry_emits_no_layer_key,
+      test_layer_without_registry_is_accepted_verbatim, test_layer_value_is_yaml_safe,
+      test_tag_flag_is_repeatable_and_ordered, test_tag_values_yaml_safe and
+      test_no_tags_emits_empty_list_with_a_todo_comment. The last is the one with teeth:
+      it asserts a `# TODO: add tags` COMMENT and never a literal TODO tag, because this
+      scaffolder emits draft: false and a placeholder tag would publish a bogus taxonomy
+      term. Both fixture configs are exercised — FRANK_CFG gained series_index.layers so
+      the declares-layers and declares-none branches are observable side by side.'
+  - id: BPC-5
+    capability: post-scaffold-fidelity
+    acceptance: The entry key is overridable and the cover output default follows the
+      conventions the entries file already shows
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-27-scaffolder-output-fidelity-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_blog_post_create.py
+    status: ci
+    notes: '#65 item 3. Key half (D6 — an explicit override, detection deliberately
+      rejected because the `operating` -> `ops` abbreviation exists in no config field):
+      test_key_override_names_entry_hint_and_cover asserts the override reaches the entry
+      key, the cover basename and the printed --print-prompt/--only hints, and that the
+      old derived key appears nowhere in stdout; test_key_defaults_to_series_number pins
+      the unchanged default; test_bad_key_rejected pins the plain-token guard (a space,
+      quote or slash never reaches a downstream argument) and, after the #65 code review,
+      asserts the error NAMES `--key` — returncode alone cannot tell the guard from an
+      unparsed flag, since any unknown flag also exits 2. test_key_that_yaml_would_retype_is_rejected
+      covers the values the shape guard admitted and YAML then retyped (1.5, 123, 0x1f,
+      no, on, y, true, null — emitted bare, read back as float/int/bool, so the append
+      verification failed with a message blaming the prompts file for the flag''s value);
+      test_a_key_with_digits_and_dots_is_still_accepted pins that the new rule costs no
+      real key shape. The adversarial verification of that review commit then found the
+      guard covered the FLAG and not the RESOLVED key, so the positionals reached the entry
+      unvalidated: `2026-07 27` produced the key 2026-07-27, retyped by YAML to a date, and
+      the message blamed the prompts file for the caller''s arguments with the bundle already
+      written. The guard now runs on the resolved key and names its source
+      (test_a_derived_key_yaml_would_retype_is_rejected_naming_the_positionals), and
+      test_the_resolved_key_guard_accepts_every_key_it_used_to pins that it did not tighten
+      (0o17, 1.5e3, 1e5, no-cache, on-call, ops-1.5-silent, a 300-char key). The same pass
+      found <number> unvalidated — a non-numeric one died at the frontmatter heredoc as
+      `WEIGHT: unbound variable` under set -u, exit 1, bundle already on disk — now refused
+      against the documented ^[0-9]{2,3}$ before anything is written
+      (test_a_non_numeric_number_is_refused_before_anything_is_written). Output half (D7 — the file
+      states the answer): test_output_default_is_the_bundle_when_the_file_says_so,
+      test_output_default_is_the_bundle_under_site_dir (site_dir: blog, the reporting
+      blog''s shape), test_output_default_stays_output_dir_for_a_static_blog,
+      test_output_default_stays_output_dir_with_no_entries,
+      test_output_flag_beats_detection_in_both_shapes and
+      test_bundle_default_and_key_override_compose. The counting rule itself (ties,
+      entries without output, an unparseable file) is unit-tested one level down in
+      test_prompts_append.py''s output-style cases.'
+  - id: GL-11
+    capability: abbreviation-glossary
+    acceptance: Two expansions of the same abbreviation can both be defined and both
+      render as that abbreviation, inline and in the index
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-27-scaffolder-output-fidelity-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_glossary_hugo.py
+    status: ci
+    notes: '#65 item 4. Six tests build real Hugo output from a GC / GC_GOATCOUNTER
+      registry and pin the resolved display text on every surface it reaches:
+      test_rendered_text_is_shown_instead_of_the_key (the <abbr> body),
+      test_rendered_text_is_used_in_the_aria_label (which leaked the raw key before),
+      test_call_site_argument_still_beats_rendered_text (precedence: arg 1 >
+      rendered_text > key, so plurals still work), test_glossary_index_shows_rendered_text_never_the_key
+      (the index rendered {{ $k }}, leaking any disambiguating suffix onto the page) and
+      test_glossary_index_sorts_on_the_resolved_text_keeping_senses_adjacent — which the
+      #65 code review found unpinned: GC < GC_GOATCOUNTER < NUT < SLO holds under a KEY
+      sort too, so it passed either way. It now runs against SORT_REGISTRY, whose second
+      sense is keyed ZZZ_GC (display sort keeps it beside GC; key sort puts it last), and
+      it was verified to FAIL against a key-based sortkey. The guard
+      that matters most is test_rendered_text_does_not_move_the_id_or_the_anchor: id and
+      anchor-name stay anchorize $key, so two senses on one page get two anchors and
+      #49''s panel-placement fix cannot be reintroduced by a shared display text.'
+  - id: GL-12
+    capability: abbreviation-glossary
+    acceptance: The glossary validator accepts rendered_text as a typed optional field
+      and never rejects two entries for sharing one
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-07-27-scaffolder-output-fidelity-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_glossary_validator.py
+    status: ci
+    notes: '#65 item 4, validator half. Seven tests: test_rendered_text_is_optional_and_a_string_is_fine,
+      test_two_entries_may_share_a_rendered_text (the feature — a shared display text must
+      never be reported), test_non_string_rendered_text_is_an_error,
+      test_empty_rendered_text_is_an_error, test_whitespace_only_rendered_text_is_an_error,
+      test_rendered_text_containing_a_quote_is_an_error (the field is what an operator
+      copies into {{< abbr "KEY" "TEXT" >}} to mark the second sense by hand, and a quote
+      there emits an unparseable shortcode) and test_case_colliding_keys_are_still_an_error_with_rendered_text.
+      The four type/format cases are the diagnostic ones: _REQUIRED is a whitelist of
+      required fields rather than an allowlist, so a malformed rendered_text validated
+      CLEAN before this change — the field never needed permission, it needed a type check.
+      The validator ships into blogs as templates/hugo-hextra/scripts/validate_glossary.py
+      byte-identical, guarded by tests/unit/test_mirrors.py.'
   - id: HW-1
     capability: Reader-arc post structure
     acceptance: Building/tutorial posts open with a conceptual landscape section sized

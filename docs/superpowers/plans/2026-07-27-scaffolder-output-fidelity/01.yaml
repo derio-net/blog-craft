@@ -1,0 +1,109 @@
+schema_version: 2
+phase:
+  number: 1
+  title: tools/prompts_append.py — indentation-detecting append, verified, plus output-style
+  tag: agentic
+  depends_on: []
+  tracking_issue: null
+  acceptance:
+  - BPC-1
+  - BPC-2
+  - BPC-5
+tasks:
+- number: 1
+  title: Detect the file's own sequence indentation and append at it
+  steps:
+  - id: P1.T1.S1
+    text: |
+      [RED] Create tests/unit/test_prompts_append.py against `tools/prompts_append.py append --file F --key K --entry-file B`, where B holds an entry block authored at 2-space indent ("  - key: k\n    output: o\n    composition:\n      scene: |\n        text\n").
+        - a file whose `images:` sequence sits at COLUMN 0 with one existing entry -> after append, yaml.safe_load succeeds, images has exactly 2 entries, images[-1]["key"] == K, and the new entry's nested `composition.scene` round-trips to the same text (the block scalar survived re-indentation)
+        - the same file at 2-SPACE indent -> parses, 2 entries, same scene (no regression for a bootstrap-shaped blog: templates/hugo-hextra/prompt_for_images.yaml.tmpl uses 2)
+        - a file at 4-SPACE indent -> parses, 2 entries (indent is read, not guessed from a fixed set)
+        - an EMPTY sequence ("images:\n") -> parses, 1 entry (default indent 2)
+        - the bytes BEFORE the insertion point are byte-identical to the original in every case (the appender does not reformat the file)
+      Run: bash tests/run-unit.sh -k prompts_append
+      EXPECT: RED (module does not exist).
+  - id: P1.T1.S2
+    text: |
+      [GREEN] Create tools/prompts_append.py with subcommand `append`. Find the top-level `images:` key, then the first `- ` sequence item belonging to that block, and take its column as the sequence indent (empty sequence -> 2). Re-indent the entry block by the delta from its authored 2-space form, shifting EVERY line of the block by the same delta so `scene: |` block scalars keep their relative indentation. Append; do not rewrite anything above the insertion point.
+      Do NOT load-and-dump the whole document: yaml.safe_dump over a real ~1900-line entries file reflows every block scalar, re-quotes every string and reorders keys (the tradeoff tools/migrate_prompts.py:16-17 accepts for a one-shot migration and this must not).
+      Run: bash tests/run-unit.sh -k prompts_append
+      EXPECT: GREEN.
+- number: 2
+  title: Seam hygiene and verify-after-write
+  steps:
+  - id: P1.T2.S1
+    text: |
+      [RED] Add cases:
+        - a file with NO trailing newline -> after append the file parses and has 2 entries (today `>>` would fuse the last line with the first appended one)
+        - a file with several trailing blank lines -> parses, 2 entries
+        - an ALREADY-BROKEN file (unparseable YAML) -> exit code non-zero, stderr names the parse error, and the file bytes are UNCHANGED
+        - a file whose top-level `images` is a mapping, not a list -> non-zero, bytes unchanged
+        - a file with no `images:` key at all -> non-zero, bytes unchanged
+      Run: bash tests/run-unit.sh -k prompts_append
+      EXPECT: RED.
+  - id: P1.T2.S2
+    text: |
+      [GREEN] Implement: normalise to exactly one trailing newline before appending; keep the original bytes in memory; after writing, re-parse and require that the document loads, `images` is a list, len == before+1, and images[-1]["key"] == the --key value. On ANY failure restore the original bytes and exit 2 with the reason on stderr. This is spec D2 — it is what makes the whole class of append bug loud instead of silent, independently of the indentation fix.
+      Run: bash tests/run-unit.sh -k prompts_append
+      EXPECT: GREEN.
+- number: 3
+  title: output-style — read the blog's cover convention off the file
+  steps:
+  - id: P1.T3.S1
+    text: |
+      [RED] Add cases for `prompts_append.py output-style --file F --site-prefix P` printing exactly `bundle` or `output_dir`:
+        - entries whose `output` values are mostly under "<P>content/" -> `bundle`
+        - entries whose `output` values are mostly under a static dir -> `output_dir`
+        - no entries, or no entry carrying `output` -> `output_dir`
+        - an exact tie -> `output_dir` (the conservative side: it is today's behaviour)
+        - empty --site-prefix (site_dir ".") -> "content/" is still recognised
+        - an unparseable file -> `output_dir` on stdout and exit 0 (detection must never break a scaffold; the append step is where a broken file is caught)
+      Run: bash tests/run-unit.sh -k prompts_append
+      EXPECT: RED.
+  - id: P1.T3.S2
+    text: |
+      [GREEN] Implement `output-style`. Same module as `append` because both need the same "where is the images: sequence and what is in it" parse (spec §3).
+      Run: bash tests/run-unit.sh -k prompts_append
+      EXPECT: GREEN.
+- number: 4
+  title: Verify (phase 1)
+  steps:
+  - id: P1.T4.S1
+    text: |
+      [VERIFY] bash tests/run-unit.sh
+      EXPECT: green (pre-existing explainers flake aside — record the exact failure if one appears rather than assuming it is the flake).
+state:
+  steps:
+    P1.T1.S1:
+      state: x
+      ticked_at: '2026-07-27T21:37:34+00:00'
+      note: null
+    P1.T1.S2:
+      state: x
+      ticked_at: '2026-07-27T21:38:32+00:00'
+      note: null
+    P1.T2.S1:
+      state: x
+      ticked_at: '2026-07-27T21:39:10+00:00'
+      note: null
+    P1.T2.S2:
+      state: x
+      ticked_at: '2026-07-27T21:39:34+00:00'
+      note: null
+    P1.T3.S1:
+      state: x
+      ticked_at: '2026-07-27T21:40:15+00:00'
+      note: null
+    P1.T3.S2:
+      state: x
+      ticked_at: '2026-07-27T21:44:12+00:00'
+      note: null
+    P1.T4.S1:
+      state: x
+      ticked_at: '2026-07-27T21:44:38+00:00'
+      note: null
+  completion:
+    at: '2026-07-27T21:44:45+00:00'
+    note: null
+    observed_prs: []
