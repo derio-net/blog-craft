@@ -438,6 +438,16 @@ def _main(argv):
     # the sync snapshot.
     config = Path(a.config).resolve()
     blog = Path(a.blog).resolve()
+    # A typo'd path is the most likely way to get this wrong, so it must not
+    # arrive as a stdlib traceback — that is the same illegibility #59 is about,
+    # one step earlier than the renderer. Name the resolved path AND the
+    # directory it was resolved from, since the whole point of #59 is that a
+    # relative argument is not resolved where the operator assumed.
+    for label, p, kind in (("--config", config, "file"), ("--blog", blog, "directory")):
+        if not (p.is_file() if kind == "file" else p.is_dir()):
+            print(f"ERROR: {label} {kind} not found: {p}", file=sys.stderr)
+            print(f"       (resolved from {Path.cwd()})", file=sys.stderr)
+            return 2
     # Is THIS run's base the #60 fallback? Read before anything can write a
     # snapshot — a conflict-free apply records one, after which the answer would
     # always be "no" and the one chance to flag pre-existing drift would be gone.

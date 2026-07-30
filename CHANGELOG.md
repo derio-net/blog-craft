@@ -10,6 +10,22 @@ matching `vX.Y.Z` tag on merge (#18).
 
 ## [Unreleased]
 
+## [0.20.1] - 2026-07-29
+
+### Fixed
+- **A mistyped `--config` or `--blog` no longer arrives as a stdlib traceback
+  (#59, found by its own post-merge Test Plan).** #59 fixed the case where a
+  relative path *existed* but was resolved against the wrong directory, and made
+  the renderer's own stderr legible when it failed. It left the step before
+  that: a path that does not exist at all never reaches the renderer, so
+  `yaml.safe_load(open(config))` raised `FileNotFoundError` and the operator got
+  a traceback pointing into the stdlib — the same illegibility the issue is
+  about, one call earlier. Since a typo is the likeliest way to get the
+  documented invocation wrong, `update.py` now checks both paths up front and
+  exits 2 naming the **resolved** path *and* the directory it was resolved from
+  — the second half matters because "a relative argument is not resolved where
+  you assumed" is the whole subject of #59.
+
 ## [0.20.0] - 2026-07-29
 
 ### Fixed
