@@ -995,10 +995,16 @@ rows:
     levels:
       unit:
       - blog-craft:tests/unit/test_proc.py
+      - blog-craft:tests/unit/test_update_paths.py
     status: ci
-    notes: blog-craft#59 second half — reproduce.py captured the streams and discarded
+    notes: 'Post-merge Test Plan step 2 found the gap this row had not covered: a typo''d
+      --config never reached the renderer at all, so it arrived as a bare FileNotFoundError
+      traceback out of open() — the same illegibility, one step earlier. update.py now
+      names the resolved path and the directory it resolved from, and exits 2. Verified
+      against the real site_dir blog. Original scope below.
+      blog-craft#59 second half — reproduce.py captured the streams and discarded
       them, leaving a bare CalledProcessError pointing at the stdlib. tools/proc.run_checked
-      attaches them to the message; all four swallowing sites route through it.
+      attaches them to the message; all four swallowing sites route through it.'
   - id: UPD-R3
     capability: update-path-roots
     acceptance: Repo-rooted materialized paths (.github/**, .claude/**) are never placed
