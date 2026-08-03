@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 """Validate a .blog-craft.yaml config (schema + layer-resolution invariants, spec §4/§4.1).
 
-Accepts schema versions 2..6 (the migration ladder's rungs); v4/v5 additions —
+Accepts schema versions 2..7 (the migration ladder's rungs); v4/v5 additions —
 site_dir, _select, character_sheet, named composition_orders — are validated
 whenever present, and the v6 addition — features.mermaid_view (diagram
 rendering at natural size) + quality.mermaid_max_width (the width gate's
-budget) — likewise. The engine hardcodes no layer vocabulary (spec D1), so no
-layer NAME implies a shape. A dict layer's `_template` (the `str.format` frame
-stickers need) is likewise validated whenever present.
+budget) — likewise, as are the v7 additions: features.stickers (the sticker
+generation surface) and image.fallback_model / image.timeout_ms (generate-
+images.py's retry target and HTTP timeout). The engine hardcodes no layer
+vocabulary (spec D1), so no layer NAME implies a shape. A dict layer's
+`_template` (the `str.format` frame stickers need) is likewise validated
+whenever present.
 
 Library: `validate_config(cfg: dict) -> list[str]` (empty == valid).
 CLI:     `validate_config.py --check <path>` (exit 0 valid, 1 invalid).
@@ -20,7 +23,8 @@ RESERVED_SCENE = "scene"
 SERIES_INDEX_STYLES = frozenset({"cards", "table", "none"})
 IMAGE_OPTIMIZE_FORMATS = frozenset({"webp"})
 REQUIRED_TOP = ("project", "image", "series", "voice")
-ACCEPTED_VERSIONS = (2, 3, 4, 5, 6)
+ACCEPTED_VERSIONS = (2, 3, 4, 5, 6, 7)
+STICKER_PATH_KEYS = ("prompts_file", "images_dir", "sheets_dir")
 
 
 def _validate_select(name: str, select, errors: list[str]) -> None:
@@ -56,6 +60,66 @@ def _validate_template(name: str, tmpl, errors: list[str]) -> None:
         errors.append(
             f"{where} must contain exactly one '{{}}' and no other braces (got {tmpl!r})"
         )
+
+
+def _validate_stickers(stk, errors: list[str]) -> None:
+    """`features.stickers` — the v7 sticker-generation surface.
+
+    Optional at every accepted version: the 88 existing blog configs have no
+    such block, and `migrations/006_to_007.py` seeds only `{enabled: false}`.
+    So the three path keys are required exactly when the capability is switched
+    ON — a disabled block is allowed to be a stub. `sheet` geometry, in
+    contrast, is checked whenever present: bad numbers there are nonsense
+    regardless of whether generation runs, and `build-sheets.py` would only
+    discover them at print time.
+
+    Like `_template`, checks fire on the key being PRESENT rather than
+    non-None, so a half-written `enabled:` (i.e. None) cannot silently do
+    nothing. `sheet.size` stays unvalidated on purpose — the paper vocabulary
+    belongs to build-sheets.py, which must reject a size it cannot lay out.
+    """
+    if not isinstance(stk, dict):
+        errors.append("features.stickers must be a mapping")
+        return
+
+    enabled = stk.get("enabled")
+    if "enabled" in stk and not isinstance(enabled, bool):
+        errors.append(
+            f"features.stickers.enabled must be a boolean (got {enabled!r})"
+        )
+
+    if enabled is True:
+        for key in STICKER_PATH_KEYS:
+            val = stk.get(key)
+            if not isinstance(val, str) or not val.strip():
+                errors.append(
+                    f"features.stickers.{key} must be a non-empty path string "
+                    f"when features.stickers.enabled is true (got {val!r})"
+                )
+
+    if "sheet" in stk:
+        sheet = stk["sheet"]
+        if not isinstance(sheet, dict):
+            errors.append(f"features.stickers.sheet must be a mapping (got {sheet!r})")
+            return
+        for key in ("dpi", "gutter"):
+            if key in sheet:
+                v = sheet[key]
+                if isinstance(v, bool) or not isinstance(v, int) or v <= 0:
+                    errors.append(
+                        f"features.stickers.sheet.{key} must be a positive int (got {v!r})"
+                    )
+        if "grid" in sheet:
+            grid = sheet["grid"]
+            if (
+                not isinstance(grid, list)
+                or len(grid) != 2
+                or any(isinstance(n, bool) or not isinstance(n, int) or n <= 0 for n in grid)
+            ):
+                errors.append(
+                    "features.stickers.sheet.grid must be a list of two positive ints "
+                    f"[cols, rows] (got {grid!r})"
+                )
 
 
 def validate_config(cfg: dict) -> list[str]:
@@ -180,6 +244,21 @@ def validate_config(cfg: dict) -> list[str]:
                 if w is not None and (isinstance(w, bool) or not isinstance(w, int) or w <= 0):
                     errors.append(f"image.optimize.{wk} must be a positive int")
 
+    # v7: image.fallback_model — the model generate-images.py retries on when the
+    # primary raises or returns no image part; image.timeout_ms — the HttpOptions
+    # timeout in MILLISECONDS. Both optional: absent leaves the pre-v7 behaviour
+    # (single model, SDK default timeout) byte-for-byte unchanged. Checked on
+    # PRESENCE, so `fallback_model:` with an empty value is an error, not a
+    # silent no-op — the failure would otherwise surface mid-generation.
+    if "fallback_model" in image:
+        fb = image["fallback_model"]
+        if not isinstance(fb, str) or not fb.strip():
+            errors.append(f"image.fallback_model must be a non-empty string (got {fb!r})")
+    if "timeout_ms" in image:
+        tmo = image["timeout_ms"]
+        if isinstance(tmo, bool) or not isinstance(tmo, int) or tmo <= 0:
+            errors.append(f"image.timeout_ms must be a positive int of milliseconds (got {tmo!r})")
+
     series = cfg.get("series")
     if series is not None:
         if not isinstance(series, list):
@@ -279,6 +358,11 @@ def validate_config(cfg: dict) -> list[str]:
     if isinstance(feats, dict) and "mermaid_view" in feats:
         if not isinstance(feats["mermaid_view"], bool):
             errors.append("features.mermaid_view must be a boolean")
+
+    # v7: features.stickers — sticker generation, default OFF. Absent is legal at
+    # every version (the capability is optional); see _validate_stickers.
+    if isinstance(feats, dict) and "stickers" in feats:
+        _validate_stickers(feats["stickers"], errors)
 
     return errors
 

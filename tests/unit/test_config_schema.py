@@ -67,7 +67,9 @@ def test_versions_2_through_5_accepted():
 
 
 def test_out_of_range_versions_rejected():
-    for v in (1, 7, "2"):
+    # 7 became a LADDER RUNG in the stickers plan (006_to_007), so the first
+    # out-of-range version above the head is now 8.
+    for v in (1, 8, "2"):
         cfg = _valid()
         cfg["version"] = v
         assert validate_config(cfg), f"version {v!r} should be invalid"
@@ -473,4 +475,152 @@ def test_layer_without_template_is_unaffected():
     cfg = _valid()
     cfg["image"]["composition_order"] = ["mood", "scene"]
     cfg["image"]["layers"] = {"mood": {"focused": "FOC"}}
+    assert validate_config(cfg) == []
+
+
+# --- v7: features.stickers + image.fallback_model / image.timeout_ms ----------
+# The capability is OPTIONAL: 88 existing blog configs have no `features.stickers`
+# at all, and `006_to_007` seeds it disabled. So absence must be valid at every
+# accepted version, and the path keys are only required once someone opts in.
+
+def test_version_7_accepted():
+    cfg = _valid()
+    cfg["version"] = 7
+    assert validate_config(cfg) == []
+
+
+def test_features_stickers_absent_is_valid_at_every_version():
+    for v in (2, 3, 4, 5, 6, 7):
+        cfg = _valid()
+        cfg["version"] = v
+        cfg.pop("features", None)
+        assert validate_config(cfg) == [], f"v{v} without features should be valid"
+        cfg["features"] = {"mermaid_view": True}          # features present, stickers not
+        assert validate_config(cfg) == [], f"v{v} without features.stickers should be valid"
+
+
+def test_the_v7_migration_seed_validates():
+    # exactly what migrations/006_to_007.py writes — it must not produce a config
+    # its own validator rejects
+    cfg = _valid()
+    cfg["version"] = 7
+    cfg["features"] = {"stickers": {"enabled": False}}
+    assert validate_config(cfg) == []
+
+
+def _stk(block, version=7):
+    cfg = _valid()
+    cfg["version"] = version
+    cfg["features"] = {"stickers": block}
+    return cfg
+
+
+_ENABLED = {"enabled": True,
+            "prompts_file": "blog/_private/stickers/stickers.yaml",
+            "images_dir": "blog/_private/stickers/images",
+            "sheets_dir": "blog/_private/stickers/sheets"}
+
+
+def test_features_stickers_fully_enabled_block_passes():
+    block = dict(_ENABLED, sheet={"size": "a4", "dpi": 300, "grid": [3, 3], "gutter": 60})
+    assert validate_config(_stk(block)) == []
+
+
+def test_features_stickers_must_be_a_mapping():
+    for bad in (True, "on", ["enabled"]):
+        errs = validate_config(_stk(bad))
+        assert any("features.stickers must be a mapping" in e for e in errs), bad
+
+
+def test_features_stickers_enabled_must_be_bool():
+    for bad in ("yes", 1, None):
+        errs = validate_config(_stk({"enabled": bad}))
+        assert any("features.stickers.enabled must be a boolean" in e for e in errs), bad
+
+
+def test_features_stickers_disabled_needs_no_paths():
+    assert validate_config(_stk({"enabled": False})) == []
+    assert validate_config(_stk({})) == []          # absent `enabled` means off
+
+
+def test_features_stickers_enabled_requires_the_three_paths():
+    for missing in ("prompts_file", "images_dir", "sheets_dir"):
+        block = dict(_ENABLED)
+        del block[missing]
+        errs = validate_config(_stk(block))
+        assert any(f"features.stickers.{missing}" in e for e in errs), missing
+
+
+def test_features_stickers_paths_must_be_non_empty_strings_when_enabled():
+    for key in ("prompts_file", "images_dir", "sheets_dir"):
+        for bad in ("", "   ", 3, ["a"], None, True):
+            block = dict(_ENABLED, **{key: bad})
+            errs = validate_config(_stk(block))
+            assert any(f"features.stickers.{key}" in e for e in errs), (key, bad)
+
+
+def test_features_stickers_paths_unvalidated_when_disabled():
+    # nothing to generate, so a half-written block is not an error yet
+    assert validate_config(_stk({"enabled": False, "prompts_file": ""})) == []
+
+
+def test_features_stickers_sheet_must_be_a_mapping():
+    errs = validate_config(_stk(dict(_ENABLED, sheet=[3, 3])))
+    assert any("features.stickers.sheet must be a mapping" in e for e in errs)
+
+
+def test_features_stickers_sheet_dpi_and_gutter_must_be_positive_ints():
+    for key in ("dpi", "gutter"):
+        for bad in (0, -1, "300", 300.5, True, False, None):
+            errs = validate_config(_stk(dict(_ENABLED, sheet={key: bad})))
+            assert any(f"features.stickers.sheet.{key}" in e for e in errs), (key, bad)
+
+
+def test_features_stickers_sheet_grid_must_be_two_positive_ints():
+    for bad in ([3], [3, 3, 3], "3x3", [3, 0], [0, 3], ["3", "3"], [3, True], 9, [3, 3.0]):
+        errs = validate_config(_stk(dict(_ENABLED, sheet={"grid": bad})))
+        assert any("features.stickers.sheet.grid" in e for e in errs), bad
+    assert validate_config(_stk(dict(_ENABLED, sheet={"grid": [3, 3]}))) == []
+    assert validate_config(_stk(dict(_ENABLED, sheet={"grid": [2, 5]}))) == []
+
+
+def test_features_stickers_sheet_validated_even_when_disabled():
+    # the geometry is nonsense regardless of whether generation is on
+    errs = validate_config(_stk({"enabled": False, "sheet": {"dpi": "300"}}))
+    assert any("features.stickers.sheet.dpi" in e for e in errs)
+
+
+def test_features_stickers_sheet_absent_is_valid():
+    assert validate_config(_stk(dict(_ENABLED))) == []
+
+
+def test_image_fallback_model_must_be_a_non_empty_string():
+    for bad in ("", "  ", 3, True, None, ["m"]):
+        cfg = _valid()
+        cfg["image"]["fallback_model"] = bad
+        errs = validate_config(cfg)
+        assert any("image.fallback_model" in e for e in errs), bad
+
+
+def test_image_fallback_model_valid_or_absent_ok():
+    cfg = _valid()
+    cfg["image"]["fallback_model"] = "gemini-2.5-flash-image"
+    assert validate_config(cfg) == []
+    cfg["image"].pop("fallback_model")
+    assert validate_config(cfg) == []
+
+
+def test_image_timeout_ms_must_be_a_positive_int():
+    for bad in (0, -1, "120000", 120000.5, True, False, None):
+        cfg = _valid()
+        cfg["image"]["timeout_ms"] = bad
+        errs = validate_config(cfg)
+        assert any("image.timeout_ms" in e for e in errs), bad
+
+
+def test_image_timeout_ms_valid_or_absent_ok():
+    cfg = _valid()
+    cfg["image"]["timeout_ms"] = 120000
+    assert validate_config(cfg) == []
+    cfg["image"].pop("timeout_ms")
     assert validate_config(cfg) == []
