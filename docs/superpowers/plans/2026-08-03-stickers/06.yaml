@@ -26,6 +26,20 @@ tasks:
         6. it never writes outside the configured dirs.
       Run: bash tests/run-unit.sh -k test_migrate_stickers
       EXPECT: RED.
+      [CORRECTED during execution — this step could not be RED, the SECOND instance of the same
+       decomposition defect in this plan (phase-6 finding
+       p6-t2-could-not-be-red-move-assets-shipped-with-t1; the first was P5.T2). Two T1
+       assertions pass --move-assets — the config-never-edited claim is strongest on the run
+       that moves 20 files, and --dry-run must list the moves — so the tool was written during
+       T1's GREEN step and T2 had nothing left to redden.
+       The executor also hit a genuine red of its own making and reported it: git status
+       --porcelain reports renames only against a COMMITTED baseline, so a git init + git add
+       fixture counts zero renames and the assertion would have been vacuous rather than wrong.
+       Compensated with seven mutations, each reverted and byte-verified, each reddening exactly
+       the assertion written for it and nothing else.
+       Lesson for future decomposition, the same one P5.T2 taught: if task N's assertions
+       exercise task N+1's surface, the red/green boundary between them is fictional. Either
+       label the later step a coverage step, or move the shared surface out of the earlier task.]
       SHADOW CONFIG IS A TEST REQUIREMENT, not just a shim detail (phase-5 note): neither generate-images.py --print-prompt nor tools/validate_images.py has a prompts-file flag, so any test that runs the engine over STICKER entries needs a second config in the SAME DIRECTORY as the real one with image.prompts_file repointed — the engine sets root = cfg_path.parent and resolves output:, every reference path and the --out alias guard against that root. tests/unit/_stickers_fixture.py already does this; reuse it rather than re-inventing it.
   - id: P6.T1.S2
     text: |
