@@ -220,7 +220,8 @@ image:
 features:
   stickers:
     enabled: false                                    # default OFF
-    prompts_file: blog/_private/stickers/stickers.yaml
+    prompts_file: blog/_private/stickers/stickers-prompts.yaml   # NOT stickers.yaml —
+                                                                # see the note below
     images_dir: blog/_private/stickers/images
     sheets_dir: blog/_private/stickers/sheets
     sheet: { size: a4, dpi: 300, grid: [3, 3], gutter: 60 }
@@ -437,16 +438,54 @@ So frank's adoption needs a **one-time transform**, shipped by blog-craft as
 `tools/migrate_stickers.py`, that frank runs once:
 
 1. reads frank's `stickers.yaml`;
-2. emits the six `sticker_*` layers — including `sticker_mood` carrying the
-   `_template` — plus the `sticker` composition order, for the operator to
-   paste into `.blog-craft.yaml` (it does **not** edit the config — that file
-   is content, and silent config surgery is how #60 happened). It must **never**
-   emit a `mood:` key: frank already has one, and merging `_template` into it
-   double-frames every cover (see the warning in §1);
+2. emits **seven** layer keys — the six `sticker_*` layers (including
+   `sticker_mood` carrying the `_template`) plus `clothing` — and the `sticker`
+   composition order, for the operator to paste into `.blog-craft.yaml` (it does
+   **not** edit the config — that file is content, and silent config surgery is
+   how #60 happened). It must **never** emit a `mood:` key: frank already has
+   one, and merging `_template` into it double-frames every cover (see the
+   warning in §1).
+
+   **`clothing` is emitted only when the target config lacks that layer.** An
+   *absent* layer resolves to `""` and `compose()` drops the section, so a blog
+   without one needs `clothing: {}`. But an *unconditional* instruction is the
+   defect written down — found and fixed during phase 6:
+
+   > frank already has a populated `image.layers.clothing`. PyYAML resolves
+   > duplicate mapping keys by silently taking the last, so pasting
+   > `clothing: {}` replaces frank's table with `{}` — no error, no warning. And
+   > **85 of frank's 90 cover entries select clothing by the bracket form**
+   > (`building[dirty]`, `building[apron]`, …), for which `table.get(group)` is
+   > then `None` and the section is **dropped entirely**, not garbled. Roughly
+   > 85 covers would silently lose their clothing sentence.
+   >
+   > When the layer exists the key is omitted and a note explains why: sticker
+   > entries pass free-form prose, which `_resolve_modifier` returns via
+   > passthrough, so the existing table already serves stickers untouched. That
+   > omission rests on a claim about someone else's config, so the transform
+   > *checks* it — importing the shipped `resolve_layer` and verifying every
+   > sticker's prose survives the existing layer unchanged.
+
+   A **testing principle** came out of this, and it generalises past stickers:
+
+   > An equality proof over set A cannot detect collateral damage to set B. The
+   > 18 sticker goldens stay green with frank's clothing table destroyed,
+   > because a sticker entry's free-form prose resolves through *passthrough* —
+   > the table's contents are irrelevant to it. Sticker prompts are structurally
+   > incapable of seeing damage to a cover layer, since they never compose a
+   > cover. The guard is not a bigger fixture; it is a three-line assertion that
+   > **the existing consumers still resolve** — `building[overalls]` still
+   > yields `"Frank wears overalls."` after the paste.
+
+   (I initially prescribed the bigger-fixture fix here. It would have stayed
+   green. The phase-6 executor showed why, with a mutation check.);
 3. rewrites the 18 stickers as v5 entries — `composition.{order, modifiers,
    scene, reference_images}`, `aspect_ratio: '1:1'`, `output:`, and the
    `sheet`/`pos` fields — into the new `features.stickers.prompts_file`;
-4. `git mv`s `images/` and `sheets/` to the configured dirs;
+4. `git mv`s `images/` and `sheets/` to the configured dirs — but only under
+   `--move-assets`, and it **refuses** when a destination already exists rather
+   than clobbering it. Those 20 PNGs are irreplaceable curated masters, which
+   is the same reason `/update` skips them (`update.py:153`);
 5. prints the diff and exits non-zero if anything is ambiguous.
 
 Deriving the entries mechanically (rather than hand-editing 18 of them) is
@@ -563,7 +602,11 @@ operator's stated requirement. None restates an implementation detail.
 3. **Contact-sheet geometry is a named divergence** unless decision 6 is
    implemented. It is a review-only artifact, so the operator may prefer to
    accept the reflow rather than parameterize.
-4. **`.reference-pool` paths.** frank's sticker refs resolve against the repo
+4. **`.reference-pool` paths — MEASURED, not predicted (phase 6).** A naive
+   verbatim-path transform leaves **all 18 goldens green** while only four path
+   assertions catch it, exactly as this risk feared. The strongest guard is the
+   one that runs the real relocation and synthesises nothing. frank's sticker
+   refs resolve against the repo
    root and include two *sticker images* as style anchors — meaning the
    sticker set references its own output. Moving `images/` therefore changes
    the anchor paths, and the transform must rewrite them consistently or the

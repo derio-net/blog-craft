@@ -25,6 +25,9 @@ tasks:
   steps:
   - id: P8.T1.S1
     text: |
+      Two wording traps this plan already walked into — get them right in the docs:
+        - the `clothing` key is emitted ONLY when the target config lacks that layer. An unconditional instruction IS the phase-6 defect written down: frank has a populated clothing table, PyYAML takes the last duplicate key silently, and 85 of his 90 covers select clothing by the bracket form so the section is DROPPED, not garbled.
+        - the prompts_file example must NOT be `stickers.yaml` — that collides with the legacy filename and the tool refuses it, because writing there would destroy the only copy of the prose being migrated. Use `stickers-prompts.yaml`.
       FIRST fix the stale v6 references phase 3 left behind: docs/CONFIG.md carries `version: 6` in its top sample and an "accepts schema versions 2-6" line, both wrong after migration 006_to_007. Grep for `2-6`, `2..6` and `version: 6` across docs/ before writing anything new.
       docs/CONFIG.md: a new numbered section for features.stickers — every key, the default-OFF rationale, the sticker composition order with the border-after-scene note, the sticker_mood._template directive AND an explicit warning that _template must never go on a shared `mood` layer whose values are already complete sentences (it double-frames every cover), and the non-destructive --out contract. Also document image.fallback_model and image.timeout_ms in the image section.
       Add a short "Sticker sets" note to MEDIA-GUIDE.md (or the shipped guide that covers the image workflow — locate it) pointing at the two scripts and the pick-a-winner-then-copy flow.
