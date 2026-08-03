@@ -1,0 +1,99 @@
+schema_version: 2
+phase:
+  number: 5
+  title: Golden fidelity harness — the proof that nothing changed
+  tag: agentic
+  depends_on:
+  - 1
+  - 4
+  tier: hard
+  acceptance:
+  - stk-1
+  tracking_issue: null
+tasks:
+- number: 1
+  title: Vendor frank's sticker data and derive the 18 goldens
+  steps:
+  - id: P5.T1.S1
+    text: |
+      Vendor the inputs, then derive the goldens ONCE and commit them, so no later test needs frank's checkout to exist.
+        PREREQUISITE (verified 2026-08-03): frank's repo is NOT mounted inside the isolation container — `fr isolation exec -- ls /Users/derio/Docs/projects/DERIO_NET/frank/...` fails with No such file or directory, while the same ls from the host worktree cwd succeeds. Steps (a) and (b) MUST therefore run as HOST commands, i.e. `cd /Users/derio/.cache/fr/worktrees/blog-craft/feat__stickers && <cmd>`, NOT through `fr isolation exec`. Once the fixture and the goldens are committed, every later step and every test is container-safe and needs frank never again — which is the whole point of vendoring.
+        a. Copy frank's real data in verbatim:
+           cp /Users/derio/Docs/projects/DERIO_NET/frank/blog/_private/frank-stickers/stickers.yaml tests/fixtures/stickers/frank-stickers.yaml
+        b. Derive 18 goldens by calling frank's OWN compose_prompt(). Its module imports google.genai, PIL and lib.contact_sheet at top level, and lib.contact_sheet NO LONGER EXISTS in frank (deleted by frank's blog-craft cutover bd0415e6), so stub all of them — compose_prompt touches none:
+             for name in ("google", "google.genai", "PIL", "lib", "lib.contact_sheet"): sys.modules.setdefault(name, types.ModuleType(name))
+           then importlib-load generate-stickers.py and write compose_prompt(cfg, s) to tests/fixtures/stickers/golden/<key>.txt for all 18, plus scene_refs(cfg, s) basenames to <key>.refs.txt.
+        c. Commit tests/fixtures/stickers/GOLDEN-PROVENANCE.md recording: the frank commit sha the goldens came from, the stub list and WHY each stub is safe, and the fact that --dry-run could NOT be used (it truncates at 300 chars, generate-stickers.py:101).
+      Verify before committing: all 18 files exist, each splits into exactly 8 blank-line-separated sections, refs counts are 3 or 4, and one spot-check contains "Frank's expression: satisfied — sleepy half-smile, eyes half closed." (measured 2026-08-03).
+      EXPECT: 18 goldens + 18 refs files + provenance committed.
+  - id: P5.T1.S2
+    text: |
+      [RED] New tests/unit/test_stickers_golden.py: a fixture .blog-craft.yaml carrying the six sticker_* layers + the `sticker` composition order (sticker_mood carries the _template; see the WARNING in P5.T1.S3), and a prompts file built from the vendored frank-stickers.yaml. For each of the 18 keys assert
+        generate-images.py --print-prompt <key>  ==  tests/fixtures/stickers/golden/<key>.txt
+      byte-for-byte. Parametrize over the keys so a failure names the sticker.
+      Run: bash tests/run-unit.sh -k test_stickers_golden
+      EXPECT: RED — the fixture config and the entry shape do not exist yet.
+  - id: P5.T1.S3
+    text: |
+      [GREEN] Author the fixture: the five prose layers (sticker_base_character, sticker_atmosphere, sticker_reference_guidance, sticker_face_pins, sticker_border_spec) transcribed VERBATIM from the vendored frank-stickers.yaml's top-level prose keys, PLUS a sixth layer sticker_mood carrying `_template: "Frank's expression: {}."` and no table entries; and composition_orders.sticker in EXACTLY this order:
+        sticker_base_character, sticker_atmosphere, sticker_reference_guidance, sticker_face_pins, clothing, sticker_mood, scene, sticker_border_spec
+      border AFTER scene — transcribed from generate-stickers.py:49-54. Swapping those two yields a prompt that reads correctly and is wrong.
+      Each entry: composition.{order: composition_orders[sticker], modifiers: {sticker_mood, clothing}, scene, reference_images}, aspect_ratio '1:1', output:, sheet, pos.
+      THE ORDER SPELLING IS LOAD-BEARING AND WAS WRONG IN AN EARLIER DRAFT OF THIS STEP (phase-4 finding p4-order-sticker-must-be-bracketed-reference). It MUST be `order: composition_orders[sticker]`, not `order: sticker`. Mechanism: _ORDER_REF = ^composition_orders\[([A-Za-z0-9_-]+)\]$ (generate-images.py:99); a string that does not match returns [], compose([]) returns "", and main() line 439 does `if not prompt.strip(): continue`. So a bare `sticker` composes an EMPTY prompt and the engine SILENTLY SKIPS the entry — all 18 stickers, zero output, exit code 0. The 18 --print-prompt assertions would fail with empty strings, which reads like a layer/framing/ordering bug and sends you hunting in the wrong place. Every existing v5 example uses the bracketed form (docs/CONFIG.md:111, tests/unit/test_generate_images_v5.py:81). The modifier key MUST be sticker_mood, not mood - _resolve_modifier looks up entry.get(<layer name>).
+      WARNING (phase-1 finding p1-mood-template-regresses-frank-covers): do NOT put _template on the shared `mood` layer. frank's mood table is already a flat map of COMPLETE sentences ("Frank's expression is curious - ...", frank/.blog-craft.yaml:154-167) and frank's hero+banner orders name plain `mood`, so a _template there composes "Frank's expression: Frank's expression is curious - ..." on every frank cover. Nothing in blog-craft catches it: these goldens are sticker-only and test_image_compose.py uses a _template-free fixture.
+      Iterate until all 18 are byte-identical. A diff here is a real finding — journal it.
+      ALSO assert `tools/validate_images.py` reports NO errors for the fixture. It is the only thing that catches an unresolvable composition order ("unknown composition order reference", validate_images.py:50-58), so this one assertion makes the entire class of entry-shape mistake loud instead of silent.
+      Run: bash tests/run-unit.sh -k "test_stickers_golden or test_image_compose"
+      EXPECT: green, all 18. test_image_compose.py unmodified.
+- number: 2
+  title: Reference payload order
+  steps:
+  - id: P5.T2.S1
+    text: |
+      [RED] New tests/unit/test_stickers_references.py: for each sticker, the resolved payload is exactly [canon_face, anchor_09, anchor_20] plus the clothing subject when clothing_anchor is set — in that order, primary FIRST. Assert 4 refs for stickers with a clothing_anchor and 3 for those with null (measured: both cases occur). Compare against the committed <key>.refs.txt.
+      Run: bash tests/run-unit.sh -k test_stickers_references
+      EXPECT: RED.
+      [CORRECTED during execution — this step CANNOT be RED, and that is a decomposition defect
+       in this plan, not an execution shortcut (phase-5 finding
+       p5-t2-cannot-be-red-mapping-belongs-to-t1, state open). P5.T1.S3's entry shape already
+       includes reference_images, and T1's validate_images assertion requires those paths to
+       resolve — so the mapping T2.S2 was supposed to introduce necessarily exists by the time T1
+       is green. Treat T2.S1 as a COVERAGE step, not a red step.
+       The compensating proof used instead is stronger than a red step: mutating the reference
+       order (moving the clothing anchor to the front) reddens 48 of the 75 reference assertions
+       while ALL 28 golden-prompt assertions stay green. That is positive evidence T2 covers a
+       class T1 is blind to — the prose declares the FIRST image the face authority, so payload
+       order is semantically load-bearing yet invisible to a prompt-text comparison.
+       For a future plan: either label such a step a coverage step, or move reference_images out
+       of the earlier task so the red/green boundary is real.]
+  - id: P5.T2.S2
+    text: |
+      [GREEN] Map to v5 reference_images: primary = canon_face; clothing = [anchor_09, anchor_20, clothing_subject?]. primary_reference() puts primary first and entry_reference_paths() appends the rest in declared order (generate-images.py:196-254), so no engine change is needed — if one seems necessary, the mapping is wrong.
+      Run: bash tests/run-unit.sh -k test_stickers
+      EXPECT: green.
+state:
+  steps:
+    P5.T1.S1:
+      state: x
+      ticked_at: '2026-08-03T13:17:39+00:00'
+      note: null
+    P5.T1.S2:
+      state: x
+      ticked_at: '2026-08-03T13:23:45+00:00'
+      note: null
+    P5.T1.S3:
+      state: x
+      ticked_at: '2026-08-03T13:23:47+00:00'
+      note: null
+    P5.T2.S1:
+      state: x
+      ticked_at: '2026-08-03T13:26:59+00:00'
+      note: null
+    P5.T2.S2:
+      state: x
+      ticked_at: '2026-08-03T13:27:00+00:00'
+      note: null
+  completion:
+    at: '2026-08-03T13:37:54+00:00'
+    note: null
+    observed_prs: []

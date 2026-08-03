@@ -1,0 +1,138 @@
+schema_version: 2
+phase:
+  number: 8
+  title: Docs, CHANGELOG, version bump, and acceptance flips
+  tag: agentic
+  depends_on:
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  - 6
+  - 7
+  tier: mechanical
+  acceptance:
+  - stk-1
+  - stk-2
+  - stk-3
+  - stk-4
+  - stk-5
+  tracking_issue: null
+tasks:
+- number: 1
+  title: Document the capability
+  steps:
+  - id: P8.T1.S1
+    text: |
+      Two wording traps this plan already walked into — get them right in the docs:
+        - the `clothing` key is emitted ONLY when the target config lacks that layer. An unconditional instruction IS the phase-6 defect written down: frank has a populated clothing table, PyYAML takes the last duplicate key silently, and 85 of his 90 covers select clothing by the bracket form so the section is DROPPED, not garbled.
+        - the prompts_file example must NOT be `stickers.yaml` — that collides with the legacy filename and the tool refuses it, because writing there would destroy the only copy of the prose being migrated. Use `stickers-prompts.yaml`.
+      FIRST fix the stale v6 references phase 3 left behind: docs/CONFIG.md carries `version: 6` in its top sample and an "accepts schema versions 2-6" line, both wrong after migration 006_to_007. Grep for `2-6`, `2..6` and `version: 6` across docs/ before writing anything new.
+      docs/CONFIG.md: a new numbered section for features.stickers — every key, the default-OFF rationale, the sticker composition order with the border-after-scene note, the sticker_mood._template directive AND an explicit warning that _template must never go on a shared `mood` layer whose values are already complete sentences (it double-frames every cover), and the non-destructive --out contract. Also document image.fallback_model and image.timeout_ms in the image section.
+      Add a short "Sticker sets" note to MEDIA-GUIDE.md (or the shipped guide that covers the image workflow — locate it) pointing at the two scripts and the pick-a-winner-then-copy flow.
+      EXPECT: docs describe every key shipped in phases 1-7, no more.
+  - id: P8.T1.S2
+    text: |
+      Cross-check the docs against the code: for each documented key, grep the implementation to confirm the name and default match. A wrong default in CONFIG.md is worse than an undocumented one.
+      Run: grep -n "stickers\|fallback_model\|timeout_ms" docs/CONFIG.md
+      EXPECT: every hit corresponds to a real key.
+- number: 2
+  title: CHANGELOG and version bump
+  steps:
+  - id: P8.T2.S1
+    text: |
+      Add the CHANGELOG entry under Unreleased (the repo stages there and renames on bump — tests/unit/test_changelog.py validates both shapes). Cover: the capability, the five divergences it resolves, the `_template` directive, --out as a data-loss guard, v7, and the /update relocation. State plainly that frank's sticker generation had been broken since its cutover.
+      Also record the two bugs fixed in passing, both PRE-EXISTING and both on the DEFAULT cover path rather than the sticker path:
+        - curation.archive_cap pruned a --count N run's own earlier variants mid-run, after which the contact sheet tried to open the deleted files (phase-2 finding p2-archive-cap-prunes-its-own-count-run, fixed);
+        - --dry-run misreported the destination path; it now names the real one.
+      DECLARE these accepted divergences explicitly — "no behavioral changes" means no UNDECLARED changes:
+        - the sticker regen contact sheet uses blog-craft's LAYOUT (top label, fixed tile), not frank's (bottom label strip, aspect-preserving thumbs); frank's helper was deleted by its own cutover bd0415e6 and is unrunnable, and the artifact is review-only;
+        - under --out, files are named from the entry's output: basename with <key>- prefixing on collision (spec 5a); for stickers this reproduces frank's sticker-<key>.png exactly.
+      And note that the run-level sticker contact sheet is produced by the shim, not the engine (phase-2 finding p2-decision6-insufficient-for-frank-sheet) — the engine's per-key sheet is unchanged.
+      Run: bash tests/run-unit.sh -k test_changelog
+      EXPECT: green.
+  - id: P8.T2.S2
+    text: |
+      Bump the version off 0.20.0 (shipped-surface change: new template scripts + new config keys). Run the gate to confirm it is satisfied:
+      Run: python tools/check_version_bump_needed.py; bash tests/run-unit.sh -k "test_changelog or test_version"
+      EXPECT: gate passes, tests green.
+- number: 3
+  title: Flip the acceptance rows
+  steps:
+  - id: P8.T3.S1
+    text: |
+      Flip stk-1..stk-5 from not-implemented to ci, attaching the test refs that now prove each:
+        stk-1 -> tests/unit/test_stickers_golden.py
+        stk-2 -> tests/unit/test_generate_images_out_dir.py
+        stk-3 -> tests/unit/test_build_sheets.py
+        stk-4 -> tests/unit/test_features_gating.py, tests/unit/test_migration_007.py
+                 ALSO reword stk-4: after v7 every UPDATED blog carries features.stickers {enabled: false}, so "a blog WITHOUT features.stickers" is the legacy shape, not the normal one. The claim is about the capability being DISABLED (phase-3 note).
+        stk-5 -> tests/unit/test_update_relocation.py, tests/unit/test_migrate_stickers.py
+                 NOT test_update_legacy_dests.py — that file has never existed (phase-7 finding). Citing it would fail fr acceptance check's ref check.
+      stk-3's print-at-100% claim is only PARTLY provable in CI (dimensions + DPI metadata are; a physical print is not). If the honest status is `skipped` with the reason in notes, set that rather than overclaiming `ci`.
+      Run: fr acceptance check
+      EXPECT: exit 0, no `failing` rows.
+  - id: P8.T3.S2
+    text: |
+      Regenerate the acceptance reports and confirm the full suite is green end to end.
+      Run: fr acceptance report; BLOG_CRAFT_TEST_VENV="$HOME/.cache/bcv" bash tests/run-unit.sh
+      EXPECT: full suite green; report_linked.md/html and report_local.html updated for the commit.
+- number: 4
+  title: Two silent failures made loud — duplicate (sheet,pos), and an empty composed
+    prompt
+  steps:
+  - id: P8.T4.S1
+    text: |
+      [RED] Extend tests/unit/test_build_sheets.py:
+        1. two stickers claiming the SAME (sheet, pos) exits non-zero naming BOTH keys and the position. Today build-sheets.py inherits frank's `sheets[s["sheet"]][s["pos"]] = key` last-wins, so one sticker silently vanishes from a PRINTED page — paper, ink and cutting time spent on a sheet missing a sticker, with no warning anywhere (phase-4 finding p4-duplicate-sheet-pos-silently-drops-a-sticker). pos out of range is already loud; a duplicate is not;
+        2. frank's real 18 stickers (18 distinct (sheet,pos) pairs across sheets 1-2, pos 1..9 — measured) still build both sheets successfully, so the guard costs frank nothing.
+      And extend tests/unit/test_generate_images_out_dir.py (or the nearest generate-images test):
+        3. an entry whose composition order does not resolve (e.g. `order: sticker` instead of `order: composition_orders[sticker]`) composes an empty prompt, and the engine now prints a WARN naming the key instead of skipping in silence. Assert the WARN text; do NOT change the exit code — today the entry is skipped with rc 0 and an operator may have a legitimately empty entry, so this stays a warning, not an error (phase-4 finding p4-order-sticker-must-be-bracketed-reference).
+      Run: bash tests/run-unit.sh -k "test_build_sheets or test_generate_images_out_dir"
+      EXPECT: RED on 1 and 3; 2 green already.
+      SHADOW CONFIG IS A TEST REQUIREMENT, not just a shim detail (phase-5 note): neither generate-images.py --print-prompt nor tools/validate_images.py has a prompts-file flag, so any test that runs the engine over STICKER entries needs a second config in the SAME DIRECTORY as the real one with image.prompts_file repointed — the engine sets root = cfg_path.parent and resolves output:, every reference path and the --out alias guard against that root. tests/unit/_stickers_fixture.py already does this; reuse it rather than re-inventing it.
+  - id: P8.T4.S2
+    text: |
+      [GREEN] build-sheets.py: raise SystemExit on a duplicate (sheet, pos), naming both sticker keys and the position. generate-images.py: WARN naming the key when a composed prompt is empty, immediately before the existing `continue` (line ~439).
+      Both convert a SILENT wrong outcome into a LOUD one, and neither can affect a config that is correct today: frank has no duplicate positions, and an unresolvable order already produces nothing. Declare both in the CHANGELOG as deliberate new guards — the duplicate guard IS a behaviour change against frank's last-wins, it is just an unobservable one for frank's data.
+      Run: bash tests/run-unit.sh -k "test_build_sheets or test_generate_images or test_stickers"
+      EXPECT: green.
+state:
+  steps:
+    P8.T1.S1:
+      state: x
+      ticked_at: '2026-08-03T15:46:46+00:00'
+      note: null
+    P8.T1.S2:
+      state: x
+      ticked_at: '2026-08-03T15:46:46+00:00'
+      note: null
+    P8.T2.S1:
+      state: x
+      ticked_at: '2026-08-03T15:46:47+00:00'
+      note: null
+    P8.T2.S2:
+      state: x
+      ticked_at: '2026-08-03T15:47:31+00:00'
+      note: null
+    P8.T3.S1:
+      state: x
+      ticked_at: '2026-08-03T16:01:16+00:00'
+      note: null
+    P8.T3.S2:
+      state: x
+      ticked_at: '2026-08-03T16:01:18+00:00'
+      note: null
+    P8.T4.S1:
+      state: x
+      ticked_at: '2026-08-03T15:39:17+00:00'
+      note: null
+    P8.T4.S2:
+      state: x
+      ticked_at: '2026-08-03T15:39:19+00:00'
+      note: null
+  completion:
+    at: '2026-08-03T16:01:19+00:00'
+    note: null
+    observed_prs: []

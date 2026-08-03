@@ -17,19 +17,21 @@ def _yaml(name):
         return yaml.safe_load(f)
 
 
-def test_latest_is_6():
-    assert latest_version() == 6
+def test_latest_is_7():
+    assert latest_version() == 7
 
 
 def test_ladder_v1_to_latest():
     out = upgrade(_yaml("stoa-v1.blog-craft.yaml"))    # version 1
-    assert out["version"] == 6
+    assert out["version"] == 7
     # v2 transform ran (metaphor -> image.layers)
     assert out["image"]["composition_orders"]["hero"][0] == "base_style"
     # v3 transform ran (palette filled)
     assert out["features"]["css"]["mermaid_palette"]["node"] == "#1f3a5f"
     # v6 transform ran (default-on mermaid view)
     assert out["features"]["mermaid_view"] is True
+    # v7 transform ran (stickers seeded, default OFF — stoa has no sticker set)
+    assert out["features"]["stickers"] == {"enabled": False}
 
 
 def test_idempotent():
@@ -44,7 +46,7 @@ def test_002_to_003_preserves_explicit_palette():
     v2["features"] = {"css": {"mermaid_palette": {"node": "#abc123", "stroke": "#111",
                                                   "edge": "#222", "label": "#333"}}}
     out = upgrade(v2)
-    assert out["version"] == 6
+    assert out["version"] == 7
     assert out["features"]["css"]["mermaid_palette"]["node"] == "#abc123"   # not overwritten
 
 
@@ -92,4 +94,4 @@ def test_cli_non_destructive(tmp_path):
     assert (tmp_path / "c.yaml.bak").exists()                       # backup written
     assert yaml.safe_load(open(os.path.join(FIX, "stoa-v1.blog-craft.yaml")))["version"] == 1
     assert (tmp_path / "c.yaml.bak").read_text().count("version: 1")  # bak has the original
-    assert yaml.safe_load(cfg.read_text())["version"] == 6          # upgraded in place
+    assert yaml.safe_load(cfg.read_text())["version"] == 7          # upgraded in place

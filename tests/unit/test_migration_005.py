@@ -48,5 +48,5 @@ def test_version_gate():
 def test_ladder_reaches_5_from_2():
     cfg = {"version": 2, "image": {"layers": {}, "composition_order": ["scene"]}, "features": {}}
     out = upgrade(cfg)
-    assert out["version"] == 6   # ladder now runs through 005_to_006 too
+    assert out["version"] == 7   # ladder now runs through 005_to_006 and 006_to_007 too
     assert out["image"]["composition_orders"]["hero"] == ["scene"]

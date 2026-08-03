@@ -200,3 +200,106 @@ def test_plain_modifier_on_nested_table_skips_not_leaks():
     # a two-level table needs a bracket path; a bare group name must not dump the dict
     out = compose(["clothing", "scene"], V5_LAYERS, {"clothing": "papers", "prompt": "S"})
     assert out == "S"
+
+
+# ── `_template` (stickers): a dict layer may frame its resolved value ─────────
+# frank's sticker generator hardcoded the mood frame in Python
+# (`f"Frank's expression: {s['mood']}."`, generate-stickers.py:53), so it could
+# not be expressed in config at all. `_template` is that frame as a directive:
+# applied to whatever the layer resolves to, on BOTH resolution paths
+# (`_resolve_modifier` and the `_select` walk). An empty resolution stays empty
+# — "Frank's expression: ." is the bug the ordering prevents.
+
+FRAME = "Frank's expression: {}."
+TPL_LAYERS = {
+    "mood": {"_template": FRAME, "satisfied": "content, eyes half closed"},
+    "walk_mood": {
+        "_select": [["walk_mood", "series"]],
+        "_template": FRAME,
+        "satisfied": "content, eyes half closed",
+    },
+    "nested_mood": {
+        "_template": FRAME,
+        "sticker": {"satisfied": "content, eyes half closed"},
+    },
+    "plain_mood": {"satisfied": "content, eyes half closed"},
+}
+
+
+def test_template_frames_a_named_table_hit():
+    # 1. table HIT + _template -> the table value framed
+    out = compose(["mood"], TPL_LAYERS, {"mood": "satisfied"})
+    assert out == "Frank's expression: content, eyes half closed."
+
+
+def test_template_frames_freeform_passthrough_the_sticker_case():
+    # 2. free-form PASSTHROUGH (value absent from the table) + _template. This is
+    # the measured sticker case: frank's stickers carry per-entry free-form mood.
+    out = compose(["mood"], TPL_LAYERS,
+                  {"mood": "satisfied — sleepy half-smile, eyes half closed"})
+    assert out == (
+        "Frank's expression: satisfied — sleepy half-smile, eyes half closed."
+    )
+
+
+def test_template_frames_bracket_path_descent():
+    # the third prose-yielding return point of _resolve_modifier
+    out = compose(["nested_mood"], TPL_LAYERS, {"nested_mood": "sticker[satisfied]"})
+    assert out == "Frank's expression: content, eyes half closed."
+
+
+def test_template_never_frames_an_empty_resolution():
+    # 3. modifier absent from the entry -> "" stays "" and compose DROPS it. It
+    # must never become "Frank's expression: ." — guard `not value` first.
+    assert compose(["mood", "scene"], TPL_LAYERS, {"prompt": "S"}) == "S"
+    # same on the walk path, and on a bracket path that misses
+    assert compose(["walk_mood", "scene"], TPL_LAYERS, {"prompt": "S"}) == "S"
+    assert compose(["nested_mood", "scene"], TPL_LAYERS,
+                   {"nested_mood": "sticker[nope]", "prompt": "S"}) == "S"
+    # an empty-string resolution is empty too, not a bare frame
+    assert compose(["mood", "scene"],
+                   {"mood": {"_template": FRAME, "blank": ""}},
+                   {"mood": "blank", "prompt": "S"}) == "S"
+
+
+def test_template_frames_selector_walk_results():
+    # 4. a `_select` walk layer is framed too — table hit AND last-step passthrough
+    assert compose(["walk_mood"], TPL_LAYERS, {"walk_mood": "satisfied"}) == (
+        "Frank's expression: content, eyes half closed."
+    )
+    assert compose(["walk_mood"], TPL_LAYERS, {"walk_mood": "a bespoke mood"}) == (
+        "Frank's expression: a bespoke mood."
+    )
+
+
+def test_template_only_layer_is_a_pure_frame():
+    # spec §1's config surface for stickers is literally `mood: {_template: ...}`
+    # with NO table entries — every value passes through and gets framed.
+    layers = {"mood": {"_template": FRAME}}
+    assert compose(["mood", "scene"], layers, {"mood": "sleepy", "prompt": "S"}) == (
+        "Frank's expression: sleepy.\n\nS"
+    )
+    assert compose(["mood", "scene"], layers, {"prompt": "S"}) == "S"
+
+
+def test_layer_without_template_is_byte_unchanged():
+    # 5. regression: no _template -> no framing, on either path
+    assert compose(["plain_mood"], TPL_LAYERS, {"plain_mood": "satisfied"}) == (
+        "content, eyes half closed"
+    )
+    assert compose(["plain_mood"], TPL_LAYERS, {"plain_mood": "raw prose"}) == "raw prose"
+    assert compose(["mood"], LAYERS, {"mood": "focused"}) == "MOODF"
+    assert compose(["torso"], LAYERS, {"torso": "papers", "torso_variant": 0}) == "torsoP0"
+
+
+def test_template_directive_is_never_prose():
+    # 6. `_template` is a `_`-prefixed directive: neither the key nor the raw
+    # `{}` placeholder can reach the composed prose.
+    out = compose(["mood", "scene"], TPL_LAYERS, {"mood": "satisfied", "prompt": "S"})
+    assert "{}" not in out
+    assert "_template" not in out
+    # selecting the directive key hits the underscore guard and passes through as
+    # the literal selector — the directive's VALUE never surfaces as a table hit
+    assert compose(["mood"], TPL_LAYERS, {"mood": "_template"}) == (
+        "Frank's expression: _template."
+    )

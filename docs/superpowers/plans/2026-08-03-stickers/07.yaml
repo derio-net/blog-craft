@@ -1,0 +1,62 @@
+schema_version: 2
+phase:
+  number: 7
+  title: manifest.legacy_dests — retire frank's two script copies on /update
+  tag: agentic
+  depends_on:
+  - 4
+  tier: mechanical
+  acceptance:
+  - stk-5
+  tracking_issue: null
+tasks:
+- number: 1
+  title: Declare the legacy destinations
+  steps:
+  - id: P7.T1.S1
+    text: |
+      [RED] Extend tests/unit/test_update_legacy_dests.py (or the nearest existing legacy_dests test — locate it first):
+        1. legacy_dests maps scripts/build-sheets.py and scripts/generate-stickers.py to {site}/_private/frank-stickers/<name>;
+        2. a blog carrying the file ONLY at the legacy path plans `relocate` — the operator's copy moves, it is not re-added blank;
+        [CORRECTED during execution: it plans REPLACE, not relocate (phase-7 finding p7-frank-plans-replace-not-relocate). relocate requires the legacy copy to be byte-identical to staged; the shipped port differs (frank 59 lines, ours 208). Both retire the legacy file, but #61's "the operator's file moves, edits and all" holds only for merged-class rows like .github/**; for these framework scripts frank's edits are discarded, deliberately. Both cases are pinned.]
+        3. a blog carrying a correct copy at BOTH paths plans `prune` (the stale duplicate only);
+        4. after apply, the legacy file is gone and the emptied _private/frank-stickers/ directory is pruned, with the site dir itself never removed;
+        [CORRECTED during execution: the directory is NOT pruned on frank's real tree (phase-7 finding p7-private-dir-survives-on-franks-real-tree). Six of eight entries survive — stickers.yaml, README.md, images/, sheets/ are content class, plus .DS_Store and __pycache__/ — so the first rmdir fails, correctly. Pruning is only observable on a synthetic tree holding nothing else. Phase 8 must not promise a clean directory.]
+        5. a blog that never had them is INERT — no relocate, no prune, nothing in the plan (this is the promise to gondor and stoa);
+        6. {site} expands correctly for both site_dir: blog and a config-root site.
+      Run: bash tests/run-unit.sh -k "legacy or test_update"
+      EXPECT: RED.
+  - id: P7.T1.S2
+    text: |
+      [GREEN] Add the two rows to templates/manifest.yaml's legacy_dests table, with a comment recording the third migration axis this adds: not a root change and not a rename, but a CAPABILITY ABSORPTION — a script that used to live in an operator's private directory is now shipped. Note explicitly that stickers.yaml, images/ and sheets/ are `content` and therefore NOT covered here; tools/migrate_stickers.py is their path.
+      Run: bash tests/run-unit.sh -k "legacy or test_update or test_path"
+      EXPECT: green.
+state:
+  steps:
+    P7.T1.S1:
+      state: x
+      ticked_at: '2026-08-03T15:19:39+00:00'
+      note: 'RED confirmed: 9 failed, 73 passed on -k legacy or test_update. Extended
+        tests/unit/test_update_relocation.py — the real legacy_dests test; test_update_legacy_dests.py
+        does not exist — with a THIRD-AXIS section. Three plan assertions corrected
+        against measurement: see p7-frank-plans-replace-not-relocate, p7-private-dir-survives-on-franks-real-tree,
+        p7-inertness-is-not-an-empty-plan.'
+    P7.T1.S2:
+      state: x
+      ticked_at: '2026-08-03T15:19:54+00:00'
+      note: 'GREEN: 94 passed on -k legacy or test_update or test_path. Two rows added
+        plus a comment recording the third axis (capability absorption), the two ways
+        it differs from the first two, and why no content row belongs here. Four mutations
+        of the manifest; the fourth exposed a weak guard which was then strengthened
+        to assert the CLASS of each key — see p7-mutation-4-missed-the-weak-content-guard.
+        Full suite 1172 passed, 7 skipped.'
+  completion:
+    at: '2026-08-03T15:20:09+00:00'
+    note: 'manifest.legacy_dests carries the two sticker script rows. RED 9 failed
+      -> GREEN 94 passed; full suite 1172 passed, 7 skipped (was 1157+7). Verified
+      against REAL bytes: a frank-shaped blog plans 2 REPLACE and both private copies
+      are unlinked; a gondor/stoa-shaped blog plans 2 ADD with no legacy key and nothing
+      deleted. tests/unit/test_image_compose.py unmodified. Matrix deliberately NOT
+      edited — phase 8 owns stk-5, and must cite tests/unit/test_update_relocation.py,
+      not the non-existent test_update_legacy_dests.py.'
+    observed_prs: []

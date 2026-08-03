@@ -158,6 +158,24 @@ else
   echo "[3h] mermaid-view: SKIPPED (features.mermaid_view == false)"
 fi
 
+# Die-cut sticker generation: build-sheets.py + generate-stickers.py. Unlike every
+# other bundle under templates/features/, this one ships NO Hugo assets — the
+# sticker set is a private PRINT asset (operator decision 3), so there is no
+# layout, shortcode, CSS or gallery to render.
+#
+# DEFAULT OFF: follow the glossary gate above, NOT the mermaid_view one directly
+# above this. `--get-bool` reports "false" for a key that is simply ABSENT, which is
+# exactly what an opt-in capability wants — a blog that never asked for stickers
+# gets none of them. (mermaid_view checks `--has` first because absence there means
+# TRUE; copying that shape here would ship sticker scripts to every existing blog.)
+stk_value=$(cd "$RENDERER_DIR" && go run . --answers "$ANSWERS" --get-bool features.stickers.enabled 2>/dev/null || echo "false")
+if [[ "$stk_value" == "true" ]]; then
+  echo "[3i] stickers"
+  ( cd "$RENDERER_DIR" && go run . --src "$PLUGIN_ROOT/templates/features/stickers" --dst "$TARGET" --answers "$ANSWERS" )
+else
+  echo "[3i] stickers: SKIPPED (features.stickers.enabled != true)"
+fi
+
 # Opt-in layer palette: when the config declares series_index.layers, generate
 # data/layer_palette.yaml (colours the series-index cards + roadmap). Non-fatal —
 # a machine without PyYAML gets a warning; the author runs the generator manually.
