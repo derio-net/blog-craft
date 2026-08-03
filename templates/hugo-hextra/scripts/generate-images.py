@@ -23,6 +23,14 @@ Modes:
   --only KEY[,KEY...]    generate only these keys
   --count N              generate N variants + a contact sheet (curation)
   --reference PATH       override the master reference for every image
+  --out DIR              non-destructive: write DIR/<key>.png (plus DIR/<key>-
+                         <sha>.png per variant when --count > 1) and NEVER the
+                         entry's `output:`, nor its post_process derivatives.
+                         For curating candidates against a hand-picked master.
+
+Config knobs honored on every run: `image.fallback_model` (retried when the
+primary model errors or returns no image part) and `image.timeout_ms` (HTTP cap,
+milliseconds).
 
 Env BLOG_CRAFT_TEST_MODE=1 writes a 1x1 PNG instead of calling the API (tests).
 """
@@ -143,11 +151,23 @@ def write_archive_entry(root: Path, key: str, image_bytes: bytes, prompt: str,
     return img_path
 
 
-def _contact_sheet(images: list, out: Path) -> None:
+def _contact_sheet(images: list, out: Path, cols: int | None = None,
+                   tile_width: int = 400, tile_height: int | None = 260) -> None:
+    """A screen-resolution review grid. Geometry is parameterized because
+    frank's sticker regen sheet is cols=5 / tile_width=420 (its own
+    scripts/lib/contact_sheet.py, called from generate-stickers.py:143) — a
+    sheet the operator reviews by EYE, so silently reflowing it to 3 columns
+    would be a visible regression. The defaults are exactly the values they
+    replaced, so existing callers (the --count curation sheet) are unchanged.
+    """
     from PIL import Image, ImageDraw
-    cols = min(len(images), 3)
+    # cols clamps to the image count: a wider request must not leave empty columns.
+    cols = min(len(images), cols or 3)
     rows = (len(images) + cols - 1) // cols
-    tw, th = 400, 260
+    tw = tile_width
+    # tile_height=None derives the height from the default 400x260 tile ratio;
+    # an explicit height (including the 260 default) is used verbatim.
+    th = tile_height if tile_height is not None else round(tile_width * 260 / 400)
     sheet = Image.new("RGB", (cols * tw, rows * th), "white")
     draw = ImageDraw.Draw(sheet)
     for i, (label, im) in enumerate(images):
@@ -264,13 +284,33 @@ def _gen_bytes(prompt: str, ref: Path | None, model: str, image_cfg: dict, entry
         if entry.get("image_size"):
             ic["image_size"] = entry["image_size"]
         cfg_kwargs["image_config"] = genai.types.ImageConfig(**ic)
-    resp = client.models.generate_content(
-        model=model, contents=contents,
-        config=genai.types.GenerateContentConfig(**cfg_kwargs) if cfg_kwargs else None,
-    )
-    for part in resp.parts:
-        if part.inline_data is not None:
-            return part.inline_data.data
+    # `image.timeout_ms` caps the HTTP request (the SDK's HttpOptions.timeout is
+    # in milliseconds). Absent -> no http_options at all, so a config with no
+    # knobs set stays `None` exactly as before.
+    timeout_ms = image_cfg.get("timeout_ms")
+    if timeout_ms:
+        cfg_kwargs["http_options"] = genai.types.HttpOptions(timeout=int(timeout_ms))
+    gen_cfg = genai.types.GenerateContentConfig(**cfg_kwargs) if cfg_kwargs else None
+    # WHY the fallback: the configured primary is a *preview* model
+    # (gemini-3-pro-image-preview) and preview endpoints 503/overload. frank's
+    # private sticker generator carried exactly this retry —
+    # gemini-3-pro-image-preview -> gemini-2.5-flash-image — for that reason
+    # (generate-stickers.py:37-39,123-136), and dropping it when the stickers
+    # moved onto this engine would have changed behavior on the failure path.
+    # Like frank's loop, an image-LESS response counts as a failure worth
+    # retrying, and every attempt is logged with its model name (never silent).
+    for m in [model, image_cfg.get("fallback_model")]:
+        if not m:
+            continue
+        try:
+            resp = client.models.generate_content(model=m, contents=contents, config=gen_cfg)
+        except Exception as exc:  # noqa: BLE001 - any API/transport error retries
+            print(f"  WARN: {m} error: {str(exc)[:160]}", file=sys.stderr)
+            continue
+        for part in resp.parts:
+            if part.inline_data is not None:
+                return part.inline_data.data
+        print(f"  WARN: {m} returned no image part", file=sys.stderr)
     return None
 
 
@@ -283,6 +323,8 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--count", type=int, default=None)
     ap.add_argument("--reference")
+    ap.add_argument("--out", help="non-destructive: write to <dir>/<key>.png and "
+                                  "NEVER to the entry's output: path")
     a = ap.parse_args(argv)
 
     cfg_path = Path(a.config) if a.config else find_config(Path.cwd())
@@ -307,6 +349,7 @@ def main(argv: list[str]) -> int:
         return 0
 
     only = set(a.only.split(",")) if a.only else None
+    out_dir = Path(a.out).expanduser() if a.out else None   # cwd-relative, like --reference
     model = image_cfg.get("model", "gemini-3-pro-image-preview")
     override = Path(a.reference) if a.reference else None
     curation = image_cfg.get("curation", {}) or {}
@@ -323,11 +366,14 @@ def main(argv: list[str]) -> int:
         if not prompt.strip():
             continue
         out = root / e.get("output", f"{image_cfg.get('output_dir', 'static/images')}/{key}.png")
+        # Where this run actually writes. Under --out that is NOT `output:`, and
+        # --dry-run must say so rather than name a file it will never touch.
+        dest = (out_dir / f"{key}.png") if out_dir is not None else out
         ref = primary_reference(e, image_cfg, root, override)
         if a.dry_run:
             extra = entry_reference_paths(e, root)
             refs_used = ([ref] if ref else []) + extra
-            print(f"[dry-run] {key} -> {out}  (ref={ref}, {len(prompt)} chars, "
+            print(f"[dry-run] {key} -> {dest}  (ref={ref}, {len(prompt)} chars, "
                   f"{len(refs_used)} image(s) to model)")
             for i, p in enumerate(refs_used, 1):
                 kind = "master" if (ref and p == ref and i == 1) else "entry"
@@ -346,16 +392,47 @@ def main(argv: list[str]) -> int:
                 break
             arch = write_archive_entry(root, key, b, prompt, ref, model, out, cap)
             variants.append((f"{i+1} · {arch.stem.split('-')[-1]}", arch))
+        # The archive FIFO cap prunes by mtime on EVERY write_archive_entry call,
+        # so a --count run larger than `curation.archive_cap` deletes its own
+        # earlier variants while it is still in flight. Everything downstream
+        # (the contact sheet, and the --out copy) reads every variant, so drop
+        # the pruned ones loudly rather than dying on a file we deleted.
+        live = [(lbl, p) for lbl, p in variants if p.is_file()]
+        if len(live) != len(variants):
+            print(f"  WARN: {key}: {len(variants) - len(live)} variant(s) already pruned "
+                  f"by archive_cap={cap}; raise it to keep a full --count run",
+                  file=sys.stderr)
+            variants = live
         if variants:
-            out.parent.mkdir(parents=True, exist_ok=True)
-            out.write_bytes(variants[-1][1].read_bytes())
+            if out_dir is not None:
+                # NON-DESTRUCTIVE MODE. The entry's `output:` is a CURATED
+                # artifact: frank's sticker workflow is "generate into regen/,
+                # pick a winner, copy it over the master by hand"
+                # (frank-stickers/README.md:28-29, generate-stickers.py:71,89).
+                # Writing `output:` on every regen would destroy hand-picked
+                # artwork — the thing the print workflow exists to protect — so
+                # here we never touch it, never create its parent dirs, and skip
+                # post_process (those steps target the PUBLISHED asset and would
+                # clobber shipped derivatives).
+                out_dir.mkdir(parents=True, exist_ok=True)
+                for _lbl, arch in variants:
+                    raw = arch.read_bytes()
+                    if len(variants) > 1:
+                        # curation: every candidate is visible side by side. Only
+                        # for multi-variant runs, so a plain regen leaves exactly
+                        # one file per key, as frank's regen/ dir has always had.
+                        (out_dir / arch.name).write_bytes(raw)
+                    dest.write_bytes(raw)   # bare name: the last variant wins
+            else:
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                dest.write_bytes(variants[-1][1].read_bytes())
             if count > 1 and curation.get("contact_sheet", True):
                 from PIL import Image
                 _contact_sheet([(lbl, Image.open(p)) for lbl, p in variants],
                                root / ".regen-archive" / key / "contact-sheet.png")
-            if e.get("post_process"):
+            if out_dir is None and e.get("post_process"):
                 post_process(out, e["post_process"])
-            print(f"  {key} -> {out}")
+            print(f"  {key} -> {dest}")
     return rc
 
 
