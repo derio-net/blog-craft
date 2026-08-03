@@ -373,6 +373,30 @@ entries collide on that basename, **every** colliding entry is written as
 iteration order), extension-correct, and for stickers it yields exactly
 `sticker-<key>.png` — frank's name.
 
+### 5b. Entry shape, and two silent failures made loud
+
+**The entry-level order reference is bracketed.** A sticker entry says
+`composition.order: composition_orders[sticker]`. A bare `sticker` is not a
+synonym: `_ORDER_REF` (`generate-images.py:99`) only matches the bracketed form,
+an unmatched string resolves to `[]`, and `main()` skips an entry whose composed
+prompt is empty. So the wrong spelling yields **all 18 stickers, no output, exit
+code 0** — found during phase 4 before phase 5 could lose hours to it.
+
+Two silent failures are therefore made loud (phase 8, task 4). Both convert a
+silent wrong outcome into a loud one, and neither can affect a config that is
+correct today:
+
+- **A duplicate `(sheet, pos)`** currently means last-wins, so a sticker
+  vanishes from a *printed* page — materials and cutting time spent on a sheet
+  that is missing a sticker. `build-sheets.py` exits non-zero naming both keys.
+  This IS a behaviour change against frank's code, but an unobservable one:
+  frank's 18 stickers occupy 18 distinct positions (measured).
+- **An empty composed prompt** is skipped in silence today, for covers as well
+  as stickers, so a typo'd order name produces nothing and reports success.
+  `generate-images.py` now WARNs naming the key. Deliberately a warning and not
+  an error: an operator may have a legitimately empty entry, and changing the
+  exit code would be a real behaviour change on the cover path.
+
 ### 6. Schema migration v6 → v7
 
 The ladder convention is a pure, idempotent `setdefault` migration per rung

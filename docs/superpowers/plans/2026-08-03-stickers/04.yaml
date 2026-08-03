@@ -27,6 +27,10 @@ tasks:
         6. two sheets are produced when entries declare sheet 1 and 2, named <prefix>-A4-sheet1.png / -sheet2.png with the prefix from config, NOT hardcoded "frank-";
         7. entries lacking sheet/pos are skipped, not misplaced;
         8. page dimensions are DERIVED from size+dpi, not configured: size a4 + dpi 300 -> exactly 2480x3508 (round(210/25.4*300)=2480, round(297/25.4*300)=3508 — verified exact, these ARE frank's hardcoded constants). Assert a4+600dpi doubles them;
+        [CORRECTED during execution — this step asked for two FALSE assertions (phase-4 finding p4-two-false-assertions-in-plan-step, fixed):
+         (a) `dpi == (300, 300)` does not read back literally. PNG stores resolution in the pHYs chunk as INTEGER px/metre, so 300dpi is written as 11811 px/m and Pillow reads back (299.9994, 299.9994). Assert round()-ed dpi PLUS the exact chunk (11811, 11811, 1) — which is byte-identical to frank's committed sheet. The integer chunk is the real print contract.
+         (b) 600dpi does NOT double the width: round(210/25.4*600) = 4961, not 2*2480 = 4960, because round() is not linear (210/25.4*600 = 4960.63). The HEIGHT does double (7016 = 2*3508), which is what makes the trap plausible. Assert the DERIVATION per axis, never a scale factor.
+         Consequence for phase 8 docs: never write "at 600 dpi the sheet is twice as large"; write "derived per axis, round(mm/25.4*dpi)".]
         9. an UNRECOGNISED size exits non-zero naming the value and the known sizes — validate_config deliberately does not check size (phase-3 discovery p3-stickers-validation-semantics), so this script is the only guard;
         10. grid genuinely works: grid [2,4] lays out 2 columns x 4 rows with pos valid 1..8 and pos 9 rejected; and grid [3,3] reproduces frank's exact cell size and offsets (the generalised algebra must be numerically identical to the hardcoded 3 for frank's case — that equality IS the regression test).
       Run: bash tests/run-unit.sh -k test_build_sheets
@@ -99,38 +103,41 @@ tasks:
 state:
   steps:
     P4.T1.S1:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-08-03T12:36:56+00:00'
       note: null
     P4.T1.S2:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-08-03T12:36:56+00:00'
       note: null
     P4.T2.S1:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-08-03T12:43:45+00:00'
       note: null
     P4.T2.S2:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-08-03T12:43:46+00:00'
       note: null
     P4.T3.S1:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-08-03T12:48:03+00:00'
       note: null
     P4.T3.S2:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-08-03T12:48:04+00:00'
       note: null
     P4.T4.S1:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-08-03T12:50:56+00:00'
       note: null
     P4.T4.S2:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-08-03T12:50:57+00:00'
       note: null
   completion:
-    at: null
-    note: null
+    at: '2026-08-03T13:07:31+00:00'
+    note: All 8 steps green (53 passed in the targeted sweep). Executor died on a
+      529 after journaling but before committing; orchestrator verified the tree independently
+      and committed. 5 journal entries, 2 open findings triaged into phase 8 task
+      4 and plan 05.
     observed_prs: []

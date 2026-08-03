@@ -74,6 +74,24 @@ tasks:
       Regenerate the acceptance reports and confirm the full suite is green end to end.
       Run: fr acceptance report; BLOG_CRAFT_TEST_VENV="$HOME/.cache/bcv" bash tests/run-unit.sh
       EXPECT: full suite green; report_linked.md/html and report_local.html updated for the commit.
+- number: 4
+  title: Two silent failures made loud — duplicate (sheet,pos), and an empty composed prompt
+  steps:
+  - id: P8.T4.S1
+    text: |
+      [RED] Extend tests/unit/test_build_sheets.py:
+        1. two stickers claiming the SAME (sheet, pos) exits non-zero naming BOTH keys and the position. Today build-sheets.py inherits frank's `sheets[s["sheet"]][s["pos"]] = key` last-wins, so one sticker silently vanishes from a PRINTED page — paper, ink and cutting time spent on a sheet missing a sticker, with no warning anywhere (phase-4 finding p4-duplicate-sheet-pos-silently-drops-a-sticker). pos out of range is already loud; a duplicate is not;
+        2. frank's real 18 stickers (18 distinct (sheet,pos) pairs across sheets 1-2, pos 1..9 — measured) still build both sheets successfully, so the guard costs frank nothing.
+      And extend tests/unit/test_generate_images_out_dir.py (or the nearest generate-images test):
+        3. an entry whose composition order does not resolve (e.g. `order: sticker` instead of `order: composition_orders[sticker]`) composes an empty prompt, and the engine now prints a WARN naming the key instead of skipping in silence. Assert the WARN text; do NOT change the exit code — today the entry is skipped with rc 0 and an operator may have a legitimately empty entry, so this stays a warning, not an error (phase-4 finding p4-order-sticker-must-be-bracketed-reference).
+      Run: bash tests/run-unit.sh -k "test_build_sheets or test_generate_images_out_dir"
+      EXPECT: RED on 1 and 3; 2 green already.
+  - id: P8.T4.S2
+    text: |
+      [GREEN] build-sheets.py: raise SystemExit on a duplicate (sheet, pos), naming both sticker keys and the position. generate-images.py: WARN naming the key when a composed prompt is empty, immediately before the existing `continue` (line ~439).
+      Both convert a SILENT wrong outcome into a LOUD one, and neither can affect a config that is correct today: frank has no duplicate positions, and an unresolvable order already produces nothing. Declare both in the CHANGELOG as deliberate new guards — the duplicate guard IS a behaviour change against frank's last-wins, it is just an unobservable one for frank's data.
+      Run: bash tests/run-unit.sh -k "test_build_sheets or test_generate_images or test_stickers"
+      EXPECT: green.
 state:
   steps:
     P8.T1.S1:
@@ -97,6 +115,14 @@ state:
       ticked_at: null
       note: null
     P8.T3.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P8.T4.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P8.T4.S2:
       state: ' '
       ticked_at: null
       note: null
