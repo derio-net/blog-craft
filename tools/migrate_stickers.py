@@ -96,6 +96,24 @@ MOOD_TEMPLATE = "Frank's expression: {}."
 PASTE_BEGIN = "# ---8<--- paste this under `image:` in .blog-craft.yaml ---8<---"
 PASTE_END = "# ---8<--- end paste ---8<---"
 
+# Printed INSTEAD of a `clothing:` key when the target config already has that
+# layer. The operator pastes this block into their config, and PyYAML resolves a
+# duplicate mapping key by silently taking the LAST one — so emitting `clothing: {}`
+# against an existing table does not merely repeat it, it DESTROYS it, and every
+# entry selecting from it loses its clothing section with no error anywhere.
+CLOTHING_KEPT_NOTE = (
+    "NOTE: image.layers.clothing already exists in this config, so it is "
+    "deliberately NOT part of the block above.\n"
+    "      Sticker entries carry free-form clothing prose, which _resolve_modifier "
+    "returns unchanged via its\n"
+    "      passthrough (verified here for every sticker), so the existing layer "
+    "already serves the stickers as-is.\n"
+    "      A second `clothing:` key would SILENTLY REPLACE that table — YAML "
+    "duplicate keys are last-wins — and\n"
+    "      every entry selecting from it would then compose with no clothing "
+    "section at all."
+)
+
 # Composed into the prompt, so an empty one changes the section COUNT: frank's
 # `"\n\n".join` does not filter empty sections while `compose()` does. The two
 # agree only because all eight sections are non-empty for all 18 stickers.
@@ -132,13 +150,20 @@ def dump(obj) -> str:
 
 # --- the layer block the operator pastes -------------------------------------
 
-def layer_block(legacy: dict) -> dict:
-    """The `image:` fragment: the eight-token order plus the seven layers it names.
+def layer_block(legacy: dict, existing_layers: dict | None = None) -> dict:
+    """The `image:` fragment: the eight-token order plus the layers it names.
 
     Layers are emitted in composition order (minus the reserved `scene`), which is
     both the most readable arrangement for a reader checking the order against the
     layers and the arrangement the committed fixture config carries.
+
+    `clothing` is the one key whose emission depends on the TARGET config, because
+    it is the one name the sticker order shares with an ordinary cover layer — see
+    `CLOTHING_KEPT_NOTE`. The five `sticker_*` names and `sticker_mood` are
+    namespaced precisely so they cannot collide, and `composition_orders.sticker` is
+    a new named order; `mood` is never emitted at all.
     """
+    existing = existing_layers or {}
     missing = [k for k in PROSE_LAYERS.values() if not str(legacy.get(k) or "").strip()]
     if missing:
         raise Fail("the legacy file is missing prose for: " + ", ".join(missing))
@@ -147,8 +172,12 @@ def layer_block(legacy: dict) -> dict:
         if tok == "scene":
             continue                              # reserved: comes from the entry
         if tok == "clothing":
-            # MUST be emitted. An absent layer resolves to "" and compose() drops
-            # the section — the clothing sentence would vanish from all 18 prompts.
+            if tok in existing:
+                # Emitting it here would not be redundant, it would be DESTRUCTIVE.
+                continue
+            # Absent from the target: it MUST be emitted. An unknown layer resolves
+            # to "" and compose() drops the section — the clothing sentence would
+            # vanish from all 18 prompts.
             layers[tok] = {}
         elif tok == "sticker_mood":
             layers[tok] = {"_template": MOOD_TEMPLATE}
@@ -156,6 +185,49 @@ def layer_block(legacy: dict) -> dict:
             layers[tok] = _Block(legacy[PROSE_LAYERS[tok]])
     return {"image": {"composition_orders": {"sticker": list(STICKER_ORDER)},
                       "layers": layers}}
+
+
+def _resolve_layer():
+    """The shipped `tools/compose.py` resolver — the engine's own, not a model of it."""
+    here = str(Path(__file__).resolve().parent)
+    if here not in sys.path:
+        sys.path.insert(0, here)
+    from compose import resolve_layer
+    return resolve_layer
+
+
+def check_clothing_passthrough(layer, stickers: list) -> None:
+    """Verify the EXISTING clothing layer returns each sticker's prose unchanged.
+
+    Omitting `clothing` from the block rests on a claim — that a cover clothing
+    table already serves stickers, because their value is free-form prose and
+    `_resolve_modifier` passes an unmatched string through. That claim is true for
+    frank's table and it is checked rather than trusted, because the ways it can
+    fail are all silent:
+
+    - a value that happens to equal a GROUP name hits the named lookup, resolves to
+      a container, and `_chunk` returns "" — seven sections instead of eight;
+    - a multi-step `_select` on the existing layer walks entry fields that sticker
+      entries do not carry, and an intermediate miss returns "" for all of them;
+    - a `_template` on the existing layer would frame every sticker's clothing.
+
+    Running the real resolver over the real values catches all three at once, and
+    anything else of the same shape that nobody has thought of yet.
+    """
+    resolve_layer = _resolve_layer()
+    bad = []
+    for s in stickers:
+        want = s["clothing"]
+        got = resolve_layer("clothing", layer, {"clothing": want})
+        if got != want:
+            bad.append(f"{s['key']} -> {(got or '<dropped>')[:60]!r}")
+    if bad:
+        raise Fail(
+            "the config's existing image.layers.clothing does not return these "
+            "stickers' clothing prose unchanged, so their clothing section would be "
+            "reworded or dropped: " + "; ".join(bad) + ". Most often the value is a "
+            "bare group name from that table rather than a sentence — reword the "
+            "sticker's clothing prose, or give the sticker order its own layer name")
 
 
 # --- path relocation ---------------------------------------------------------
@@ -395,8 +467,29 @@ def _run(a) -> int:
     _inside(root, root / stk["images_dir"], "features.stickers.images_dir")
     _inside(root, root / stk["sheets_dir"], "features.stickers.sheets_dir")
 
-    block = layer_block(legacy)
+    existing_layers = (cfg.get("image") or {}).get("layers") or {}
+    reuse_clothing = isinstance(existing_layers, dict) and "clothing" in existing_layers
+    block = layer_block(legacy, existing_layers if reuse_clothing else None)
     items = entries(legacy, stk, legacy_rel)
+    if reuse_clothing:
+        check_clothing_passthrough(existing_layers["clothing"], legacy["stickers"])
+    # Any REMAINING key the block emits that the config already defines will be
+    # replaced on paste, silently, by YAML's last-wins rule. Against frank that set
+    # is empty (measured: his layers are base_character, base_atmosphere,
+    # reference_guidance, clothing, mood, and his orders are hero / scenery / banner
+    # / banner_transform) — the `sticker_*` namespacing is exactly what makes it
+    # empty. A WARN rather than a refusal: for a prose layer, replacing it with the
+    # legacy prose is what re-running the migration MEANS. Only `clothing` needs the
+    # value preserved, and that one is omitted above.
+    existing_orders = (cfg.get("image") or {}).get("composition_orders") or {}
+    clashes = [f"image.layers.{k}" for k in block["image"]["layers"]
+               if isinstance(existing_layers, dict) and k in existing_layers]
+    if isinstance(existing_orders, dict) and "sticker" in existing_orders:
+        clashes.append("image.composition_orders.sticker")
+    if clashes:
+        print(f"WARN: pasting this block REPLACES keys the config already defines "
+              f"(YAML duplicate keys are last-wins): {', '.join(clashes)}",
+              file=sys.stderr)
     new_text = (f"# Sticker prompts — generated by tools/migrate_stickers.py from "
                 f"{legacy_rel}/{legacy_path.name}.\n"
                 f"# Paste the layer block the tool printed into .blog-craft.yaml, "
@@ -430,6 +523,8 @@ def _run(a) -> int:
             move(src, dst)
 
     print(f"\n{PASTE_BEGIN}\n{dump(block)}{PASTE_END}")
+    if reuse_clothing:
+        print(CLOTHING_KEPT_NOTE)
     return 0
 
 

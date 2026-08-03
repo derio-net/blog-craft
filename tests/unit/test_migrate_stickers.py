@@ -69,6 +69,27 @@ COVER_MOOD = {
     "satisfied": "Frank's expression is satisfied — a small closed-mouth smile.",
 }
 
+# frank's real cover `clothing` layer (`frank/.blog-craft.yaml:136-153`), read from
+# the host: a NESTED two-level table keyed by group. Structurally faithful, with the
+# real group names, because those keys ARE the collision surface. Measured
+# 2026-08-03: it declares no `_select` and no directives, and 85 of frank's 90 cover
+# entries select from it with the BRACKET form `group[variant]`.
+COVER_CLOTHING = {
+    "generic": {"default": "Frank's torso/body is exposed server hardware"},
+    "building": {
+        "default": "Frank's torso/body is exposed server hardware",
+        "dirty": "Frank wears dirty/patched work clothes.",
+        "overalls": "Frank wears overalls.",
+        "overalls_lab": "Frank wears overalls under a lab coat.",
+        "apron": "Frank wears a work apron with tools in the pockets.",
+    },
+    "operating": {
+        "hoodie_and_sunglasses": "Frank wears a hoodie and sunglasses.",
+        "tshirt_rolled_sleeves": "Frank wears t-shirt with rolled-up sleeves.",
+    },
+    "papers": {"default": "Frank wears an open white lab coat."},
+}
+
 
 # --- fixture blog -------------------------------------------------------------
 
@@ -89,6 +110,26 @@ def base_config() -> dict:
     stk["prompts_file"] = f"{NEW_REL}/stickers-prompts.yaml"
     stk["images_dir"] = f"{NEW_REL}/images"
     stk["sheets_dir"] = f"{NEW_REL}/sheets"
+    return cfg
+
+
+def franklike_config() -> dict:
+    """frank's ACTUAL pre-paste shape: populated `clothing` AND `mood` tables, and
+    cover orders that name both plainly.
+
+    `base_config` above has neither layer populated, which is the one case where
+    emitting `clothing: {}` is correct — so every golden assertion written against
+    it is blind to the whole class of "the pasted block collides with what the blog
+    already has". This config exists to close that blind spot.
+    """
+    cfg = base_config()
+    img = cfg["image"]
+    img["layers"] = {
+        "base_character": "Frank — a chibi-proportioned green Frankenstein monster.",
+        "clothing": copy.deepcopy(COVER_CLOTHING),
+        "mood": copy.deepcopy(COVER_MOOD),
+    }
+    img["composition_orders"] = {"hero": ["base_character", "clothing", "mood", "scene"]}
     return cfg
 
 
@@ -649,6 +690,136 @@ def test_every_declared_reference_path_exists_after_the_move(tmp_path):
         ri = e["composition"]["reference_images"]
         for rel in [ri["primary"], *ri["clothing"]]:
             assert (blog / rel).is_file(), (e["key"], rel)
+
+
+# --- the pasted block must not collide with what the blog already has ---------
+#
+# spec §8 step 3 tells the operator to paste the printed block into
+# `.blog-craft.yaml`. PyYAML resolves a duplicate mapping key by silently taking
+# the LAST one, so any key the block emits that the config already defines is
+# DESTROYED on paste — no error, no warning.
+#
+# Measured against frank's real config (2026-08-03): `image.layers.clothing` is a
+# populated nested table and 85 of his 90 cover entries select from it with the
+# bracket form `group[variant]`. Under a `clothing: {}` paste, `_resolve_modifier`
+# takes the bracket path, `table.get(group)` is None, and the section resolves to
+# "" — 85 cover prompts silently lose their clothing sentence entirely.
+
+@pytest.fixture(scope="module")
+def franklike(tmp_path_factory):
+    """A migrated frank-LIKE blog: populated clothing + mood, block pasted."""
+    cfg = franklike_config()
+    blog = build_legacy_blog(tmp_path_factory.mktemp("franklike"), cfg=cfg)
+    r = run(blog)
+    assert r.returncode == 0, r.stdout + r.stderr
+    for e in entries_of(blog, cfg):
+        ri = e["composition"]["reference_images"]
+        for rel in [ri["primary"], *ri["clothing"]]:
+            if not (blog / rel).is_file():
+                _png(blog / rel)
+    paste_and_shadow(blog, r.stdout, cfg)
+    return blog, r.stdout
+
+
+def test_an_absent_clothing_layer_is_emitted_as_an_empty_table(migrated):
+    """Without it the layer is unknown, `resolve_layer` returns "" and compose()
+    drops the section — the clothing sentence vanishes from all 18 prompts."""
+    _, out = migrated
+    layers = yaml.safe_load(layer_block(out))["image"]["layers"]
+    assert layers["clothing"] == {}
+
+
+def test_an_existing_clothing_layer_is_never_emitted(franklike):
+    """Emitting it here is not redundant, it is DESTRUCTIVE (duplicate-key
+    last-wins). The existing table already serves stickers: their clothing is
+    free-form prose, which `_resolve_modifier` returns via passthrough."""
+    _, out = franklike
+    block = layer_block(out)
+    assert "clothing" not in yaml.safe_load(block)["image"]["layers"]
+    assert re.search(r"(?m)^\s*clothing:", block) is None, block
+    assert ms.CLOTHING_KEPT_NOTE in out, "the omission must be explained, not silent"
+
+
+@pytest.mark.parametrize("key", KEYS)
+def test_the_goldens_still_reproduce_against_a_franklike_config(franklike, key):
+    """THE blind-spot closer: the 18-golden proof, run against a config that
+    already has populated `clothing` and `mood` tables."""
+    blog, _ = franklike
+    with open(os.path.join(GOLDEN, f"{key}.txt"), "rb") as fh:
+        want = fh.read()
+    got = print_prompt(blog, key)
+    if got != want:
+        gs = got.decode().rstrip("\n").split("\n\n")
+        ws = want.decode().rstrip("\n").split("\n\n")
+        detail = [f"{key}: {len(gs)} sections composed, {len(ws)} in the golden"]
+        for i in range(max(len(gs), len(ws))):
+            g = gs[i] if i < len(gs) else None
+            w = ws[i] if i < len(ws) else None
+            if g != w:
+                detail.append(f"  section {i + 1} differs:\n    got:  {str(g)[:200]}"
+                              f"\n    want: {str(w)[:200]}")
+        pytest.fail("\n".join(detail))
+
+
+def test_the_existing_cover_layers_still_RESOLVE_after_the_paste(franklike):
+    """Presence is not enough — the claim is that frank's COVERS still compose. So
+    this resolves a real bracket selector (`building[overalls]`, the shape 85 of his
+    90 entries use) and a real mood key through the shipped `compose.py`, against
+    the merged layers."""
+    blog, _ = franklike
+    from compose import resolve_layer          # tools/ is on sys.path
+    layers = yaml.safe_load((blog / "shadow.blog-craft.yaml").read_text())["image"]["layers"]
+    assert layers["clothing"] == COVER_CLOTHING
+    assert layers["mood"] == COVER_MOOD
+    assert resolve_layer("clothing", layers["clothing"],
+                         {"clothing": "building[overalls]"}) == "Frank wears overalls."
+    assert resolve_layer("mood", layers["mood"],
+                         {"mood": "curious"}) == COVER_MOOD["curious"]
+    # ... and the sticker path through that SAME table is untouched prose
+    assert resolve_layer("clothing", layers["clothing"],
+                         {"clothing": "Frank wears his white lab coat over a shirt."}) \
+        == "Frank wears his white lab coat over a shirt."
+
+
+def test_frank_has_no_other_colliding_key_so_the_run_is_warning_free(franklike):
+    """The `sticker_*` namespacing is what closes the rest of the surface. Measured
+    against frank's real config: his layers are base_character, base_atmosphere,
+    reference_guidance, clothing, mood, and his orders are hero / scenery / banner /
+    banner_transform — so once `clothing` is handled, nothing else the block emits
+    already exists. `franklike` reproduces that shape, so the run must be silent."""
+    blog, _ = franklike
+    r = run(blog)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "WARN" not in r.stderr, r.stderr
+
+
+def test_a_key_the_config_already_defines_is_warned_about(tmp_path):
+    """Generalising past frank: ANY emitted key that already exists is replaced on
+    paste. For a prose layer that is what re-running the migration means, so it is a
+    WARN — but never silence."""
+    cfg = franklike_config()
+    cfg["image"]["layers"]["sticker_border_spec"] = "some older sticker prose"
+    cfg["image"]["composition_orders"]["sticker"] = ["sticker_border_spec", "scene"]
+    blog = build_legacy_blog(tmp_path, cfg=cfg)
+    r = run(blog)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "image.layers.sticker_border_spec" in r.stderr
+    assert "image.composition_orders.sticker" in r.stderr
+
+
+def test_a_sticker_clothing_value_colliding_with_a_group_key_is_refused(tmp_path):
+    """The residual hazard of reusing an existing table: a sticker whose clothing
+    prose happens to EQUAL a group name hits the named lookup, resolves to a
+    container, and `_chunk` returns "" — seven sections instead of eight, silently.
+    The tool verifies the passthrough for all 18 rather than assuming it."""
+    d = yaml.safe_load(Path(VENDORED).read_text())
+    d["stickers"][2]["clothing"] = "building"          # a group name, not prose
+    blog = build_legacy_blog(tmp_path, cfg=franklike_config(),
+                             legacy_text=yaml.safe_dump(d, sort_keys=False))
+    r = run(blog)
+    assert r.returncode != 0
+    assert d["stickers"][2]["key"] in r.stdout + r.stderr
+    assert "clothing" in r.stdout + r.stderr
 
 
 def test_without_move_assets_the_curated_masters_stay_put(tmp_path):
