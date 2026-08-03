@@ -1202,3 +1202,55 @@ rows:
       resetting innerHTML. Not in CI because focus and scrolling are live-DOM behaviour.
       Journal finding dd6c3194d9f2 stays open - a focusable pre inside the theme's role=img
       wrapper is an accepted a11y tension, not yet checked with a screen reader.
+  - id: stk-1
+    capability: Sticker generation
+    acceptance: Operator regenerates any of frank's 18 stickers and the composed prompt
+      is byte-identical to the pre-port one
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-08-03-sticker-generation-design.md
+    levels: {}
+    status: not-implemented
+    notes: Proof of the no-behavioral-change requirement. Golden fixtures generated
+      from frank's legacy generate-stickers.py; guards _template, the sticker composition
+      order, and layer namespacing together.
+  - id: stk-2
+    capability: Sticker generation
+    acceptance: Operator regenerates a sticker without overwriting the curated master
+      image
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-08-03-sticker-generation-design.md
+    levels: {}
+    status: not-implemented
+    notes: 'Data-loss guard. frank writes only to regen/; blog-craft writes the last
+      variant to the entry output: path (generate-images.py:351). Needs the new --out
+      dir mode.'
+  - id: stk-3
+    capability: Sticker generation
+    acceptance: Operator rebuilds the A4 sheets and prints at 100% with the green keyline
+      as a true cut path
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-08-03-sticker-generation-design.md
+    levels: {}
+    status: not-implemented
+    notes: 2480x3508 @ 300 DPI, centered 3x3, dpi written into the PNG. The only genuinely
+      new code in the port.
+  - id: stk-4
+    capability: Sticker generation
+    acceptance: A blog without features.stickers gets no sticker surface and no change
+      to its composed cover prompts
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-08-03-sticker-generation-design.md
+    levels: {}
+    status: not-implemented
+    notes: Blast-radius promise to gondor and stoa. Includes the requirement that existing
+      test_image_compose.py passes unmodified.
+  - id: stk-5
+    capability: Sticker generation
+    acceptance: frank's next /update retires its private sticker implementation and
+      adopts the shipped one
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-08-03-sticker-generation-design.md
+    levels: {}
+    status: not-implemented
+    notes: Scripts retire automatically via manifest.legacy_dests; stickers.yaml/images/sheets
+      are content class and need the one-time tools/migrate_stickers.py transform.
