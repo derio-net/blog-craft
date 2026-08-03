@@ -17,6 +17,7 @@ tasks:
   - id: P5.T1.S1
     text: |
       Vendor the inputs, then derive the goldens ONCE and commit them, so no later test needs frank's checkout to exist.
+        PREREQUISITE (verified 2026-08-03): frank's repo is NOT mounted inside the isolation container — `fr isolation exec -- ls /Users/derio/Docs/projects/DERIO_NET/frank/...` fails with No such file or directory, while the same ls from the host worktree cwd succeeds. Steps (a) and (b) MUST therefore run as HOST commands, i.e. `cd /Users/derio/.cache/fr/worktrees/blog-craft/feat__stickers && <cmd>`, NOT through `fr isolation exec`. Once the fixture and the goldens are committed, every later step and every test is container-safe and needs frank never again — which is the whole point of vendoring.
         a. Copy frank's real data in verbatim:
            cp /Users/derio/Docs/projects/DERIO_NET/frank/blog/_private/frank-stickers/stickers.yaml tests/fixtures/stickers/frank-stickers.yaml
         b. Derive 18 goldens by calling frank's OWN compose_prompt(). Its module imports google.genai, PIL and lib.contact_sheet at top level, and lib.contact_sheet NO LONGER EXISTS in frank (deleted by frank's blog-craft cutover bd0415e6), so stub all of them — compose_prompt touches none:

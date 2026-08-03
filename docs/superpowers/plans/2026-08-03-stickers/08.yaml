@@ -39,6 +39,10 @@ tasks:
   - id: P8.T2.S1
     text: |
       Add the CHANGELOG entry under Unreleased (the repo stages there and renames on bump — tests/unit/test_changelog.py validates both shapes). Cover: the capability, the five divergences it resolves, the `_template` directive, --out as a data-loss guard, v7, and the /update relocation. State plainly that frank's sticker generation had been broken since its cutover.
+      Also record the two bugs fixed in passing, both PRE-EXISTING and both on the DEFAULT cover path rather than the sticker path:
+        - curation.archive_cap pruned a --count N run's own earlier variants mid-run, after which the contact sheet tried to open the deleted files (phase-2 finding p2-archive-cap-prunes-its-own-count-run, fixed);
+        - --dry-run misreported the destination path; it now names the real one.
+      And note that the run-level sticker contact sheet is produced by the shim, not the engine (phase-2 finding p2-decision6-insufficient-for-frank-sheet) — the engine's per-key sheet is unchanged.
       Run: bash tests/run-unit.sh -k test_changelog
       EXPECT: green.
   - id: P8.T2.S2

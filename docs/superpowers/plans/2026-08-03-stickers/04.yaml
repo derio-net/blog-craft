@@ -50,7 +50,7 @@ tasks:
       EXPECT: RED.
   - id: P4.T2.S2
     text: |
-      [GREEN] Write templates/features/stickers/scripts/generate-stickers.py: resolve features.stickers.prompts_file, then delegate to the sibling generate-images.py (import it as a module rather than shelling out, so a traceback is legible) with --out defaulting to "regen". Map frank's flags: --list, --only, --out, --dry-run (-> per-key --print-prompt plus the resolved refs).
+      [GREEN] Write templates/features/stickers/scripts/generate-stickers.py: resolve features.stickers.prompts_file, then delegate to the sibling generate-images.py. NOTE (phase-2 discovery p2-out-dir-contract-for-phase4): --out is CWD-relative like --reference, so the shim MUST pass an ABSOLUTE path, resolved against the config root. Also: a --count N run needs curation.archive_cap >= N or the FIFO prunes its own variants mid-run (import it as a module rather than shelling out, so a traceback is legible) with --out defaulting to "regen". Map frank's flags: --list, --only, --out, --dry-run (-> per-key --print-prompt plus the resolved refs).
       Comment the WHY: frank's README documents this exact CLI; preserving it means the operator's runbook and muscle memory survive the port, which is part of "no behavioral changes".
       Run: bash tests/run-unit.sh -k "test_generate_stickers_shim or test_generate_images"
       EXPECT: green.
@@ -70,6 +70,25 @@ tasks:
     text: |
       [GREEN] tools/bootstrap-render.sh: add a stickers block mirroring the glossary gate at lines 118-123 (read features.stickers.enabled via the renderer's --get-bool, default false, copy templates/features/stickers/scripts/* into the staging scripts dir, else echo a SKIPPED line). Default-OFF semantics: absence means off, unlike the mermaid_view block above it which is default-on — follow glossary, not mermaid_view.
       Run: bash tests/run-unit.sh -k "test_features_gating or test_path_roots or test_mirrors"
+      EXPECT: green.
+- number: 4
+  title: Run-level contact sheet — the artifact Decision 6 alone does not produce
+  steps:
+  - id: P4.T4.S1
+    text: |
+      [RED] Extend tests/unit/test_generate_stickers_shim.py:
+        1. a run generating >=2 keys writes <out>/contact-sheet.png;
+        2. that sheet is laid out cols=5, tile_width=420 (assert the resulting .size), matching frank's geometry exactly;
+        3. its tiles are the GENERATED KEYS (one per key), labelled by key — not the variants of a single key;
+        4. a run generating exactly 1 key writes NO contact sheet (frank's threshold is >=2, generate-stickers.py:141);
+        5. the engine's own per-key .regen-archive sheet is unaffected (still only on --count > 1).
+      Run: bash tests/run-unit.sh -k test_generate_stickers_shim
+      EXPECT: RED.
+  - id: P4.T4.S2
+    text: |
+      [GREEN] In the shim, after delegating generation, import _contact_sheet from the sibling generate-images.py and build the run-level sheet over the keys that succeeded, at <out>/contact-sheet.png, cols=5, tile_width=420, only when >=2 succeeded.
+      WHY this lives in the shim and not the engine (phase-2 finding p2-decision6-insufficient-for-frank-sheet): the engine's sheet is per-KEY across that key's variants and fires only on --count > 1; frank's is per-RUN across keys and fires on >=2 keys. frank generates one image per key, so the engine's sheet is never produced. These are different artifacts, so the sticker-workflow layer owns the sticker-workflow one. Do NOT change the engine's per-key sheet.
+      Run: bash tests/run-unit.sh -k "test_generate_stickers_shim or contact_sheet"
       EXPECT: green.
 state:
   steps:
@@ -94,6 +113,14 @@ state:
       ticked_at: null
       note: null
     P4.T3.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P4.T4.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P4.T4.S2:
       state: ' '
       ticked_at: null
       note: null

@@ -147,6 +147,23 @@ Two further decisions taken during design, flagged for review:
    so frank's regen contact sheet keeps its `cols=5, tile_width=420`
    geometry instead of silently reflowing to 3 columns.
 
+> **Decision 6 is necessary but not sufficient** (found during phase 2
+> implementation, 2026-08-03). The two contact sheets are different artifacts,
+> not the same artifact at different sizes:
+>
+> | | blog-craft engine | frank's sticker script |
+> |---|---|---|
+> | scope | one sheet per **key**, across that key's variants | one sheet per **run**, across the keys generated |
+> | path | `.regen-archive/<key>/contact-sheet.png` | `<out>/contact-sheet.png` |
+> | trigger | only when `--count > 1` | whenever ≥2 keys succeeded (`generate-stickers.py:141-144`) |
+>
+> frank generates **one image per key**, so `count == 1` and the engine's sheet
+> is never produced at all — geometry parameters alone cannot bridge that.
+> Phase 4's `generate-stickers.py` shim therefore builds the run-level sheet
+> itself, calling `_contact_sheet(..., cols=5, tile_width=420)` over the keys it
+> generated. The engine keeps its per-key sheet unchanged; the shim owns
+> frank's workflow semantics, which is the right split.
+
 ## Architecture
 
 ### 1. Config surface
