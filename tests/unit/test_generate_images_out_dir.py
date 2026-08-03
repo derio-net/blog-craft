@@ -23,6 +23,7 @@ import importlib.util
 import os
 import subprocess
 import sys
+from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
 import yaml
@@ -49,11 +50,12 @@ def _blog(tmp_path, entries=(E1,), cfg=CFG):
     return tmp_path / ".blog-craft.yaml"
 
 
-def _run(tmp_path, *args, entries=(E1,), cfg=CFG):
+def _run(tmp_path, *args, entries=(E1,), cfg=CFG, cwd=None):
     cfg_path = _blog(tmp_path, entries, cfg)
     env = dict(os.environ, BLOG_CRAFT_TEST_MODE="1")
     return subprocess.run([sys.executable, GEN, "--config", str(cfg_path), *args],
-                          capture_output=True, text=True, env=env)
+                          capture_output=True, text=True, env=env,
+                          cwd=str(cwd) if cwd else None)
 
 
 # --- 1. --out DIR creates DIR/<key>.png ---
@@ -269,3 +271,190 @@ def test_archive_entries_still_land_in_regen_archive(tmp_path):
     adir = tmp_path / ".regen-archive" / "k-01"
     assert list(adir.glob("k-01-*.png")), "archive snapshot still written"
     assert list(adir.glob("k-01-*.txt")), "archive sidecar still written"
+
+
+# --- 7. --out combines with --reference (the master override) ---
+
+def test_out_dir_combines_with_reference(tmp_path):
+    """`--reference` overrides the master for every entry; under `--out` it must
+    still reach the generation path (the sidecar is the observable proof, since
+    TEST_MODE never opens the file) and still not write `output:`."""
+    master = tmp_path / "static" / "images" / "k-01.png"
+    master.parent.mkdir(parents=True)
+    master.write_bytes(CURATED)
+    ref = tmp_path / "hand-picked-ref.png"
+    ref.write_bytes(CURATED)
+
+    d = tmp_path / "regen"
+    r = _run(tmp_path, "--out", str(d), "--reference", str(ref))
+    assert r.returncode == 0, r.stderr
+    assert (d / "k-01.png").is_file()
+    assert master.read_bytes() == CURATED                       # the guard holds
+    sidecar = next((tmp_path / ".regen-archive" / "k-01").glob("k-01-*.txt")).read_text()
+    assert f"reference: {ref}" in sidecar                       # the override was used
+
+
+# --- 8. --out does NOT relocate the per-key contact sheet ---
+
+CONTACT = ".regen-archive/<key>/contact-sheet.png"
+
+
+def test_out_dir_does_not_relocate_the_contact_sheet(tmp_path, monkeypatch):
+    """The engine's curation sheet is per-KEY, under `.regen-archive/<key>/`, and
+    `--out` does not move it — deliberately, because it is a per-key artifact and
+    frank's is per-RUN. Phase 4's `generate-stickers.py` shim is built on exactly
+    this non-movement (it calls `_contact_sheet` itself for the run-level sheet),
+    so the placement is a contract, not an accident."""
+    payloads = [_png("red"), _png("green")]
+    _install_fake(monkeypatch, payloads)
+    cfg_path = _blog(tmp_path)
+    m = _mod()
+    d = tmp_path / "regen"
+    assert m.main(["--config", str(cfg_path), "--out", str(d), "--count", "2"]) == 0
+
+    assert (tmp_path / ".regen-archive" / "k-01" / "contact-sheet.png").is_file()
+    assert not (d / "contact-sheet.png").exists()
+    assert list(d.rglob("contact-sheet.png")) == [], "no sheet anywhere under --out"
+
+
+# --- 9. the FILENAME contract (spec §5a): basename of `output:`, key-prefixed on
+#        a collision within the SELECTED set ---
+
+STK_A = {"key": "coffee", "output": "static/stickers/sticker-coffee.png",
+         "composition": {"modifiers": {}, "scene": "COFFEE", "reference_images": {}}}
+STK_B = {"key": "sleepy", "output": "static/stickers/sticker-sleepy.png",
+         "composition": {"modifiers": {}, "scene": "SLEEPY", "reference_images": {}}}
+COV_A = {"key": "post-one", "output": "content/posts/one/cover.png",
+         "composition": {"modifiers": {}, "scene": "ONE", "reference_images": {}}}
+COV_B = {"key": "post-two", "output": "content/posts/two/cover.png",
+         "composition": {"modifiers": {}, "scene": "TWO", "reference_images": {}}}
+
+
+def test_out_dir_uses_the_output_basename(tmp_path):
+    """frank's regen files are `sticker-<key>.png` (generate-stickers.py:118),
+    matching the master its README says to copy over, so `<key>.png` would break
+    the runbook. Unique basenames get the bare basename."""
+    d = tmp_path / "regen"
+    r = _run(tmp_path, "--out", str(d), entries=(STK_A, STK_B))
+    assert r.returncode == 0, r.stderr
+    assert sorted(p.name for p in d.glob("*.png")) == ["sticker-coffee.png",
+                                                       "sticker-sleepy.png"]
+    assert not (d / "coffee.png").exists()
+
+
+def test_colliding_basenames_are_all_key_prefixed(tmp_path):
+    """85 of frank's 91 cover entries end in `/cover.png`, so the bare basename
+    would collapse them onto one file. When two or more SELECTED entries collide,
+    EVERY colliding entry is written as `<key>-<basename>` — never a mix of one
+    bare and the rest prefixed, which would make 'who got the bare name' depend
+    on iteration order."""
+    d = tmp_path / "regen"
+    r = _run(tmp_path, "--out", str(d), entries=(COV_A, COV_B))
+    assert r.returncode == 0, r.stderr
+    assert sorted(p.name for p in d.glob("*.png")) == ["post-one-cover.png",
+                                                       "post-two-cover.png"]
+    assert not (d / "cover.png").exists()
+
+
+def test_the_collision_decision_is_order_independent(tmp_path):
+    """A function of the selected SET. Feeding the same entries in the opposite
+    order must produce the identical file names."""
+    a, b = tmp_path / "a", tmp_path / "b"
+    a.mkdir(); b.mkdir()
+    r = _run(a, "--out", str(a / "regen"), entries=(COV_A, COV_B, STK_A))
+    assert r.returncode == 0, r.stderr
+    r = _run(b, "--out", str(b / "regen"), entries=(STK_A, COV_B, COV_A))
+    assert r.returncode == 0, r.stderr
+    assert (sorted(p.name for p in (a / "regen").glob("*.png"))
+            == sorted(p.name for p in (b / "regen").glob("*.png"))
+            == ["post-one-cover.png", "post-two-cover.png", "sticker-coffee.png"])
+
+
+def test_a_single_selected_entry_never_collides_with_itself(tmp_path):
+    """`--only` narrows the selected set, so one cover entry on its own keeps the
+    bare `cover.png`: the prefix exists to disambiguate, and there is nothing to
+    disambiguate from."""
+    d = tmp_path / "regen"
+    r = _run(tmp_path, "--out", str(d), "--only", "post-one", entries=(COV_A, COV_B))
+    assert r.returncode == 0, r.stderr
+    assert [p.name for p in d.glob("*.png")] == ["cover.png"]
+
+
+def test_a_non_png_output_keeps_its_real_extension(tmp_path):
+    """The extension comes from `output:`, not from a hardcoded '.png' — an
+    entry that publishes `.webp` must not land as a `.png` that is not one."""
+    e = {"key": "k-w", "output": "static/images/hero.webp",
+         "composition": {"modifiers": {}, "scene": "W", "reference_images": {}}}
+    d = tmp_path / "regen"
+    r = _run(tmp_path, "--out", str(d), entries=(e,))
+    assert r.returncode == 0, r.stderr
+    assert [p.name for p in d.iterdir()] == ["hero.webp"]
+
+
+# --- 10. --out must REFUSE to alias `output:` rather than write it ---
+
+def test_out_dir_that_aliases_output_is_refused(tmp_path):
+    """`--out` is resolved against the process CWD, so `--out static/images` run
+    from the blog root makes `dest` the very file `output:` names. A path-shaped
+    promise that can alias is not a guarantee: refuse the run, naming both paths,
+    before a single API call is spent."""
+    master = tmp_path / "static" / "images" / "k-01.png"
+    master.parent.mkdir(parents=True)
+    master.write_bytes(CURATED)
+    before = master.stat().st_mtime_ns
+
+    r = _run(tmp_path, "--out", "static/images", cwd=tmp_path)
+    assert r.returncode != 0
+    assert master.read_bytes() == CURATED
+    assert master.stat().st_mtime_ns == before
+    assert str(master) in r.stderr or "static/images/k-01.png" in r.stderr
+    assert "k-01" in r.stderr
+
+
+def test_the_alias_guard_sees_through_a_symlinked_out_dir(tmp_path):
+    """Resolved-path comparison, not string comparison: a symlink to the
+    published directory is the same alias by another name."""
+    master = tmp_path / "static" / "images" / "k-01.png"
+    master.parent.mkdir(parents=True)
+    master.write_bytes(CURATED)
+    link = tmp_path / "regen-link"
+    link.symlink_to(master.parent, target_is_directory=True)
+
+    r = _run(tmp_path, "--out", str(link))
+    assert r.returncode != 0, r.stdout
+    assert master.read_bytes() == CURATED
+
+
+def test_a_distinct_out_dir_under_the_published_tree_is_fine(tmp_path):
+    """The guard is per-FILE, not per-tree: `--out static/images/regen` never
+    aliases `static/images/k-01.png`, so it must not be refused."""
+    d = tmp_path / "static" / "images" / "regen"
+    r = _run(tmp_path, "--out", str(d))
+    assert r.returncode == 0, r.stderr
+    assert (d / "k-01.png").is_file()
+    assert not (tmp_path / "static" / "images" / "k-01.png").exists()
+
+
+# --- 11. the bare-name file is written ONCE, not once per variant ---
+
+def test_the_bare_name_is_written_once_per_run(tmp_path, monkeypatch):
+    """The copy sat inside the variant loop, so an N-variant run wrote `dest` N
+    times (N-1 of them immediately overwritten). Hoisted below the loop: one
+    write, of `variants[-1]`."""
+    payloads = [_png("red"), _png("green"), _png("blue")]
+    _install_fake(monkeypatch, payloads)
+    cfg_path = _blog(tmp_path)
+    m = _mod()
+    d = tmp_path / "regen"
+
+    writes: list = []
+    real = m.Path.write_bytes
+
+    def _counting(self, data):
+        writes.append(Path(self))
+        return real(self, data)
+
+    monkeypatch.setattr(m.Path, "write_bytes", _counting)
+    assert m.main(["--config", str(cfg_path), "--out", str(d), "--count", "3"]) == 0
+    assert [p for p in writes if p == d / "k-01.png"] == [d / "k-01.png"], writes
+    assert (d / "k-01.png").read_bytes() == payloads[-1]

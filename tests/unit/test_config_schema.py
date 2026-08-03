@@ -416,9 +416,16 @@ def test_quality_mermaid_max_width_rejects_bool():
 
 
 # --- stickers: image.layers.<name>._template (the `str.format` frame) ---------
-# A malformed frame is invisible until IMAGE-GENERATION time — `str.format`
-# raises (or silently drops the value) with a paid API call already in flight.
-# The validator is the only place that failure is cheap.
+# Two reasons a frame is rejected, deliberately NOT the same reason:
+#   1. it would misbehave mid-run — no `{}` drops the value, two `{}` raise
+#      IndexError, an unmatched brace raises ValueError — invisible until
+#      IMAGE-GENERATION time with a paid API call in flight, so the validator is
+#      the only place that failure is cheap;
+#   2. it is legal `str.format` forbidden by POLICY: `{0}`, `{:>10}` and the
+#      escapes `{{`/`}}` format fine with one positional arg, but the rule is "no
+#      literal brace anywhere", so a frame has one obvious spelling.
+# `test_legal_but_policy_rejected_braces` pins that difference explicitly, so
+# nobody "fixes" the strict half believing it is a bug.
 
 def _tpl_cfg(tmpl):
     cfg = _valid()
@@ -446,10 +453,20 @@ def test_template_with_two_placeholders_rejected():
 
 
 def test_template_with_stray_braces_rejected():
-    for bad in ("Frank's {expression: {}.", "Frank's expression: {}.}",
-                "{{}} literal {}", "Frank's expression: {0}."):
+    # an UNMATCHED brace: str.format would raise ValueError mid-run
+    for bad in ("Frank's {expression: {}.", "Frank's expression: {}.}"):
         errs = validate_config(_tpl_cfg(bad))
         assert any("mood._template" in e for e in errs), bad
+
+
+def test_legal_but_policy_rejected_braces():
+    """These three format PERFECTLY WELL with one positional arg — they are
+    rejected by policy (no literal brace anywhere), not because they would
+    raise. Asserted both ways round so the reason cannot be misread later."""
+    for legal in ("{{}} literal {}", "Frank's expression: {0}.", "|{:>10}|"):
+        legal.format("VALUE")                                    # no exception
+        errs = validate_config(_tpl_cfg(legal))
+        assert any("mood._template" in e for e in errs), legal
 
 
 def test_template_error_shows_the_offending_value():
@@ -469,6 +486,53 @@ def test_template_on_a_select_walk_layer_also_validated():
         "mood": {"_select": ["mood"], "_template": "no placeholder", "focused": "FOC"}
     }
     assert any("mood._template" in e for e in validate_config(cfg))
+
+
+# --- a BRACKET token never gets the frame, so the combination is rejected -----
+# `_template` is applied on the two resolution paths (`_resolve_modifier`,
+# `_resolve_selector_walk`) but deliberately NOT on `resolve_token`'s `name[sub]`
+# branch (journal p1-template-two-paths-only). `X` and `X[y]` look identical in
+# config and behave differently, and the failure mode is a prose section quietly
+# losing its frame — no exception, a prompt that still reads perfectly well. So
+# the validator refuses the combination rather than let it compose.
+
+TPL = "Frank's expression: {}."
+
+
+def test_bracket_token_naming_a_template_layer_rejected():
+    cfg = _valid()
+    cfg["image"]["composition_order"] = ["mood[focused]", "scene"]
+    cfg["image"]["layers"] = {"mood": {"_template": TPL, "focused": "FOC"}}
+    errs = validate_config(cfg)
+    assert any("mood[focused]" in e and "_template" in e for e in errs), errs
+
+
+def test_bracket_token_on_a_template_layer_rejected_in_a_named_order():
+    cfg = _valid()
+    del cfg["image"]["composition_order"]
+    cfg["image"]["composition_orders"] = {"hero": ["mood[focused]", "scene"],
+                                          "sticker": ["mood", "scene"]}
+    cfg["image"]["layers"] = {"mood": {"_template": TPL, "focused": "FOC"}}
+    errs = validate_config(cfg)
+    assert any("composition_orders.hero" in e and "_template" in e for e in errs), errs
+    # the sticker order names `mood` PLAIN — the frame applies, nothing to flag
+    assert not any("composition_orders.sticker" in e for e in errs), errs
+
+
+def test_a_plain_token_on_a_template_layer_is_fine():
+    cfg = _valid()
+    cfg["image"]["composition_order"] = ["mood", "scene"]
+    cfg["image"]["layers"] = {"mood": {"_template": TPL, "focused": "FOC"}}
+    assert validate_config(cfg) == []
+
+
+def test_a_bracket_token_on_a_frameless_layer_is_still_fine():
+    """The pre-existing bracket idiom (reference_guidance[anchor]) must be
+    untouched — only the _template combination is new and only it is rejected."""
+    cfg = _valid()
+    cfg["image"]["composition_order"] = ["mood[focused]", "scene"]
+    cfg["image"]["layers"] = {"mood": {"focused": "FOC"}}
+    assert validate_config(cfg) == []
 
 
 def test_layer_without_template_is_unaffected():

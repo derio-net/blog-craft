@@ -10,7 +10,9 @@ generation surface) and image.fallback_model / image.timeout_ms (generate-
 images.py's retry target and HTTP timeout). The engine hardcodes no layer
 vocabulary (spec D1), so no layer NAME implies a shape. A dict layer's
 `_template` (the `str.format` frame stickers need) is likewise validated
-whenever present.
+whenever present — including the one cross-check the engine cannot make
+noisily: an order token `X[y]` naming a layer that declares `_template`, where
+the frame would silently not apply.
 
 Library: `validate_config(cfg: dict) -> list[str]` (empty == valid).
 CLI:     `validate_config.py --check <path>` (exit 0 valid, 1 invalid).
@@ -46,11 +48,24 @@ def _validate_select(name: str, select, errors: list[str]) -> None:
 def _validate_template(name: str, tmpl, errors: list[str]) -> None:
     """`_template` is a `str.format` frame: exactly one `{}`, no other braces.
 
-    Checked here because the failure is otherwise invisible until IMAGE-
-    GENERATION time, with a paid API call already in flight: a frame with no
-    `{}` silently drops the resolved value from the prompt, two `{}` raise
-    IndexError (compose supplies one positional arg), and a stray `{`/`}`
-    raises ValueError from str.format. Cheap at validation, expensive mid-run.
+    TWO DISTINCT REASONS to reject, and they must not be confused (a future
+    reader who thinks the whole rule is "prevent a crash" will 'fix' the strict
+    half as a bug):
+
+    1. It WOULD misbehave at IMAGE-GENERATION time, invisibly until then, with a
+       paid API call already in flight. No `{}` silently drops the resolved value
+       from the prompt; two `{}` raise IndexError (compose supplies exactly one
+       positional arg); an unmatched `{` or `}` raises ValueError from
+       str.format; `{name}` raises KeyError.
+    2. It is legal `str.format` that this config surface nonetheless FORBIDS BY
+       POLICY: `{0}`, `{:>10}` and the escapes `{{` / `}}` all format perfectly
+       well with one positional arg, but the rule is "no literal brace anywhere",
+       so a frame has exactly one obvious spelling. Rationale: the frame is prose
+       written by a blog author, not a format-spec exercise, and one spelling
+       makes `_template` diffable and mechanically transformable
+       (tools/migrate_stickers.py emits one). The cost is that a frame can never
+       contain a literal brace — relax the VALIDATOR (with a test) if one ever
+       legitimately needs to, never the engine.
     """
     where = f"image.layers.{name}._template"
     if not isinstance(tmpl, str):
@@ -194,6 +209,25 @@ def validate_config(cfg: dict) -> list[str]:
                 if base not in layers:
                     errors.append(
                         f"image.{oname} names '{tok}' but image.layers has no such layer"
+                    )
+                    continue
+                # stickers: `_template` frames the two RESOLUTION paths (a
+                # modifier lookup / a `_select` walk) but not `resolve_token`'s
+                # `name[sub]` branch — a bracket token names a chunk directly,
+                # with no modifier involved. `X` and `X[y]` look identical in
+                # config and behave differently, and the failure mode is silent:
+                # the section loses its frame, no exception, a prompt that still
+                # reads perfectly well. An ERROR, not a warning: there is no
+                # warning channel here, nothing downstream can detect it, and the
+                # author has two cheap correct spellings (name the layer plain, or
+                # put the frame on a layer that is never bracket-addressed).
+                lyr = layers[base]
+                if base != tok and isinstance(lyr, dict) and "_template" in lyr:
+                    errors.append(
+                        f"image.{oname} names '{tok}' but image.layers.{base} declares "
+                        f"_template, which is NOT applied to a bracket token — the frame "
+                        f"would silently vanish. Name '{base}' plain, or move the frame "
+                        f"to a layer that is not addressed with brackets."
                     )
 
     # v4: any dict layer may declare a `_select` walk — validate its shape.

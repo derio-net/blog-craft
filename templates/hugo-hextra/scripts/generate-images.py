@@ -23,14 +23,19 @@ Modes:
   --only KEY[,KEY...]    generate only these keys
   --count N              generate N variants + a contact sheet (curation)
   --reference PATH       override the master reference for every image
-  --out DIR              non-destructive: write DIR/<key>.png (plus DIR/<key>-
-                         <sha>.png per variant when --count > 1) and NEVER the
-                         entry's `output:`, nor its post_process derivatives.
-                         For curating candidates against a hand-picked master.
+  --out DIR              non-destructive: write DIR/<basename of `output:`>
+                         (`DIR/<key>-<basename>` for every entry of a colliding
+                         basename group, e.g. the many `cover.png`s; plus
+                         DIR/<key>-<sha>.png per variant when --count > 1) and
+                         NEVER the entry's `output:`, nor its post_process
+                         derivatives — a run whose DIR would alias any `output:`
+                         is refused. For curating candidates against a
+                         hand-picked master.
 
 Config knobs honored on every run: `image.fallback_model` (retried when the
-primary model errors or returns no image part) and `image.timeout_ms` (HTTP cap,
-milliseconds).
+primary model errors or returns no image part; if every configured model errors
+the last exception propagates, so a hard failure stays hard) and
+`image.timeout_ms` (HTTP cap, milliseconds).
 
 Env BLOG_CRAFT_TEST_MODE=1 writes a 1x1 PNG instead of calling the API (tests).
 """
@@ -161,8 +166,15 @@ def _contact_sheet(images: list, out: Path, cols: int | None = None,
     replaced, so existing callers (the --count curation sheet) are unchanged.
     """
     from PIL import Image, ImageDraw
+    # `None` means "unspecified" -> the historical 3. A specified 0 (or negative)
+    # is a CALLER BUG — a computed column count that came out empty — and must not
+    # be indistinguishable from "use the default", which `cols or 3` made it.
+    if cols is None:
+        cols = 3
+    elif cols < 1:
+        raise ValueError(f"_contact_sheet: cols must be >= 1 or None (got {cols!r})")
     # cols clamps to the image count: a wider request must not leave empty columns.
-    cols = min(len(images), cols or 3)
+    cols = min(len(images), cols)
     rows = (len(images) + cols - 1) // cols
     tw = tile_width
     # tile_height=None derives the height from the default 400x260 tile ratio;
@@ -299,18 +311,74 @@ def _gen_bytes(prompt: str, ref: Path | None, model: str, image_cfg: dict, entry
     # moved onto this engine would have changed behavior on the failure path.
     # Like frank's loop, an image-LESS response counts as a failure worth
     # retrying, and every attempt is logged with its model name (never silent).
+    #
+    # ERROR CONTRACT (do not soften): the fallback adds a RETRY; it must not turn
+    # a hard failure into a soft one. Once every configured model has been tried,
+    # the last exception PROPAGATES. With no `fallback_model` that is exactly the
+    # pre-fallback behavior — a single bare call whose error aborts the run — so
+    # an existing blog's failure path is unchanged. Absorbing it would make a 401
+    # or a network outage warn once per entry and grind on through all 90.
+    # An image-LESS response raised nothing, so it stays SOFT: `None`, which the
+    # caller reports as "no image returned" with rc=1, exactly as before.
+    last_exc: BaseException | None = None
     for m in [model, image_cfg.get("fallback_model")]:
         if not m:
             continue
         try:
             resp = client.models.generate_content(model=m, contents=contents, config=gen_cfg)
         except Exception as exc:  # noqa: BLE001 - any API/transport error retries
-            print(f"  WARN: {m} error: {str(exc)[:160]}", file=sys.stderr)
+            # The type matters: str(exc) truncated to 160 chars is often empty or
+            # opaque, and the traceback the operator used to get is gone the
+            # moment we catch. Keep diagnosis possible for the attempt whose
+            # exception we do NOT re-raise.
+            print(f"  WARN: {m} error: {type(exc).__name__}: {str(exc)[:160]}", file=sys.stderr)
+            last_exc = exc
             continue
         for part in resp.parts:
             if part.inline_data is not None:
                 return part.inline_data.data
         print(f"  WARN: {m} returned no image part", file=sys.stderr)
+    if last_exc is not None:
+        raise last_exc
+    return None
+
+
+def _out_dir_names(selected: list) -> dict:
+    """`key -> filename` under `--out` (spec §5a). A function of the SELECTED SET.
+
+    The file name is the BASENAME of the entry's `output:` — because frank's
+    regen files are `sticker-<key>.png` (generate-stickers.py:118), the name of
+    the master its README says to copy over, so a hardcoded `<key>.png` breaks
+    the runbook. But 85 of frank's 91 cover entries publish to `.../cover.png`,
+    so the basename alone would collapse 85 covers onto one file. Hence: when two
+    or more SELECTED entries share a basename, EVERY colliding entry is written
+    as `<key>-<basename>`.
+
+    Computed for the whole set before anything generates, so the decision cannot
+    depend on iteration order (never "the first one keeps the bare name"), and
+    the extension always comes from `output:` rather than a hardcoded `.png`.
+    """
+    counts: dict = {}
+    for _k, _e, _p, out in selected:
+        counts[out.name] = counts.get(out.name, 0) + 1
+    return {k: (f"{k}-{out.name}" if counts[out.name] > 1 else out.name)
+            for k, _e, _p, out in selected}
+
+
+def _output_alias(dest: Path, published: list):
+    """`(key, path)` of the `output:` that `dest` would in fact overwrite, else None.
+
+    `published` is `[(key, output_path, resolved_output_path)]`. Resolved-path
+    equality catches the ordinary aliases (relative vs absolute, `..`, a
+    symlinked directory); `samefile` additionally catches two real paths on one
+    inode (a hard link), which resolution cannot see.
+    """
+    rdest = dest.resolve()
+    for key, out, rout in published:
+        if rdest == rout:
+            return key, out
+        if dest.is_file() and out.is_file() and dest.samefile(out):
+            return key, out
     return None
 
 
@@ -323,8 +391,9 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--count", type=int, default=None)
     ap.add_argument("--reference")
-    ap.add_argument("--out", help="non-destructive: write to <dir>/<key>.png and "
-                                  "NEVER to the entry's output: path")
+    ap.add_argument("--out", help="non-destructive: write to <dir>/<basename of "
+                                  "output:> (key-prefixed when basenames collide) "
+                                  "and NEVER to the entry's output: path")
     a = ap.parse_args(argv)
 
     cfg_path = Path(a.config) if a.config else find_config(Path.cwd())
@@ -356,7 +425,11 @@ def main(argv: list[str]) -> int:
     cap = int(curation.get("archive_cap", 30))
     count = a.count if a.count is not None else int(curation.get("count_default", 1))
 
-    rc = 0
+    # The selected set is resolved UP FRONT, because the --out file names are a
+    # function of the whole set (see _out_dir_names) and the alias guard below
+    # must be able to refuse the run before the first API call is spent.
+    # `compose_for` is pure and API-free, so composing early changes nothing.
+    selected = []
     for key, e in by_key.items():
         if only and key not in only:
             continue
@@ -366,9 +439,35 @@ def main(argv: list[str]) -> int:
         if not prompt.strip():
             continue
         out = root / e.get("output", f"{image_cfg.get('output_dir', 'static/images')}/{key}.png")
-        # Where this run actually writes. Under --out that is NOT `output:`, and
-        # --dry-run must say so rather than name a file it will never touch.
-        dest = (out_dir / f"{key}.png") if out_dir is not None else out
+        selected.append((key, e, prompt, out))
+
+    # Under --out, where each entry actually writes. NOT `output:` — and
+    # --dry-run must say so rather than name a file it will never touch.
+    names = _out_dir_names(selected) if out_dir is not None else {}
+    if out_dir is not None:
+        # --out's entire purpose is "never writes `output:`". A path-shaped
+        # promise is not a guarantee: `--out static/images` from the blog root
+        # resolves onto the very files `output:` names, and so does a symlink to
+        # that directory. Refuse the whole run rather than write one.
+        published = [(k, o, o.resolve()) for k, _e, _p, o in selected]
+        refused = False
+        for key, _e, _p, _out in selected:
+            hit = _output_alias(out_dir / names[key], published)
+            if not hit:
+                continue
+            okey, opath = hit
+            whose = "its own" if okey == key else f"entry '{okey}'s"
+            print(f"  ERROR: --out would write {out_dir / names[key]} for '{key}', "
+                  f"which is {whose} published output: {opath} — refusing, because "
+                  f"--out must never write a published asset. Point --out at a "
+                  f"directory outside the published tree.", file=sys.stderr)
+            refused = True
+        if refused:
+            return 1
+
+    rc = 0
+    for key, e, prompt, out in selected:
+        dest = (out_dir / names[key]) if out_dir is not None else out
         ref = primary_reference(e, image_cfg, root, override)
         if a.dry_run:
             extra = entry_reference_paths(e, root)
@@ -415,14 +514,16 @@ def main(argv: list[str]) -> int:
                 # post_process (those steps target the PUBLISHED asset and would
                 # clobber shipped derivatives).
                 out_dir.mkdir(parents=True, exist_ok=True)
-                for _lbl, arch in variants:
-                    raw = arch.read_bytes()
-                    if len(variants) > 1:
-                        # curation: every candidate is visible side by side. Only
-                        # for multi-variant runs, so a plain regen leaves exactly
-                        # one file per key, as frank's regen/ dir has always had.
-                        (out_dir / arch.name).write_bytes(raw)
-                    dest.write_bytes(raw)   # bare name: the last variant wins
+                if len(variants) > 1:
+                    # curation: every candidate is visible side by side. Only for
+                    # multi-variant runs, so a plain regen leaves exactly one file
+                    # per key, as frank's regen/ dir has always had.
+                    for _lbl, arch in variants:
+                        (out_dir / arch.name).write_bytes(arch.read_bytes())
+                # The reviewable name, written ONCE — below the variant loop, not
+                # inside it (where an N-variant run wrote it N times, N-1 of them
+                # immediately overwritten).
+                dest.write_bytes(variants[-1][1].read_bytes())
             else:
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 dest.write_bytes(variants[-1][1].read_bytes())

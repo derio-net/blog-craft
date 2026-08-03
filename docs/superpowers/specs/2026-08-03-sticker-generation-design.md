@@ -148,9 +148,11 @@ private files are gone after its next `/update`.
 Two further decisions taken during design, flagged for review:
 
 5. **Add `--out <dir>` to `generate-images.py`** (non-destructive mode): when
-   given, images land at `<dir>/<key>.png` and the entry's `output:` is never
-   written. This is what makes finding 3 safe, and it generalizes usefully to
-   covers ("preview without clobbering the shipped one").
+   given, images land in `<dir>` — named per § 5a, *not* `<key>.png` as this
+   decision originally said — and the entry's `output:` is never written (a
+   `<dir>` that would alias any `output:` is refused rather than written). This
+   is what makes finding 3 safe, and it generalizes usefully to covers ("preview
+   without clobbering the shipped one").
 6. **Parameterize `_contact_sheet(images, out, cols=None, tile_width=400)`**
    so frank's regen contact sheet keeps its `cols=5, tile_width=420`
    geometry instead of silently reflowing to 3 columns.
@@ -464,11 +466,16 @@ frank's real data, not synthetic smoke.
 - **`_template` unit tests.** Table hit, free-form passthrough, empty
   resolution stays empty, a layer with no `_template` is unchanged, and a
   malformed `_template` is rejected by the validator.
-- **Non-destructive mode.** `--out <dir>` writes `<dir>/<key>.png` and leaves
-  a pre-existing `output:` file byte-unchanged. Guards finding 3.
+- **Non-destructive mode.** `--out <dir>` writes the § 5a name and leaves a
+  pre-existing `output:` file byte-unchanged. Guards finding 3. Plus the naming
+  contract itself (unique basename, colliding basenames all key-prefixed,
+  order-independence, non-`.png` extension) and the refusal of a `<dir>` that
+  aliases any `output:`.
 - **Fallback + timeout.** With `BLOG_CRAFT_TEST_MODE=1`, assert the fallback
-  model is attempted when the primary raises, and that `timeout_ms` reaches
-  `HttpOptions`.
+  model is attempted when the primary raises, that `timeout_ms` reaches
+  `HttpOptions`, and that the last exception PROPAGATES once every configured
+  model has failed — with no `fallback_model`, the single attempt's exception,
+  unchanged (an image-less response stays a soft `None`).
 - **Sheet determinism.** Build sheets from 18 synthetic 1×1 PNGs and assert
   dimensions `2480×3508`, `dpi == (300, 300)`, and that each cell's top-left
   pixel offset matches the computed centered-grid position. Then, separately,

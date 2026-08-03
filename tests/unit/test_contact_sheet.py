@@ -12,6 +12,7 @@ defaults, so every existing caller's output is unchanged.
 import importlib.util
 import os
 
+import pytest
 from PIL import Image
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -85,6 +86,29 @@ def test_cols_larger_than_count_clamps(tmp_path):
     m._contact_sheet(_images(2), out, cols=5)
     with Image.open(out) as im:
         assert im.size == (2 * 400, 260)          # no empty columns
+
+
+# --- cols=0 is a caller BUG, not a request for the default ---
+
+def test_cols_zero_is_rejected_rather_than_silently_defaulting(tmp_path):
+    """`cols or 3` made 0 (and any falsy value) mean "the default 3" — so a
+    caller that computed its column count and got 0 silently produced a 3-column
+    sheet instead of failing. `None` means "unspecified"; 0 means the caller is
+    wrong."""
+    m = _mod()
+    with pytest.raises(ValueError, match="cols"):
+        m._contact_sheet(_images(4), tmp_path / "a.png", cols=0)
+    with pytest.raises(ValueError, match="cols"):
+        m._contact_sheet(_images(4), tmp_path / "a.png", cols=-1)
+    assert not (tmp_path / "a.png").exists()
+
+
+def test_cols_none_still_means_the_default_three(tmp_path):
+    m = _mod()
+    out = tmp_path / "a.png"
+    m._contact_sheet(_images(4), out, cols=None)
+    with Image.open(out) as im:
+        assert im.size == (3 * 400, 2 * 260)
 
 
 # --- tile_height=None derives proportionally from tile_width ---

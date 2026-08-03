@@ -26,7 +26,13 @@ Dict-layer selection, in order:
 Dict-layer directives:
   _select     the v4 selector walk (above)
   _template   a `str.format` frame applied to whatever the layer resolves to,
-              e.g. `_template: "Frank's expression: {}."` (see _apply_template)
+              e.g. `_template: "Frank's expression: {}."` (see _apply_template).
+              NOT applied on the `name[sub]` bracket path — a bracket token
+              names a chunk directly, with no modifier involved, and framing
+              there was never decided. `validate_config` rejects an order that
+              writes `X[y]` for a layer `X` declaring `_template`, because the
+              two spellings look identical in config and the frame would
+              silently vanish.
 """
 from __future__ import annotations
 
@@ -55,9 +61,14 @@ def _apply_template(table: dict, value: str) -> str:
     sentence frame (the passthrough returns the bare mood). `_template` moves
     the frame into `image.layers.<name>._template`.
 
-    `{}` is a positional `str.format` field, so the validator requires exactly
-    one `{}` and no stray braces (a malformed frame would otherwise raise
-    mid-run, with a paid image call already in flight).
+    `{}` is a positional `str.format` field. The validator requires exactly one
+    `{}` and NO literal brace anywhere — stricter than "one placeholder", and
+    deliberately so: some rejected frames (`{0}`, `{:>10}`, the escapes
+    `{{`/`}}`) would format perfectly well, but a frame with one obvious
+    spelling stays diffable and mechanically transformable. The frames that
+    genuinely misbehave — no `{}` (drops the value), two `{}` (IndexError),
+    an unmatched brace (ValueError) — do so mid-run, with a paid image call
+    already in flight. See `validate_config._validate_template`.
 
     Empty stays empty, checked FIRST: a layer whose modifier is absent resolves
     to "" and must be dropped by compose(), never framed into the nonsense
