@@ -22,6 +22,11 @@ Dict-layer selection, in order:
      but a value that lands on a CONTAINER skips (bracket paths exist for
      nested tables; a bare group name must never dump a dict into the prompt).
 `_`-prefixed table keys are directives, never prose.
+
+Dict-layer directives:
+  _select     the v4 selector walk (above)
+  _template   a `str.format` frame applied to whatever the layer resolves to,
+              e.g. `_template: "Frank's expression: {}."` (see _apply_template)
 """
 from __future__ import annotations
 
@@ -38,6 +43,30 @@ def _chunk(value) -> str:
     if isinstance(value, list):
         return "\n".join(f"- {item}" for item in value)
     return ""
+
+
+def _apply_template(table: dict, value: str) -> str:
+    """Frame a resolved dict-layer value in the table's `_template`, if any.
+
+    WHY this exists: frank's sticker generator wrapped a per-entry free-form
+    mood in a code template — `f"Frank's expression: {s['mood']}."`
+    (generate-stickers.py:53). Without a config directive that frame lives in
+    Python, so a sticker set ported onto this engine silently loses the
+    sentence frame (the passthrough returns the bare mood). `_template` moves
+    the frame into `image.layers.<name>._template`.
+
+    `{}` is a positional `str.format` field, so the validator requires exactly
+    one `{}` and no stray braces (a malformed frame would otherwise raise
+    mid-run, with a paid image call already in flight).
+
+    Empty stays empty, checked FIRST: a layer whose modifier is absent resolves
+    to "" and must be dropped by compose(), never framed into the nonsense
+    section "Frank's expression: .".
+    """
+    tmpl = table.get("_template")
+    if not value or not isinstance(tmpl, str):
+        return value
+    return tmpl.format(value)
 
 
 def resolve_token(token: str, layers: dict, entry: dict) -> str:
@@ -80,11 +109,11 @@ def _resolve_modifier(name: str, table: dict, entry: dict) -> str:
         if m:
             grp = table.get(m.group(1))
             if isinstance(grp, dict):
-                return _chunk(grp.get(m.group(2)))
+                return _apply_template(table, _chunk(grp.get(m.group(2))))
             return ""
         if sel in table and not sel.startswith("_"):
-            return _chunk(table[sel])
-        return sel                        # free-form passthrough
+            return _apply_template(table, _chunk(table[sel]))
+        return _apply_template(table, sel)   # free-form passthrough
     return ""
 
 
@@ -112,10 +141,10 @@ def _resolve_selector_walk(name: str, table: dict, entry: dict) -> str:
         elif isinstance(value, list) and is_index and 0 <= sel < len(value):
             value = value[sel]
         elif last and isinstance(sel, str):
-            return sel                    # free-form passthrough
+            return _apply_template(table, sel)   # free-form passthrough
         else:
             return ""                     # intermediate miss / bad index / bad type
-    return value if isinstance(value, str) else ""
+    return _apply_template(table, value) if isinstance(value, str) else ""
 
 
 def compose(composition_order: list[str], layers: dict, entry: dict) -> str:

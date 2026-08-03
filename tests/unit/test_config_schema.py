@@ -411,3 +411,66 @@ def test_quality_mermaid_max_width_rejects_bool():
     cfg["quality"] = {"mermaid_max_width": True}
     errs = validate_config(cfg)
     assert any("mermaid_max_width" in e and "non-negative number" in e for e in errs)
+
+
+# --- stickers: image.layers.<name>._template (the `str.format` frame) ---------
+# A malformed frame is invisible until IMAGE-GENERATION time — `str.format`
+# raises (or silently drops the value) with a paid API call already in flight.
+# The validator is the only place that failure is cheap.
+
+def _tpl_cfg(tmpl):
+    cfg = _valid()
+    cfg["image"]["composition_order"] = ["mood", "scene"]
+    cfg["image"]["layers"] = {"mood": {"_template": tmpl, "focused": "FOC"}}
+    return cfg
+
+
+def test_template_must_be_a_string():
+    for bad in (7, True, ["Frank's expression: {}."], {"f": "{}"}, None):
+        errs = validate_config(_tpl_cfg(bad))
+        assert any("mood._template" in e for e in errs), bad
+
+
+def test_template_without_placeholder_rejected():
+    # it would silently drop the resolved value from the prompt
+    errs = validate_config(_tpl_cfg("Frank's expression."))
+    assert any("mood._template" in e and "{}" in e for e in errs)
+
+
+def test_template_with_two_placeholders_rejected():
+    # str.format would raise IndexError mid-run (one positional arg supplied)
+    errs = validate_config(_tpl_cfg("Frank's {} expression: {}."))
+    assert any("mood._template" in e and "{}" in e for e in errs)
+
+
+def test_template_with_stray_braces_rejected():
+    for bad in ("Frank's {expression: {}.", "Frank's expression: {}.}",
+                "{{}} literal {}", "Frank's expression: {0}."):
+        errs = validate_config(_tpl_cfg(bad))
+        assert any("mood._template" in e for e in errs), bad
+
+
+def test_template_error_shows_the_offending_value():
+    errs = validate_config(_tpl_cfg("no placeholder here"))
+    assert any("no placeholder here" in e for e in errs)
+
+
+def test_template_with_exactly_one_placeholder_accepted():
+    assert validate_config(_tpl_cfg("Frank's expression: {}.")) == []
+    assert validate_config(_tpl_cfg("{}")) == []
+
+
+def test_template_on_a_select_walk_layer_also_validated():
+    cfg = _valid()
+    cfg["image"]["composition_order"] = ["mood", "scene"]
+    cfg["image"]["layers"] = {
+        "mood": {"_select": ["mood"], "_template": "no placeholder", "focused": "FOC"}
+    }
+    assert any("mood._template" in e for e in validate_config(cfg))
+
+
+def test_layer_without_template_is_unaffected():
+    cfg = _valid()
+    cfg["image"]["composition_order"] = ["mood", "scene"]
+    cfg["image"]["layers"] = {"mood": {"focused": "FOC"}}
+    assert validate_config(cfg) == []

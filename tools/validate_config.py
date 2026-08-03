@@ -6,7 +6,8 @@ site_dir, _select, character_sheet, named composition_orders — are validated
 whenever present, and the v6 addition — features.mermaid_view (diagram
 rendering at natural size) + quality.mermaid_max_width (the width gate's
 budget) — likewise. The engine hardcodes no layer vocabulary (spec D1), so no
-layer NAME implies a shape.
+layer NAME implies a shape. A dict layer's `_template` (the `str.format` frame
+stickers need) is likewise validated whenever present.
 
 Library: `validate_config(cfg: dict) -> list[str]` (empty == valid).
 CLI:     `validate_config.py --check <path>` (exit 0 valid, 1 invalid).
@@ -36,6 +37,25 @@ def _validate_select(name: str, select, errors: list[str]) -> None:
             f"image.layers.{name}._select steps must be strings or lists of strings"
         )
         return
+
+
+def _validate_template(name: str, tmpl, errors: list[str]) -> None:
+    """`_template` is a `str.format` frame: exactly one `{}`, no other braces.
+
+    Checked here because the failure is otherwise invisible until IMAGE-
+    GENERATION time, with a paid API call already in flight: a frame with no
+    `{}` silently drops the resolved value from the prompt, two `{}` raise
+    IndexError (compose supplies one positional arg), and a stray `{`/`}`
+    raises ValueError from str.format. Cheap at validation, expensive mid-run.
+    """
+    where = f"image.layers.{name}._template"
+    if not isinstance(tmpl, str):
+        errors.append(f"{where} must be a string with exactly one '{{}}' (got {tmpl!r})")
+        return
+    if tmpl.count("{}") != 1 or tmpl.count("{") != 1 or tmpl.count("}") != 1:
+        errors.append(
+            f"{where} must contain exactly one '{{}}' and no other braces (got {tmpl!r})"
+        )
 
 
 def validate_config(cfg: dict) -> list[str]:
@@ -112,11 +132,17 @@ def validate_config(cfg: dict) -> list[str]:
                         f"image.{oname} names '{tok}' but image.layers has no such layer"
                     )
 
-    # v4: any dict layer may declare a `_select` walk — validate its shape
+    # v4: any dict layer may declare a `_select` walk — validate its shape.
+    # stickers: it may also declare `_template`, the frame applied to whatever
+    # the layer resolves to (compose.py `_apply_template`).
     if isinstance(layers, dict):
         for name, layer in layers.items():
-            if isinstance(layer, dict) and "_select" in layer:
+            if not isinstance(layer, dict):
+                continue
+            if "_select" in layer:
                 _validate_select(name, layer["_select"], errors)
+            if "_template" in layer:
+                _validate_template(name, layer["_template"], errors)
 
     # v4: optional image.character_sheet.layers — the character-defining layers
     cs = image.get("character_sheet")
