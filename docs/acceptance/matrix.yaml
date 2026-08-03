@@ -1208,11 +1208,21 @@ rows:
       is byte-identical to the pre-port one
     origin:
     - blog-craft:docs/superpowers/specs/2026-08-03-sticker-generation-design.md
-    levels: {}
-    status: not-implemented
-    notes: Proof of the no-behavioral-change requirement. Golden fixtures generated
-      from frank's legacy generate-stickers.py; guards _template, the sticker composition
-      order, and layer namespacing together.
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_stickers_golden.py
+      - blog-craft:tests/unit/test_stickers_references.py
+    status: ci
+    notes: 'Proof of the no-behavioral-change requirement, CI-pinned by phase 5. The
+      18 goldens in tests/fixtures/stickers/golden/ are the output of frank''s OWN
+      compose_prompt() (provenance, stub list and the reason --dry-run was unusable:
+      tests/fixtures/stickers/GOLDEN-PROVENANCE.md), and the 18 entries are derived
+      mechanically from his vendored stickers.yaml — so this is an equality proof,
+      not a transcription check. Exercises _template, the sticker composition order
+      (border after scene), layer namespacing and the bracketed order reference
+      together; the companion file pins the reference payload order, which prompt
+      equality is blind to. Remaining manual step, spec section 8: frank''s own
+      adoption PR re-runs the check against his real config after the transform.'
   - id: stk-2
     capability: Sticker generation
     acceptance: Operator regenerates a sticker without overwriting the curated master
