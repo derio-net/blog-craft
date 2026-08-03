@@ -86,6 +86,7 @@ tasks:
         3. an entry whose composition order does not resolve (e.g. `order: sticker` instead of `order: composition_orders[sticker]`) composes an empty prompt, and the engine now prints a WARN naming the key instead of skipping in silence. Assert the WARN text; do NOT change the exit code — today the entry is skipped with rc 0 and an operator may have a legitimately empty entry, so this stays a warning, not an error (phase-4 finding p4-order-sticker-must-be-bracketed-reference).
       Run: bash tests/run-unit.sh -k "test_build_sheets or test_generate_images_out_dir"
       EXPECT: RED on 1 and 3; 2 green already.
+      SHADOW CONFIG IS A TEST REQUIREMENT, not just a shim detail (phase-5 note): neither generate-images.py --print-prompt nor tools/validate_images.py has a prompts-file flag, so any test that runs the engine over STICKER entries needs a second config in the SAME DIRECTORY as the real one with image.prompts_file repointed — the engine sets root = cfg_path.parent and resolves output:, every reference path and the --out alias guard against that root. tests/unit/_stickers_fixture.py already does this; reuse it rather than re-inventing it.
   - id: P8.T4.S2
     text: |
       [GREEN] build-sheets.py: raise SystemExit on a duplicate (sheet, pos), naming both sticker keys and the position. generate-images.py: WARN naming the key when a composed prompt is empty, immediately before the existing `continue` (line ~439).

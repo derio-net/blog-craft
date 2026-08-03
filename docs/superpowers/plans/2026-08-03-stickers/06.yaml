@@ -26,6 +26,7 @@ tasks:
         6. it never writes outside the configured dirs.
       Run: bash tests/run-unit.sh -k test_migrate_stickers
       EXPECT: RED.
+      SHADOW CONFIG IS A TEST REQUIREMENT, not just a shim detail (phase-5 note): neither generate-images.py --print-prompt nor tools/validate_images.py has a prompts-file flag, so any test that runs the engine over STICKER entries needs a second config in the SAME DIRECTORY as the real one with image.prompts_file repointed — the engine sets root = cfg_path.parent and resolves output:, every reference path and the --out alias guard against that root. tests/unit/_stickers_fixture.py already does this; reuse it rather than re-inventing it.
   - id: P6.T1.S2
     text: |
       [GREEN] Write tools/migrate_stickers.py: read the legacy stickers.yaml, emit the v5 prompts file (entries as in P5.T1.S3), print the layer/order/template block to stdout, rewrite style_anchor paths, validate braces, exit non-zero on anything ambiguous with the reason. --dry-run prints the diff without writing.
