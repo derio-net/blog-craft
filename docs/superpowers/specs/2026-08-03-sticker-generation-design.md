@@ -163,12 +163,12 @@ image:
       - sticker_reference_guidance
       - sticker_face_pins
       - clothing
-      - mood
+      - sticker_mood
       - scene
       - sticker_border_spec                # NOTE: after scene, not before
   layers:
-    mood:
-      _template: "Frank's expression: {}."   # NEW directive (stickers only)
+    sticker_mood:                          # NEW — sticker-only, NOT frank's `mood`
+      _template: "Frank's expression: {}."   # (see the warning below)
     sticker_base_character: |- ...
     sticker_atmosphere: |- ...
     sticker_reference_guidance: |- ...
@@ -184,10 +184,29 @@ features:
     sheet: { size: a4, dpi: 300, grid: [3, 3], gutter: 60 }
 ```
 
-One note on this shape. `clothing`, `mood` and `scene` are **reused** from
-frank's existing cover layers — frank's sticker `clothing` is per-entry
-free-form prose, which passthrough already handles, and `scene` is the
-reserved token. Only the five genuinely-conflicting layers are namespaced.
+Two notes on this shape.
+
+`clothing` and `scene` are **reused** from frank's existing cover layers —
+frank's sticker `clothing` is per-entry free-form prose, which passthrough
+already handles, and `scene` is the reserved token. **`mood` is not reusable**,
+and an earlier draft of this spec got that wrong. Six layers are namespaced,
+not five.
+
+> **Why `sticker_mood` and not `mood`** (found during phase 1 implementation,
+> 2026-08-03). `_template` attaches to a *layer*, so it applies to every order
+> naming that layer. frank's `mood` table is already a flat map of **complete
+> sentences** — `curious: Frank's expression is curious — head tilted…`
+> (`frank/.blog-craft.yaml:154-167`) — and frank's `hero` (line 57) and
+> `banner` (line 77) orders both name plain `mood`. Putting `_template` on
+> `mood` would therefore compose
+> `Frank's expression: Frank's expression is curious — …` on **every frank
+> cover**. Nothing in blog-craft would catch it: the sticker goldens only cover
+> sticker prompts, and `test_image_compose.py` uses its own `_template`-free
+> fixture. A separate `sticker_mood` layer keeps the frame where it belongs.
+>
+> Consequence for entries: `_resolve_modifier` looks up `entry.get(<layer
+> name>)`, so sticker entries carry `modifiers: {sticker_mood: <free-form
+> text>}` — not `mood`.
 
 The order above is authoritative, transcribed from
 `generate-stickers.py:49-54`:
@@ -308,10 +327,12 @@ So frank's adoption needs a **one-time transform**, shipped by blog-craft as
 `tools/migrate_stickers.py`, that frank runs once:
 
 1. reads frank's `stickers.yaml`;
-2. emits the five `sticker_*` layers plus the `sticker` composition order and
-   the `mood._template` line, for the operator to paste into
-   `.blog-craft.yaml` (it does **not** edit the config — that file is content,
-   and silent config surgery is how #60 happened);
+2. emits the six `sticker_*` layers — including `sticker_mood` carrying the
+   `_template` — plus the `sticker` composition order, for the operator to
+   paste into `.blog-craft.yaml` (it does **not** edit the config — that file
+   is content, and silent config surgery is how #60 happened). It must **never**
+   emit a `mood:` key: frank already has one, and merging `_template` into it
+   double-frames every cover (see the warning in §1);
 3. rewrites the 18 stickers as v5 entries — `composition.{order, modifiers,
    scene, reference_images}`, `aspect_ratio: '1:1'`, `output:`, and the
    `sheet`/`pos` fields — into the new `features.stickers.prompts_file`;

@@ -27,17 +27,18 @@ tasks:
       EXPECT: 18 goldens + 18 refs files + provenance committed.
   - id: P5.T1.S2
     text: |
-      [RED] New tests/unit/test_stickers_golden.py: a fixture .blog-craft.yaml carrying the sticker layers + the `sticker` composition order + mood._template, and a prompts file built from the vendored frank-stickers.yaml. For each of the 18 keys assert
+      [RED] New tests/unit/test_stickers_golden.py: a fixture .blog-craft.yaml carrying the six sticker_* layers + the `sticker` composition order (sticker_mood carries the _template; see the WARNING in P5.T1.S3), and a prompts file built from the vendored frank-stickers.yaml. For each of the 18 keys assert
         generate-images.py --print-prompt <key>  ==  tests/fixtures/stickers/golden/<key>.txt
       byte-for-byte. Parametrize over the keys so a failure names the sticker.
       Run: bash tests/run-unit.sh -k test_stickers_golden
       EXPECT: RED — the fixture config and the entry shape do not exist yet.
   - id: P5.T1.S3
     text: |
-      [GREEN] Author the fixture: the five namespaced layers (sticker_base_character, sticker_atmosphere, sticker_reference_guidance, sticker_face_pins, sticker_border_spec) transcribed VERBATIM from the vendored frank-stickers.yaml's top-level prose keys; mood with `_template: "Frank's expression: {}."`; and composition_orders.sticker in EXACTLY this order:
-        sticker_base_character, sticker_atmosphere, sticker_reference_guidance, sticker_face_pins, clothing, mood, scene, sticker_border_spec
+      [GREEN] Author the fixture: the five prose layers (sticker_base_character, sticker_atmosphere, sticker_reference_guidance, sticker_face_pins, sticker_border_spec) transcribed VERBATIM from the vendored frank-stickers.yaml's top-level prose keys, PLUS a sixth layer sticker_mood carrying `_template: "Frank's expression: {}."` and no table entries; and composition_orders.sticker in EXACTLY this order:
+        sticker_base_character, sticker_atmosphere, sticker_reference_guidance, sticker_face_pins, clothing, sticker_mood, scene, sticker_border_spec
       border AFTER scene — transcribed from generate-stickers.py:49-54. Swapping those two yields a prompt that reads correctly and is wrong.
-      Each entry: composition.{order: sticker, modifiers: {mood, clothing}, scene, reference_images}, aspect_ratio '1:1', output:, sheet, pos.
+      Each entry: composition.{order: sticker, modifiers: {sticker_mood, clothing}, scene, reference_images}, aspect_ratio '1:1', output:, sheet, pos. The modifier key MUST be sticker_mood, not mood - _resolve_modifier looks up entry.get(<layer name>).
+      WARNING (phase-1 finding p1-mood-template-regresses-frank-covers): do NOT put _template on the shared `mood` layer. frank's mood table is already a flat map of COMPLETE sentences ("Frank's expression is curious - ...", frank/.blog-craft.yaml:154-167) and frank's hero+banner orders name plain `mood`, so a _template there composes "Frank's expression: Frank's expression is curious - ..." on every frank cover. Nothing in blog-craft catches it: these goldens are sticker-only and test_image_compose.py uses a _template-free fixture.
       Iterate until all 18 are byte-identical. A diff here is a real finding — journal it.
       Run: bash tests/run-unit.sh -k "test_stickers_golden or test_image_compose"
       EXPECT: green, all 18. test_image_compose.py unmodified.

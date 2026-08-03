@@ -18,7 +18,8 @@ tasks:
     text: |
       [RED] New tests/unit/test_migrate_stickers.py, run against the vendored fixture:
         1. output prompts file has 18 v5 entries; feeding it to generate-images.py --print-prompt reproduces the P5 goldens byte-for-byte (the transform is only correct if it is prompt-preserving);
-        2. it PRINTS the layer block + composition order + mood._template for the operator to paste, and does NOT edit .blog-craft.yaml (that file is `content` class; silent config surgery is how #60 happened);
+        2. it PRINTS the layer block (six sticker_* layers, sticker_mood carrying the _template) + composition order for the operator to paste, and does NOT edit .blog-craft.yaml (that file is `content` class; silent config surgery is how #60 happened);
+              2b. it NEVER emits a bare `mood:` key - frank already has one whose values are complete sentences, and merging a _template into it double-frames every frank cover (phase-1 finding p1-mood-template-regresses-frank-covers). Assert the emitted block contains no top-level `mood:`;
         3. the two self-referential style_anchor paths — the sticker set uses two of its OWN images as style anchors — are rewritten to the configured images_dir (spec risk 4: get this wrong and goldens still pass while generation silently loses the anchors);
         4. prose containing a stray { or } is REFUSED with the sticker key named (str.format would raise mid-run);
         5. idempotent: a second run over its own output is a no-op, not a double-transform;
