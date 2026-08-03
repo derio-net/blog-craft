@@ -33,7 +33,7 @@ tasks:
   - id: P2.T2.S1
     text: |
       [RED] New tests/unit/test_generate_images_out_dir.py (BLOG_CRAFT_TEST_MODE=1 is fine here — it exercises the write path, not the API):
-        1. with --out DIR, DIR/<key>.png is created;
+        1. with --out DIR, DIR/<key>.png is created; [SUPERSEDED by spec §5a after the phases 1-3 review: the name is the basename of the entry's `output:`, key-prefixed as `<key>-<basename>` only when the SELECTED set collides. `<key>.png` broke frank's runbook (its regen files are sticker-<key>.png) and the bare basename would have collapsed 85 of frank's 91 covers into one cover.png. Kept as authored for the record; the shipped contract is in the journal and 08.yaml.]
         2. with --out DIR, a PRE-EXISTING file at the entry's `output:` is byte-UNCHANGED (this is the data-loss guard, stk-2);
         3. with --out DIR and no pre-existing output:, that path is still not created at all;
         4. WITHOUT --out, `output:` is written exactly as today (regression);
@@ -43,7 +43,7 @@ tasks:
       EXPECT: RED (flag absent).
   - id: P2.T2.S2
     text: |
-      [GREEN] Add `--out` to the argparse block and thread it to the write site. Where the code currently does `out.write_bytes(variants[-1][1].read_bytes())`, branch: when --out is given, write each variant to `<out>/<key>.png` (last wins for the bare name) and SKIP the `output:` write and the post_process step entirely (post-processing targets the published asset). Archive entries still land in .regen-archive as today.
+      [GREEN] Add `--out` to the argparse block and thread it to the write site. Where the code currently does `out.write_bytes(variants[-1][1].read_bytes())`, branch: when --out is given, write each variant to `<out>/<key>.png` (last wins for the bare name) and SKIP the `output:` write and the post_process step entirely (post-processing targets the published asset). Archive entries still land in .regen-archive as today. [SUPERSEDED by spec §5a after the phases 1-3 review: the name is the basename of the entry's `output:`, key-prefixed as `<key>-<basename>` only when the SELECTED set collides. `<key>.png` broke frank's runbook (its regen files are sticker-<key>.png) and the bare basename would have collapsed 85 of frank's 91 covers into one cover.png. Kept as authored for the record; the shipped contract is in the journal and 08.yaml.]
       Docstring/comment the WHY: frank's sticker workflow is "generate into regen/, pick a winner, copy it over the master" (frank-stickers/README.md:28-29). Writing `output:` on every regen would destroy the curated sticker master — the artifact the whole print workflow exists to protect.
       Run: bash tests/run-unit.sh -k test_generate_images
       EXPECT: green.
