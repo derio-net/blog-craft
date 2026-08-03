@@ -68,7 +68,8 @@ tasks:
         stk-3 -> tests/unit/test_build_sheets.py
         stk-4 -> tests/unit/test_features_gating.py, tests/unit/test_migration_007.py
                  ALSO reword stk-4: after v7 every UPDATED blog carries features.stickers {enabled: false}, so "a blog WITHOUT features.stickers" is the legacy shape, not the normal one. The claim is about the capability being DISABLED (phase-3 note).
-        stk-5 -> tests/unit/test_update_legacy_dests.py, tests/unit/test_migrate_stickers.py
+        stk-5 -> tests/unit/test_update_relocation.py, tests/unit/test_migrate_stickers.py
+                 NOT test_update_legacy_dests.py — that file has never existed (phase-7 finding). Citing it would fail fr acceptance check's ref check.
       stk-3's print-at-100% claim is only PARTLY provable in CI (dimensions + DPI metadata are; a physical print is not). If the honest status is `skipped` with the reason in notes, set that rather than overclaiming `ci`.
       Run: fr acceptance check
       EXPECT: exit 0, no `failing` rows.

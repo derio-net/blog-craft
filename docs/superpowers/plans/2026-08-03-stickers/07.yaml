@@ -18,8 +18,10 @@ tasks:
       [RED] Extend tests/unit/test_update_legacy_dests.py (or the nearest existing legacy_dests test — locate it first):
         1. legacy_dests maps scripts/build-sheets.py and scripts/generate-stickers.py to {site}/_private/frank-stickers/<name>;
         2. a blog carrying the file ONLY at the legacy path plans `relocate` — the operator's copy moves, it is not re-added blank;
+        [CORRECTED during execution: it plans REPLACE, not relocate (phase-7 finding p7-frank-plans-replace-not-relocate). relocate requires the legacy copy to be byte-identical to staged; the shipped port differs (frank 59 lines, ours 208). Both retire the legacy file, but #61's "the operator's file moves, edits and all" holds only for merged-class rows like .github/**; for these framework scripts frank's edits are discarded, deliberately. Both cases are pinned.]
         3. a blog carrying a correct copy at BOTH paths plans `prune` (the stale duplicate only);
         4. after apply, the legacy file is gone and the emptied _private/frank-stickers/ directory is pruned, with the site dir itself never removed;
+        [CORRECTED during execution: the directory is NOT pruned on frank's real tree (phase-7 finding p7-private-dir-survives-on-franks-real-tree). Six of eight entries survive — stickers.yaml, README.md, images/, sheets/ are content class, plus .DS_Store and __pycache__/ — so the first rmdir fails, correctly. Pruning is only observable on a synthetic tree holding nothing else. Phase 8 must not promise a clean directory.]
         5. a blog that never had them is INERT — no relocate, no prune, nothing in the plan (this is the promise to gondor and stoa);
         6. {site} expands correctly for both site_dir: blog and a config-root site.
       Run: bash tests/run-unit.sh -k "legacy or test_update"

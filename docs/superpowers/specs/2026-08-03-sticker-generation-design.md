@@ -423,9 +423,27 @@ legacy_dests:
     - "{site}/_private/frank-stickers/generate-stickers.py"
 ```
 
-`/update` writes the shipped copy at `<site_dir>/scripts/`, `unlink()`s
-frank's, and prunes the emptied directory. Inert for every blog that never had
-those paths.
+`/update` writes the shipped copy at `<site_dir>/scripts/` and `unlink()`s
+frank's.
+
+Two corrections, both measured during phase 7 against frank's real tree:
+
+- **The action is `replace`, not `relocate`.** `relocate` requires the legacy
+  copy to be byte-identical to the staged one; the shipped port is not (frank's
+  `build-sheets.py` is 59 lines, ours 208). Both actions retire the legacy file,
+  but only `merged`-class rows preserve the operator's edits — for these
+  `framework` scripts frank's local edits are discarded, deliberately.
+- **The directory is not pruned**, because content survives in it. See §8 step 5.
+
+**What makes this inert for gondor and stoa is not the equality rule.** The
+manifest's existing comment says a legacy destination equal to the current one is
+dropped, "which is what keeps this inert" — true of the `.github/**` row it was
+written for, but `_private/frank-stickers/x` can never equal `scripts/x`, so
+these two rows are armed for *every* blog, permanently. Inertness comes from
+`plan_update`'s `(blog / d).exists()` test: a blog that never had the file has no
+legacy side, so no relocation is planned. The `features.stickers` gate one layer
+up is the second line of defence. A gondor/stoa-shaped dry run plans two plain
+`add`s, creates no `_private/`, and deletes nothing — verified.
 
 **Not automatic.** `plan_update` skips `content` outright
 (`update.py:153`), and frank's remaining sticker files are all content:
@@ -501,8 +519,13 @@ transcription check.
 3. Paste the layer block; set `features.stickers.enabled: true`.
 4. Run the golden check (`--dry-run` over all 18) and confirm zero prompt
    drift against the committed goldens.
-5. `git rm` the now-empty `blog/_private/frank-stickers/` remnants
-   (`stickers.yaml`, `README.md`).
+5. `git rm` what survives in `blog/_private/frank-stickers/`. The directory is
+   **not** empty at this point and is **not** pruned — measured on frank's real
+   tree during phase 7. `/update` retires only the two *scripts*; six entries
+   remain (`stickers.yaml`, `README.md`, `images/`, `sheets/`, plus `.DS_Store`
+   and `__pycache__/`), so `_prune_empty_parents`' first `rmdir` fails, as it
+   should. `images/` and `sheets/` are moved by step 2's `--move-assets`; this
+   step removes the rest.
 6. Rebuild sheets; confirm the two PNGs are pixel-identical to the committed
    ones.
 
@@ -563,7 +586,7 @@ frank's real data, not synthetic smoke.
 | 7 | Rebuilt sheets are byte-identical to frank's committed sheets | smoke | `tests/smoke-stickers.sh` |
 | 8 | `features.stickers` gates both scripts in/out of a rendered blog | unit | `tests/unit/test_features_gating.py` (extended) |
 | 9 | `006_to_007` is pure, idempotent, and preserves an explicit opt-in | unit | `tests/unit/test_migration_007.py` |
-| 10 | `/update` retires frank's two script copies and prunes the dir | unit | `tests/unit/test_update_legacy_dests.py` (extended) |
+| 10 | `/update` retires frank's two script copies | unit | `tests/unit/test_update_relocation.py` (extended) |
 | 11 | `migrate_stickers.py` produces a prompts file whose prompts match goldens | unit | `tests/unit/test_migrate_stickers.py` |
 | 12 | No existing blog's composed cover prompts change | unit | existing `test_image_compose.py` must pass unmodified |
 
