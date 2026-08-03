@@ -176,11 +176,18 @@ def _run_level_contact_sheet(gi, out_dir: Path, generated: list) -> None:
     thumbnails with the label along the bottom, and it no longer exists (deleted by
     his own cutover, bd0415e6), so there is nothing to reproduce and nothing to
     regress. Declared in the CHANGELOG rather than hidden.
+
+    `tile_height=420` is passed for the same reason `tile_width` is: this sheet is
+    reviewed by EYE. Stickers are square (`aspect_ratio: '1:1'`), and
+    `_contact_sheet` fits the thumbnail inside `(tw - 10, th - 30)` — so leaving the
+    260 default reserved a 420x260 tile for a 230x230 thumbnail and spent ~45% of
+    every tile on white. A square tile makes the width parameter actually buy
+    resolution instead of margin.
     """
     from PIL import Image
     sheet = out_dir / "contact-sheet.png"
     gi._contact_sheet([(key, Image.open(path)) for key, path in generated],
-                      sheet, cols=5, tile_width=420)
+                      sheet, cols=5, tile_width=420, tile_height=420)
     print(f"\nContact sheet: {sheet}")
 
 
@@ -246,8 +253,9 @@ def main(argv: list) -> int:
     if a.dry_run:
         for key in keys:
             entry = by_key[key]
-            ref = gi.primary_reference(entry, image_cfg, root, None)
-            refs = ([ref] if ref else []) + gi.entry_reference_paths(entry, root)
+            # the ENGINE's own assembly (`payload_paths`), not a second copy of the
+            # order: what is shown here is what `_gen_bytes` would send.
+            refs = gi.payload_paths(entry, image_cfg, root)
             print(f"\n=== {key} === refs: {[p.name for p in refs]}")
             print(gi.compose_for(entry, image_cfg))   # in FULL, never truncated
         return 0

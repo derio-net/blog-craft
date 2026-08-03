@@ -328,7 +328,9 @@ def test_features_stickers_absent_exits_non_zero_pointing_at_the_knob(tmp_path):
 # label in a strip along the BOTTOM, background-coloured trailing cells — where
 # `_contact_sheet` draws the label at the TOP of a fixed tile. What is reproduced is
 # frank's COLUMN COUNT and TILE WIDTH; the pixels differ, phase 8 declares it, and
-# nothing regresses because frank's version cannot run.
+# nothing regresses because frank's version cannot run. The tile is SQUARE
+# (`tile_height=420`) because the subjects are: at the 260 default a 1:1 sticker
+# thumbnailed to 230x230 inside a 420x260 tile and ~45% of the sheet was white.
 
 def _engine_mod():
     spec = importlib.util.spec_from_file_location(
@@ -345,7 +347,7 @@ def test_a_run_of_two_or_more_keys_writes_the_run_level_contact_sheet(tmp_path):
     sheet = blog / "regen" / "contact-sheet.png"
     assert sheet.is_file()
     with Image.open(sheet) as im:
-        assert im.size == (2 * 420, 260)   # cols clamps to the image count
+        assert im.size == (2 * 420, 420)   # cols clamps to the image count
 
 
 def test_the_sheet_is_franks_five_columns_at_tile_width_420(tmp_path):
@@ -354,7 +356,25 @@ def test_the_sheet_is_franks_five_columns_at_tile_width_420(tmp_path):
     r = _run(blog)
     assert r.returncode == 0, r.stdout + r.stderr
     with Image.open(blog / "regen" / "contact-sheet.png") as im:
-        assert im.size == (5 * 420, 2 * 260)   # 6 keys, 5 wide -> 2 rows
+        assert im.size == (5 * 420, 2 * 420)   # 6 keys, 5 wide -> 2 rows
+
+
+def test_the_tile_is_square_so_a_square_sticker_does_not_thumbnail_into_margin(tmp_path):
+    """`tile_height` is passed, not left at the 260 default.
+
+    Stickers are `aspect_ratio: '1:1'` and `_contact_sheet` fits the thumbnail into
+    `(tw - 10, th - 30)`, so a 420x260 tile held a 230x230 thumbnail — ~45% of every
+    tile white, on the one artifact whose entire purpose is being looked at. Asserted
+    as a RATIO rather than a pixel count so it keeps meaning if the geometry changes
+    again: the thumbnail must fill most of its tile."""
+    entries = [_sticker(1), _sticker(2)]
+    blog = _blog(tmp_path, entries=entries)
+    assert _run(blog).returncode == 0
+    with Image.open(blog / "regen" / "contact-sheet.png") as im:
+        tile_w, tile_h = im.size[0] // 2, im.size[1]
+    # the square thumbnail the shim's geometry admits, against the tile area
+    side = min(tile_w - 10, tile_h - 30)
+    assert side * side > 0.55 * tile_w * tile_h, (side, tile_w, tile_h)
 
 
 def test_the_tiles_are_the_generated_KEYS_labelled_by_key(tmp_path):
@@ -371,7 +391,7 @@ def test_the_tiles_are_the_generated_KEYS_labelled_by_key(tmp_path):
     expected = tmp_path / "expected.png"
     images = [(e["key"], Image.open(blog / "regen" / f"sticker-{e['key']}.png"))
               for e in entries]
-    gi._contact_sheet(images, expected, cols=5, tile_width=420)
+    gi._contact_sheet(images, expected, cols=5, tile_width=420, tile_height=420)
     assert (blog / "regen" / "contact-sheet.png").read_bytes() == expected.read_bytes()
 
 

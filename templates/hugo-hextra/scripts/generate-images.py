@@ -272,6 +272,30 @@ def primary_reference(entry: dict, image_cfg: dict, root: Path, override: Path |
     return select_reference(entry, image_cfg, root, None)
 
 
+_UNRESOLVED = object()
+
+
+def payload_paths(entry: dict, image_cfg: dict, root: Path, override: Path | None = None,
+                  primary: Path | None | object = _UNRESOLVED) -> list[Path]:
+    """The reference payload in the ORDER it reaches the model: the primary master
+    sheet first, then the entry's anchors in declared order.
+
+    THE one place that order is assembled. It used to be spelled out in three:
+    `_gen_bytes` (what actually ships to the model), the sticker shim's `--dry-run`
+    (what the operator is shown), and `tests/unit/test_stickers_references.py` (the
+    file whose whole purpose is that order — the one class the 18 prompt goldens are
+    structurally blind to). Three copies that agree today, where a reordering inside
+    `_gen_bytes` would leave the guard green.
+
+    `primary` lets a caller that has ALREADY resolved the primary — `main`, which
+    prints it and hands it to `_gen_bytes` — pass it in, so it is not resolved (and
+    its miss not WARNed) a second time. Omit it and the primary is resolved here.
+    """
+    if primary is _UNRESOLVED:
+        primary = primary_reference(entry, image_cfg, root, override)
+    return ([primary] if primary else []) + entry_reference_paths(entry, root)
+
+
 def _gen_bytes(prompt: str, ref: Path | None, model: str, image_cfg: dict, entry: dict,
                root: Path) -> bytes | None:
     if TEST_MODE:
@@ -280,10 +304,17 @@ def _gen_bytes(prompt: str, ref: Path | None, model: str, image_cfg: dict, entry
     client = genai.Client(api_key=os.environ[image_cfg.get("api_key_env", "GEMINI_API_KEY")])
     from PIL import Image
     contents: list = [prompt]
-    if ref:
-        contents.append(Image.open(ref))
-    # Entry-level anchors follow the master sheet, in declared order.
-    for p in entry_reference_paths(entry, root):
+    # Order comes from `payload_paths`, never from this loop: the master sheet leads
+    # (the composed `reference_guidance` prose declares the FIRST image canonical for
+    # the face), entry anchors follow in declared order.
+    payload = payload_paths(entry, image_cfg, root, primary=ref)
+    # An unreadable MASTER stays fatal — generating without the face authority would
+    # silently produce the wrong character — while an unreadable anchor is skipped
+    # with a warning, as before.
+    lead = 1 if ref else 0
+    if lead:
+        contents.append(Image.open(payload[0]))
+    for p in payload[lead:]:
         try:
             contents.append(Image.open(p))
         except OSError as exc:

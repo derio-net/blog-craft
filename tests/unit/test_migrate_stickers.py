@@ -30,8 +30,14 @@ The engine is driven through a SHADOW CONFIG in the same directory as the real o
 prompts-file flag, and the engine resolves the blog root as `cfg_path.parent`, so a
 shadow anywhere else would silently relocate every path (journal
 `p4-shim-shadow-config-and-regen-location`, `p5-fixture-artifacts-for-phases-6-8`).
-Here the shadow is built by PASTING the tool's printed block, which is the operator
-action from spec §8 step 3 — so the block is proven usable, not merely present.
+Here the shadow is built by MERGING the tool's printed fragments, which is the
+operator action from spec §8 step 4 — so the fragments are proven usable, not merely
+present. Both readings of that instruction are covered, and they are different
+claims: the dict-level merge (`paste_and_shadow`) proves the fragments' CONTENT
+composes frank's prompts, while the byte-level append at the bottom of this file
+proves the printed TEXT cannot destroy the config it is put into. The second one is
+new: the first shape of this block was rooted at `image:` and, appended literally,
+replaced frank's whole `image:` mapping with no error anywhere.
 """
 from __future__ import annotations
 
@@ -41,6 +47,7 @@ import re
 import shutil
 import subprocess
 import sys
+import textwrap
 from pathlib import Path
 
 import pytest
@@ -73,7 +80,8 @@ COVER_MOOD = {
 # the host: a NESTED two-level table keyed by group. Structurally faithful, with the
 # real group names, because those keys ARE the collision surface. Measured
 # 2026-08-03: it declares no `_select` and no directives, and 85 of frank's 90 cover
-# entries select from it with the BRACKET form `group[variant]`.
+# entries select from it — 84 of those with the BRACKET form `group[variant]`, the
+# 85th (`ops-30-silent-failure`) with free-form prose that survives via passthrough.
 COVER_CLOTHING = {
     "generic": {"default": "Frank's torso/body is exposed server hardware"},
     "building": {
@@ -182,10 +190,31 @@ def run(blog: Path, *extra: str, legacy: str | None = None):
     return subprocess.run(args, capture_output=True, text=True, cwd=str(blog.parent))
 
 
-def layer_block(stdout: str) -> str:
-    """The exact bytes between the paste markers — what the operator copies."""
+def printed_region(stdout: str) -> str:
+    """Everything the tool prints between its outer markers, the inner marker
+    comments included — the widest thing an operator could select and copy."""
     assert ms.PASTE_BEGIN in stdout and ms.PASTE_END in stdout, stdout
     return stdout.split(ms.PASTE_BEGIN + "\n", 1)[1].split(ms.PASTE_END, 1)[0]
+
+
+def fragments(stdout: str) -> tuple[str, str]:
+    """The two fragments' exact bytes: `(composition_orders, layers)`.
+
+    Each is already at the indentation it occupies inside `image:`, and neither
+    carries an enclosing key — that is the property that makes the printed text safe
+    to put in a config file at all (see the byte-append test at the bottom).
+    """
+    body = printed_region(stdout)
+    assert ms.ORDERS_MARK in body and ms.LAYERS_MARK in body, body
+    orders = body.split(ms.ORDERS_MARK + "\n", 1)[1].split(ms.LAYERS_MARK, 1)[0]
+    return orders, body.split(ms.LAYERS_MARK + "\n", 1)[1]
+
+
+def layer_block(stdout: str) -> dict:
+    """The two fragments parsed back into the `image:` sub-mappings they belong to."""
+    orders, layers = fragments(stdout)
+    return {"composition_orders": yaml.safe_load(textwrap.dedent(orders)),
+            "layers": yaml.safe_load(textwrap.dedent(layers))}
 
 
 def entries_of(blog: Path, cfg=None) -> list[dict]:
@@ -195,14 +224,22 @@ def entries_of(blog: Path, cfg=None) -> list[dict]:
 
 
 def paste_and_shadow(blog: Path, stdout: str, cfg=None) -> Path:
-    """spec §8 step 3: paste the printed block, then repoint `prompts_file`.
+    """spec §8 step 4: MERGE the printed fragments, then repoint `prompts_file`.
+
+    A dict-level merge is one of the two readings of the printed instruction — the
+    semantic one, and the class this covers is "the fragments' CONTENT composes
+    frank's prompts". The other reading (an operator selecting the printed lines and
+    putting them in the file, bytes and all) is covered by
+    `test_appending_the_printed_block_to_a_frank_shaped_config_keeps_the_cover_layers`;
+    that one is about data loss, this one about prompt fidelity, and neither implies
+    the other.
 
     The shadow lives beside the real config because the engine resolves the blog
     root as `cfg_path.parent`; a shadow in a temp dir would relocate every
     reference path and make the `--out` alias guard compare against `/tmp`.
     """
     cfg = copy.deepcopy(cfg or base_config())
-    block = yaml.safe_load(layer_block(stdout))["image"]
+    block = layer_block(stdout)
     cfg["image"]["layers"].update(block["layers"])
     cfg["image"]["composition_orders"].update(block["composition_orders"])
     cfg["image"]["prompts_file"] = cfg["features"]["stickers"]["prompts_file"]
@@ -309,11 +346,11 @@ def test_validate_images_reports_no_errors_for_the_migrated_blog(migrated):
 
 # --- 2. it PRINTS the layer block and does not touch the config ---------------
 
-def test_the_layer_block_is_printed_for_the_operator_to_paste(migrated):
+def test_the_layer_block_is_printed_for_the_operator_to_merge(migrated):
     _, out = migrated
-    block = yaml.safe_load(layer_block(out))
-    layers = block["image"]["layers"]
-    assert block["image"]["composition_orders"]["sticker"] == STICKER_ORDER
+    block = layer_block(out)
+    layers = block["layers"]
+    assert block["composition_orders"]["sticker"] == STICKER_ORDER
     assert set(layers) == set(PROSE_LAYERS) | {"clothing", "sticker_mood"}
     for layer, frank_key in PROSE_LAYERS.items():
         assert layers[layer] == FRANK[frank_key], layer
@@ -324,14 +361,22 @@ def test_the_layer_block_is_printed_for_the_operator_to_paste(migrated):
 
 
 def test_the_printed_block_is_byte_identical_to_the_phase5_fixture_config(migrated):
-    """The fixture config is the shape frank pastes. If the shipped tool and the
-    fixture disagree by so much as a space, the goldens are proving something
-    about a config nobody will ever have."""
+    """The fixture config is the shape frank ends up with. If the shipped tool and
+    the fixture disagree by so much as a space, the goldens are proving something
+    about a config nobody will ever have.
+
+    Compared REGION BY REGION rather than as one blob, because the fragments no
+    longer carry the two structural key lines (`  composition_orders:` / `  layers:`)
+    — that is the FIX, and the emitted content either side of them is unchanged, at
+    the same indentation, which is what this asserts."""
     _, out = migrated
     lines = Path(CONFIG).read_text().splitlines(keepends=True)
     i = next(n for n, ln in enumerate(lines) if ln.startswith("  composition_orders:"))
-    j = next(n for n, ln in enumerate(lines) if ln.startswith("features:"))
-    assert layer_block(out).split("\n", 1)[1] == "".join(lines[i:j])
+    j = next(n for n, ln in enumerate(lines) if ln.startswith("  layers:"))
+    k = next(n for n, ln in enumerate(lines) if ln.startswith("features:"))
+    orders, layers = fragments(out)
+    assert orders == "".join(lines[i + 1:j])
+    assert layers == "".join(lines[j + 1:k])
 
 
 def test_the_config_file_is_never_edited(tmp_path):
@@ -349,9 +394,9 @@ def test_the_config_file_is_never_edited(tmp_path):
 
 def test_the_printed_block_never_emits_a_bare_mood_key(migrated):
     _, out = migrated
-    block = layer_block(out)
-    assert "mood" not in yaml.safe_load(block)["image"]["layers"]
-    assert re.search(r"(?m)^\s*mood:", block) is None, block
+    assert "mood" not in layer_block(out)["layers"]
+    text = printed_region(out)
+    assert re.search(r"(?m)^\s*mood:", text) is None, text
 
 
 def test_pasting_the_block_leaves_franks_cover_mood_table_intact(tmp_path):
@@ -692,16 +737,18 @@ def test_every_declared_reference_path_exists_after_the_move(tmp_path):
             assert (blog / rel).is_file(), (e["key"], rel)
 
 
-# --- the pasted block must not collide with what the blog already has ---------
+# --- the merged fragments must not collide with what the blog already has ------
 #
-# spec §8 step 3 tells the operator to paste the printed block into
+# spec §8 step 4 tells the operator to merge the printed fragments into
 # `.blog-craft.yaml`. PyYAML resolves a duplicate mapping key by silently taking
-# the LAST one, so any key the block emits that the config already defines is
-# DESTROYED on paste — no error, no warning.
+# the LAST one, so any key the fragments emit that the config already defines is
+# DESTROYED on merge — no error, no warning.
 #
 # Measured against frank's real config (2026-08-03): `image.layers.clothing` is a
-# populated nested table and 85 of his 90 cover entries select from it with the
-# bracket form `group[variant]`. Under a `clothing: {}` paste, `_resolve_modifier`
+# populated nested table and 84 of his 90 cover entries select from it with the
+# bracket form `group[variant]` (the 85th, `ops-30-silent-failure`, carries free-form
+# prose and would survive via passthrough — see the journal correction). Under a
+# `clothing: {}` merge, `_resolve_modifier`
 # takes the bracket path, `table.get(group)` is None, and the section resolves to
 # "" — 85 cover prompts silently lose their clothing sentence entirely.
 
@@ -725,8 +772,7 @@ def test_an_absent_clothing_layer_is_emitted_as_an_empty_table(migrated):
     """Without it the layer is unknown, `resolve_layer` returns "" and compose()
     drops the section — the clothing sentence vanishes from all 18 prompts."""
     _, out = migrated
-    layers = yaml.safe_load(layer_block(out))["image"]["layers"]
-    assert layers["clothing"] == {}
+    assert layer_block(out)["layers"]["clothing"] == {}
 
 
 def test_an_existing_clothing_layer_is_never_emitted(franklike):
@@ -734,9 +780,9 @@ def test_an_existing_clothing_layer_is_never_emitted(franklike):
     last-wins). The existing table already serves stickers: their clothing is
     free-form prose, which `_resolve_modifier` returns via passthrough."""
     _, out = franklike
-    block = layer_block(out)
-    assert "clothing" not in yaml.safe_load(block)["image"]["layers"]
-    assert re.search(r"(?m)^\s*clothing:", block) is None, block
+    assert "clothing" not in layer_block(out)["layers"]
+    text = printed_region(out)
+    assert re.search(r"(?m)^\s*clothing:", text) is None, text
     assert ms.CLOTHING_KEPT_NOTE in out, "the omission must be explained, not silent"
 
 
@@ -763,7 +809,7 @@ def test_the_goldens_still_reproduce_against_a_franklike_config(franklike, key):
 
 def test_the_existing_cover_layers_still_RESOLVE_after_the_paste(franklike):
     """Presence is not enough — the claim is that frank's COVERS still compose. So
-    this resolves a real bracket selector (`building[overalls]`, the shape 85 of his
+    this resolves a real bracket selector (`building[overalls]`, the shape 84 of his
     90 entries use) and a real mood key through the shipped `compose.py`, against
     the merged layers."""
     blog, _ = franklike
@@ -820,6 +866,65 @@ def test_a_sticker_clothing_value_colliding_with_a_group_key_is_refused(tmp_path
     assert r.returncode != 0
     assert d["stickers"][2]["key"] in r.stdout + r.stderr
     assert "clothing" in r.stdout + r.stderr
+
+
+def test_appending_the_printed_block_to_a_frank_shaped_config_keeps_the_cover_layers(tmp_path):
+    """The printed instruction, executed LITERALLY, on bytes.
+
+    Everything above proves the block's semantic CONTENT — `paste_and_shadow` merges
+    it with `dict.update`, which is one of the two readings of "paste this". The
+    other reading is the one an operator with a text editor actually performs: select
+    the printed lines, put them in the file. Nothing tested that, and until this
+    commit it destroyed data:
+
+    the emitted text was rooted at `image:` and carried `composition_orders:` and
+    `layers:` under it — all three keys a blog with covers already has. Appended at
+    top level, PyYAML's duplicate-key last-wins replaced the WHOLE `image:` mapping:
+    `model`, `prompts_file`, every cover layer and every cover order, gone.
+    `validate_config` returns [] for the result, and the only symptom is the
+    empty-prompt WARN on every cover at rc 0.
+
+    The fix is in what is emitted, not in how it is described: the fragments carry no
+    structural key at all, so a byte append has nothing to duplicate. The `image:`
+    section is untouched — which is also why the mis-paste stays LOUD on the side it
+    does affect: the sticker layers never arrive, `composition_orders[sticker]` does
+    not resolve, and `tools/validate_images.py` says so.
+    """
+    cfg = franklike_config()
+    blog = build_legacy_blog(tmp_path, cfg=cfg)
+    r = run(blog)
+    assert r.returncode == 0, r.stdout + r.stderr
+
+    appended = (blog / ".blog-craft.yaml").read_bytes() + printed_region(r.stdout).encode()
+    img = yaml.safe_load(appended.decode())["image"]
+    assert img["layers"]["clothing"] == COVER_CLOTHING, \
+        "the cover clothing table did not survive a literal append of the printed text"
+    assert img["layers"]["mood"] == COVER_MOOD
+    assert img["layers"]["base_character"] == cfg["image"]["layers"]["base_character"]
+    assert img["composition_orders"] == cfg["image"]["composition_orders"]
+    assert img["model"] == cfg["image"]["model"]
+    assert img["prompts_file"] == cfg["image"]["prompts_file"]
+
+
+def test_the_printed_fragments_declare_no_key_a_mis_paste_could_clobber(migrated):
+    """The generalisation: which emitted key could collide, at any level?
+
+    Answer, and it is the whole list: one order name (`sticker`) and at most seven
+    layer names (six `sticker_*` plus `clothing`, itself emitted only when absent) —
+    each of them a leaf the tool WARNs about when the config already defines it. Plus
+    `_template`, nested inside the `sticker_mood` mapping the tool itself creates, so
+    it can only collide if that layer name does.
+
+    What must never appear is a STRUCTURAL key — `image:`, `layers:`,
+    `composition_orders:` — because duplicating one of those does not replace a leaf,
+    it deletes every sibling the existing mapping holds.
+    """
+    _, out = migrated
+    body = "\n".join(ln for ln in printed_region(out).splitlines()
+                     if not ln.lstrip().startswith("#"))
+    for key in ("image", "layers", "composition_orders"):
+        assert re.search(rf"(?m)^\s*{key}:", body) is None, \
+            f"the fragments must not emit a `{key}:` key for a paste to duplicate"
 
 
 def test_without_move_assets_the_curated_masters_stay_put(tmp_path):

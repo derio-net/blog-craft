@@ -1268,7 +1268,7 @@ rows:
       so the last step of this acceptance is an operator action. ALSO STILL OWED, and
       the reason this is not merely unverifiable-by-nature: a rebuild from the real curated
       masters, byte-compared against the two committed sheets (spec Test Plan row 7,
-      spec section 8 step 6). That needs the consumer blog own 18 PNGs, so it lands in
+      spec section 8 step 7). That needs the consumer blog own 18 PNGs, so it lands in
       that blog adoption PR, not in blog-craft CI.'
   - id: stk-4
     capability: Sticker generation
@@ -1315,6 +1315,6 @@ rows:
       the shipped engine. The private directory itself SURVIVES the update while it still
       holds that content — measured on the real tree, six of eight entries remain — so
       emptying it is the operator last step and this row does not promise otherwise.
-      Remaining manual step: the consumer own adoption PR runs /update, pastes the printed
-      block and runs the transform (spec section 8). The contract is CI-pinned here;
+      Remaining manual step: the consumer own adoption PR runs /update, merges the two printed
+      fragments and runs the transform (spec section 8). The contract is CI-pinned here;
       the one-off execution is not.'

@@ -78,11 +78,35 @@ def test_gen_bytes_takes_root_so_entry_refs_can_resolve():
     assert "entry" in params and "root" in params, params
 
 
-def test_master_reference_stays_first_in_the_payload():
+def test_master_reference_stays_first_in_the_payload(tmp_path):
     """`reference_guidance` declares the FIRST image canonical for the face, so
-    entry anchors must be appended AFTER the master sheet, never before."""
+    entry anchors must come AFTER the master sheet, never before.
+
+    Asserted on the resolved payload rather than on the source text: the order lives
+    in `payload_paths` now — one assembly, called by `_gen_bytes`, by the sticker
+    shim's `--dry-run` and by `tests/unit/test_stickers_references.py` — so it can be
+    checked by running it."""
+    m = _mod()
+    (tmp_path / "refs").mkdir()
+    for n in ("master", "one", "two"):
+        (tmp_path / f"refs/{n}.png").write_bytes(b"x")
+    master = tmp_path / "refs/master.png"
+    entry = {"composition": {"reference_images": {
+        "primary": "refs/master.png",
+        "clothing": ["refs/one.png", "refs/two.png"]}}}
+    got = m.payload_paths(entry, {}, tmp_path)
+    assert [p.name for p in got] == ["master.png", "one.png", "two.png"]
+    # ... and an already-resolved primary is used as given, not resolved twice
+    assert m.payload_paths(entry, {}, tmp_path, primary=master)[0] == master
+    assert [p.name for p in m.payload_paths(entry, {}, tmp_path, primary=None)] \
+        == ["one.png", "two.png"]
+
+
+def test_gen_bytes_assembles_the_payload_through_payload_paths():
+    """The extraction is the point: if `_gen_bytes` grows its own ordering again, the
+    three callers can drift and only the model would notice."""
     m = _mod()
     src = inspect.getsource(m._gen_bytes)
-    master_at = src.index("contents.append(Image.open(ref))")
-    entry_at = src.index("entry_reference_paths(entry, root)")
-    assert master_at < entry_at, "entry references must be appended after the master sheet"
+    assert "payload_paths(entry, image_cfg, root, primary=ref)" in src, src
+    assert "entry_reference_paths(" not in src, \
+        "the order belongs to payload_paths, not to a second loop in _gen_bytes"

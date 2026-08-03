@@ -1004,7 +1004,9 @@ writes a per-**key** sheet across that key's variants to
 run, which makes one image per key, never produces one. The run-level sheet the
 sticker runbook points at is therefore built by the **shim**, at
 `<out>/contact-sheet.png`, whenever at least two keys succeeded, with `cols=5,
-tile_width=420`. Its **layout** is blog-craft's `_contact_sheet` (label at the
+tile_width=420, tile_height=420` — a **square** tile, because stickers are
+`aspect_ratio: '1:1'` and the 260 default would have left ~45% of every tile
+white. Its **layout** is blog-craft's `_contact_sheet` (label at the
 top of a fixed tile), which differs from the pre-port private helper
 (aspect-preserving thumbnails, label in a strip along the bottom). The artifact
 is review-only and the old helper no longer exists, so this is declared, not
@@ -1039,13 +1041,26 @@ tools/migrate_stickers.py --config <blog>/.blog-craft.yaml \
 
 Both paths are required and nothing is guessed; everything resolves against the
 config's own directory, never the process CWD. It writes the new
-`features.stickers.prompts_file`, **prints** the `image.layers` +
-`composition_orders.sticker` block for the operator to paste, and — only under
-`--move-assets` — `git mv`s `images/` and `sheets/` into the configured
-directories, refusing rather than clobbering when a destination already exists.
-It never edits `.blog-craft.yaml`: that file is the operator's content.
+`features.stickers.prompts_file`, **prints two fragments** — the `sticker`
+composition order and the sticker layers — and, only under `--move-assets`,
+`git mv`s `images/` and `sheets/` into the configured directories, refusing
+rather than clobbering when a destination already exists. It never edits
+`.blog-craft.yaml`: that file is the operator's content.
 
-Three things about the printed block that are easy to get wrong:
+**MERGE the two fragments into the `image.composition_orders:` and
+`image.layers:` mappings your config already has** — each is printed at the
+indentation it occupies there. Do **not** add a second `image:`,
+`composition_orders:` or `layers:` key: YAML resolves duplicate keys by silently
+taking the last one, so a second copy **deletes everything the existing one
+holds** — every cover layer, every cover order — and nothing warns you
+(`validate_config` returns no errors; the only symptom is an empty composed
+prompt per cover, at exit code 0). This is why the fragments carry no enclosing
+key of their own: there is nothing for a paste to duplicate, and putting the
+printed text somewhere structurally wrong fails to *parse* instead of quietly
+deleting prose. If `image:` has no `composition_orders:` (or no `layers:`) yet,
+add that one key once and put the fragment under it.
+
+Three things about the printed fragments that are easy to get wrong:
 
 - **`clothing: {}` is emitted only when the target config has no `clothing`
   layer.** Emitting it unconditionally would *destroy* a populated one:
@@ -1076,13 +1091,21 @@ find, so nothing is relocated and nothing is deleted; with the feature disabled
 the scripts are not even staged.
 
 The order matters, because the transform refuses when `features.stickers` is
-missing or its paths are empty:
+missing or its paths are empty — and because the fragments do not exist until it
+has run:
 
 1. `/update` — climbs the schema ladder to v7 (seeding the disabled block) and
    retires the two private scripts;
-2. paste the printed block; set `features.stickers.enabled: true` plus the three
-   paths;
-3. `tools/migrate_stickers.py … --move-assets`;
-4. `git rm` what is left of the private directory, then delete the directory by
+2. set `features.stickers.enabled: true` plus the three paths
+   (`prompts_file`, `images_dir`, `sheets_dir`);
+3. run `tools/migrate_stickers.py … --move-assets` — writes the prompts file,
+   prints the two fragments, moves `images/` and `sheets/`;
+4. merge the two printed fragments into `image.composition_orders:` and
+   `image.layers:` (see the warning above);
+5. verify: `generate-images.py --print-prompt <key>` against a shadow config
+   whose `image.prompts_file` is the sticker one, diffed against the pre-port
+   prompts. `generate-stickers.py --dry-run` prints a `=== <key> === refs: […]`
+   header before each prompt, so it is for reading, not for `diff`;
+6. `git rm` what is left of the private directory, then delete the directory by
    hand;
-5. rebuild the sheets and confirm they are unchanged.
+7. rebuild the sheets and confirm they are unchanged.

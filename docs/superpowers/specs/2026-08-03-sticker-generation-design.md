@@ -433,7 +433,7 @@ Two corrections, both measured during phase 7 against frank's real tree:
   `build-sheets.py` is 59 lines, ours 208). Both actions retire the legacy file,
   but only `merged`-class rows preserve the operator's edits — for these
   `framework` scripts frank's local edits are discarded, deliberately.
-- **The directory is not pruned**, because content survives in it. See §8 step 5.
+- **The directory is not pruned**, because content survives in it. See §8 step 6.
 
 **What makes this inert for gondor and stoa is not the equality rule.** The
 manifest's existing comment says a legacy destination equal to the current one is
@@ -458,11 +458,43 @@ So frank's adoption needs a **one-time transform**, shipped by blog-craft as
 1. reads frank's `stickers.yaml`;
 2. emits **seven** layer keys — the six `sticker_*` layers (including
    `sticker_mood` carrying the `_template`) plus `clothing` — and the `sticker`
-   composition order, for the operator to paste into `.blog-craft.yaml` (it does
-   **not** edit the config — that file is content, and silent config surgery is
-   how #60 happened). It must **never** emit a `mood:` key: frank already has
-   one, and merging `_template` into it double-frames every cover (see the
-   warning in §1).
+   composition order, as **two fragments the operator MERGES** into the
+   `image.layers:` and `image.composition_orders:` mappings the config already
+   has (it does **not** edit the config — that file is content, and silent config
+   surgery is how #60 happened). It must **never** emit a `mood:` key: frank
+   already has one, and merging `_template` into it double-frames every cover
+   (see the warning in §1).
+
+   **The fragments carry no structural key, and that is a correctness
+   requirement, not a formatting choice** — found in the final pre-PR review,
+   after phase 8:
+
+   > The first shape printed one block whose own root key was `image:`, holding
+   > `composition_orders:` and `layers:` under it, above the instruction "paste
+   > this under `image:`". All three are keys frank already has, so *both*
+   > readings of that instruction destroyed data. Measured against frank's real
+   > `.blog-craft.yaml`: appended at top level, PyYAML's duplicate-key last-wins
+   > left `image:` holding **two** keys instead of eleven — `provider`, `model`,
+   > `api_key_env`, `output_dir`, `prompts_file`, `reference_pool`,
+   > `character_sheet`, `curation`, `optimize` gone along with all five cover
+   > layers and all four cover orders. `validate_config` returns `[]` for the
+   > result and the only symptom is the empty-prompt WARN on all 90 covers, at
+   > **rc 0**.
+   >
+   > So each fragment is emitted at the indentation it occupies *inside* `image:`
+   > and names no enclosing key: there is nothing for a paste to duplicate. The
+   > same literal append now fails to parse (measured: `ParserError` on frank's
+   > real file), which is the right failure — loud, before anything reads it.
+   > The residual surface is leaf names only, which the tool already WARNs about:
+   > one order name (`sticker`) plus at most seven layer names (six `sticker_*`,
+   > and `clothing` when absent). `_template` is nested inside the `sticker_mood`
+   > mapping the tool creates, so it can only collide if that layer name does.
+   >
+   > The lesson generalises past this instance: the phase-6 fix closed
+   > duplicate-key last-wins for one *leaf* (`clothing`) while leaving it open
+   > **one and two levels up**, where the blast radius is every sibling. A test
+   > asserting the block's semantic content (`dict.update`) cannot see it — the
+   > guard has to append the printed bytes and load the file.
 
    **`clothing` is emitted only when the target config lacks that layer.** An
    *absent* layer resolves to `""` and `compose()` drops the section, so a blog
@@ -472,10 +504,14 @@ So frank's adoption needs a **one-time transform**, shipped by blog-craft as
    > frank already has a populated `image.layers.clothing`. PyYAML resolves
    > duplicate mapping keys by silently taking the last, so pasting
    > `clothing: {}` replaces frank's table with `{}` — no error, no warning. And
-   > **85 of frank's 90 cover entries select clothing by the bracket form**
+   > **84 of frank's 90 cover entries select clothing by the bracket form**
    > (`building[dirty]`, `building[apron]`, …), for which `table.get(group)` is
-   > then `None` and the section is **dropped entirely**, not garbled. Roughly
-   > 85 covers would silently lose their clothing sentence.
+   > then `None` and the section is **dropped entirely**, not garbled. So 84
+   > covers would silently lose their clothing sentence. (Re-measured in the
+   > final review: 85 entries select `clothing`, and the 85th —
+   > `ops-30-silent-failure` — passes free-form prose, which survives via
+   > `_resolve_modifier`'s passthrough. The phase-6 entry said "all 85"; the
+   > conclusion is unchanged.)
    >
    > When the layer exists the key is omitted and a note explains why: sticker
    > entries pass free-form prose, which `_resolve_modifier` returns via
@@ -513,20 +549,44 @@ transcription check.
 ### 8. frank adoption runbook (frank's own PR, not this one)
 
 1. `/update` to the blog-craft release carrying this feature → scripts land,
-   frank's two script copies are deleted.
-2. Run `tools/migrate_stickers.py` → new prompts file, layers to paste,
-   images/sheets moved.
-3. Paste the layer block; set `features.stickers.enabled: true`.
-4. Run the golden check (`--dry-run` over all 18) and confirm zero prompt
-   drift against the committed goldens.
-5. `git rm` what survives in `blog/_private/frank-stickers/`. The directory is
+   frank's two script copies are deleted, and the v6→v7 rung seeds
+   `features.stickers: {enabled: false}`.
+2. Set `features.stickers.enabled: true` plus its three paths (`prompts_file`,
+   `images_dir`, `sheets_dir`) — the transform *refuses* without them, which is
+   why this precedes it.
+3. Run `tools/migrate_stickers.py … --move-assets` → the new prompts file, the
+   two fragments printed, and `images/` + `sheets/` `git mv`d to the configured
+   dirs. Without `--move-assets` nothing moves: the flag is opt-in because those
+   20 PNGs are irreplaceable curated masters.
+4. **Merge** the two printed fragments into `image.composition_orders:` and
+   `image.layers:`. Do not add a second `image:`, `composition_orders:` or
+   `layers:` key — YAML duplicate keys are last-wins and the existing mapping
+   vanishes silently (§7 step 2).
+5. Run the golden check and confirm zero prompt drift against the committed
+   goldens. The command is the engine's, not the shim's:
+
+   ```bash
+   for k in $(<the 18 keys>); do
+     scripts/generate-images.py --config shadow.blog-craft.yaml --print-prompt "$k" \
+       | diff - "<goldens>/$k.txt" || echo "DRIFT: $k"
+   done
+   ```
+
+   `generate-stickers.py --dry-run` is **not** byte-comparable — it prints a
+   `=== <key> === refs: [...]` header before each prompt (by design: the refs are
+   the other half of what an operator wants to eyeball). A golden is *exactly*
+   `generate-images.py --print-prompt <key>` stdout, and `GOLDEN-PROVENANCE.md`
+   says so. The engine has no prompts-file flag, so point it at a shadow config
+   whose `image.prompts_file` is the sticker one — the same trick the shim and
+   `tests/unit/test_migrate_stickers.py` use.
+6. `git rm` what survives in `blog/_private/frank-stickers/`. The directory is
    **not** empty at this point and is **not** pruned — measured on frank's real
    tree during phase 7. `/update` retires only the two *scripts*; six entries
    remain (`stickers.yaml`, `README.md`, `images/`, `sheets/`, plus `.DS_Store`
    and `__pycache__/`), so `_prune_empty_parents`' first `rmdir` fails, as it
-   should. `images/` and `sheets/` are moved by step 2's `--move-assets`; this
+   should. `images/` and `sheets/` are moved by step 3's `--move-assets`; this
    step removes the rest.
-6. Rebuild sheets; confirm the two PNGs are pixel-identical to the committed
+7. Rebuild sheets; confirm the two PNGs are pixel-identical to the committed
    ones.
 
 ## Testing
@@ -566,7 +626,9 @@ frank's real data, not synthetic smoke.
   dimensions `2480×3508`, `dpi == (300, 300)`, and that each cell's top-left
   pixel offset matches the computed centered-grid position. Then, separately,
   a frank-fixture check that rebuilding from the committed masters reproduces
-  the committed sheets byte-for-byte.
+  the committed sheets byte-for-byte — **not implemented in this repo**: it needs
+  the consumer's 18 curated masters, which do not belong here (decision stk-3),
+  so it lands in the consumer's adoption PR. See Test Plan row 7.
 - **Gating.** `features.stickers.enabled: false` (and absent) renders no
   sticker scripts; `true` renders both. Precedent:
   `tests/unit/test_features_gating.py`.
@@ -583,7 +645,7 @@ frank's real data, not synthetic smoke.
 | 4 | `--out <dir>` never writes the entry's `output:` | unit | `tests/unit/test_generate_images_out_dir.py` |
 | 5 | `fallback_model` is attempted on primary failure; `timeout_ms` is honored | unit | `tests/unit/test_generate_images_fallback.py` |
 | 6 | Sheets are 2480×3508 @ 300 DPI with a centered 3×3 grid | unit | `tests/unit/test_build_sheets.py` |
-| 7 | Rebuilt sheets are byte-identical to frank's committed sheets | smoke | `tests/smoke-stickers.sh` |
+| 7 | Rebuilt sheets are byte-identical to frank's committed sheets | smoke | **not implemented** — needs the consumer's 18 curated masters, which cannot live in this repo (the open half of decision stk-3); `tests/smoke-stickers.sh` does not exist. Row 6 pins the geometry from synthetic PNGs; byte-equality is verified in the consumer's own adoption PR (§8 step 7) |
 | 8 | `features.stickers` gates both scripts in/out of a rendered blog | unit | `tests/unit/test_features_gating.py` (extended) |
 | 9 | `006_to_007` is pure, idempotent, and preserves an explicit opt-in | unit | `tests/unit/test_migration_007.py` |
 | 10 | `/update` retires frank's two script copies | unit | `tests/unit/test_update_relocation.py` (extended — the legacy_dests contract lives there as a third migration axis; there is no `test_update_legacy_dests.py`) |

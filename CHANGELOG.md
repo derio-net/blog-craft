@@ -98,12 +98,23 @@ matching `vX.Y.Z` tag on merge (#18).
   `/update` skips `content` by design, and a private sticker set is almost
   entirely content: the prose file, the curated masters, the built sheets, the
   README. This blog-craft-side tool (never shipped into a blog) reads the legacy
-  file, writes the new prompts file, **prints** the `image.layers` +
-  `composition_orders.sticker` block for the operator to paste, and under
-  `--move-assets` `git mv`s `images/` and `sheets/` — refusing rather than
-  clobbering when a destination exists, and validating both directories before
-  moving either, so a conflict cannot leave a half-migrated tree. It never edits
-  `.blog-craft.yaml`: silent config surgery is how #60 happened. The printed block
+  file, writes the new prompts file, **prints two fragments** — the sticker layers
+  and the `sticker` composition order — for the operator to **merge** into the
+  `image.layers:` and `image.composition_orders:` mappings their config already
+  has, and under `--move-assets` `git mv`s `images/` and `sheets/` — refusing
+  rather than clobbering when a destination exists, and validating both directories
+  before moving either, so a conflict cannot leave a half-migrated tree. It never
+  edits `.blog-craft.yaml`: silent config surgery is how #60 happened. **Neither
+  fragment carries an enclosing `image:`, `layers:` or `composition_orders:` key**,
+  and that is a data-loss guard rather than a formatting choice: a fragment rooted
+  at `image:` is *destructive to paste*, because YAML duplicate keys are last-wins
+  and a second `image:` deletes every cover layer and cover order the first one held
+  — measured against the real consumer config, `image:` left holding 2 of its 11
+  keys, with `validate_config` reporting no errors and the only symptom an
+  empty-prompt WARN on all 90 covers at exit code 0. With no structural key there is
+  nothing to duplicate, and a mis-placed paste fails to parse instead. The residual
+  surface is leaf names — one order name, at most seven layer names — each WARNed
+  when the config already defines it. The layers fragment
   emits `clothing: {}` **only when the target config has no `clothing` layer** —
   emitting it unconditionally would destroy a populated one, because PyYAML takes
   the last of duplicate keys silently and a cover selecting `building[dirty]`
@@ -161,7 +172,12 @@ matching `vX.Y.Z` tag on merge (#18).
   (aspect-preserving thumbnails, label in a strip along the bottom): that helper
   was deleted by the consumer's own cutover and cannot be run, the artifact is
   review-only, and reconstructing a layout from decompiled bytecode would be a
-  poor foundation. The engine's per-key sheet is unchanged. (2) **`regen/`
+  poor foundation. Because that tile is *fixed*, its **height** is passed too
+  (`tile_height=420`, square): stickers are `aspect_ratio: '1:1'` and the 260
+  default fitted a 230×230 thumbnail into a 420×260 tile, spending ~45% of every
+  tile on white — on the one artifact that exists to be looked at. For square
+  subjects a square tile is also what the retired aspect-preserving helper
+  effectively produced. The engine's per-key sheet is unchanged. (2) **`regen/`
   moves.** The private script resolved `--out` against its own directory
   (`blog/_private/<dir>/regen/`); the shipped script lives at
   `<site_dir>/scripts/`, so a relative `--out` now resolves against the **config
@@ -174,6 +190,13 @@ matching `vX.Y.Z` tag on merge (#18).
 - **`--count` is deliberately not exposed on the sticker shim** (the retired
   script had none). Use `generate-images.py --count` for a curation run, with
   `image.curation.archive_cap` raised to at least `N` — see the fix below.
+- **`generate-stickers.py` exits non-zero when a key fails.** The retired script's
+  `main()` returned `None` on every path that reached the end, so a run where three
+  of eighteen stickers failed still exited **0** — it printed `Failed: [...]` and
+  said nothing a script could branch on. The shim returns the engine's own exit
+  code. A strict improvement, and *observable*: a wrapper or CI step that treated
+  the old exit code as "the run happened" now sees a partial failure. The `Done:
+  n/N` and `Failed:` lines are unchanged.
 
 ### Fixed
 - **`curation.archive_cap` pruned the variants of its own `--count N` run.**

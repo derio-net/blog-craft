@@ -11,9 +11,13 @@ hand (spec §7, and §8 for the runbook it slots into).
 What it does:
 
 1. reads the legacy `stickers.yaml`;
-2. **prints** the six `sticker_*` layers + the `sticker` composition order for the
-   operator to paste. It does NOT edit `.blog-craft.yaml`: that file is `content`
-   class, and silent config surgery is how #60 happened;
+2. **prints** the six `sticker_*` layers + the `sticker` composition order as two
+   fragments the operator MERGES into the `image.layers:` and
+   `image.composition_orders:` mappings their config already has. The fragments
+   carry no `image:`, `layers:` or `composition_orders:` key of their own, so
+   there is nothing a paste can duplicate — see `PASTE_BEGIN`. It does NOT edit
+   `.blog-craft.yaml`: that file is `content` class, and silent config surgery is
+   how #60 happened;
 3. rewrites the 18 sticker records as v5 entries into
    `features.stickers.prompts_file`;
 4. `--move-assets` `git mv`s `images/` and `sheets/` to the configured dirs,
@@ -93,17 +97,41 @@ PROSE_LAYERS = {
 # obvious spelling and is mechanically emittable — which is this file).
 MOOD_TEMPLATE = "Frank's expression: {}."
 
-PASTE_BEGIN = "# ---8<--- paste this under `image:` in .blog-craft.yaml ---8<---"
-PASTE_END = "# ---8<--- end paste ---8<---"
+# The instruction the operator FOLLOWS, so it has to name the merge and the hazard.
+# An earlier version said "paste this under `image:`" above a fragment whose own root
+# key WAS `image:`, holding `composition_orders:` and `layers:` — all three keys a
+# blog with covers already has. Both readings of that instruction destroyed data:
+# appended at top level, PyYAML's duplicate-key last-wins replaced the whole `image:`
+# mapping (`model`, `prompts_file`, every cover layer, every cover order); pasted as
+# two sub-keys, it replaced `composition_orders` and `layers` wholesale. Nothing
+# errors — `validate_config` returns [] — and the only symptom is an empty composed
+# prompt per cover, at exit code 0.
+#
+# So the emission carries NO structural key: two fragments, each already at the depth
+# it occupies inside `image:`, leaving nothing for a paste to duplicate. The residual
+# hazard is a leaf name the config already defines, which is what the WARN in `_run`
+# is for; the full list is one order name (`sticker`) and at most seven layer names.
+PASTE_BEGIN = (
+    "# ---8<--- MERGE the two fragments below INTO the mappings that ALREADY EXIST\n"
+    "#          under `image:` in .blog-craft.yaml, keeping the indentation shown.\n"
+    "#          Do NOT add a second `image:`, `composition_orders:` or `layers:`\n"
+    "#          key: YAML resolves duplicate keys by silently taking the LAST one,\n"
+    "#          so a second copy DELETES everything the existing one holds — every\n"
+    "#          cover layer, every cover order — and nothing warns you.\n"
+    "#          If `image:` has no `composition_orders:` (or no `layers:`) yet, add\n"
+    "#          that one key once and put the fragment under it. ---8<---")
+ORDERS_MARK = "# --- merge into `image.composition_orders:` ---"
+LAYERS_MARK = "# --- merge into `image.layers:` ---"
+PASTE_END = "# ---8<--- end of the two fragments ---8<---"
 
 # Printed INSTEAD of a `clothing:` key when the target config already has that
-# layer. The operator pastes this block into their config, and PyYAML resolves a
+# layer. The operator merges the fragments into their config, and PyYAML resolves a
 # duplicate mapping key by silently taking the LAST one — so emitting `clothing: {}`
 # against an existing table does not merely repeat it, it DESTROYS it, and every
 # entry selecting from it loses its clothing section with no error anywhere.
 CLOTHING_KEPT_NOTE = (
     "NOTE: image.layers.clothing already exists in this config, so it is "
-    "deliberately NOT part of the block above.\n"
+    "deliberately NOT part of the fragments above.\n"
     "      Sticker entries carry free-form clothing prose, which _resolve_modifier "
     "returns unchanged via its\n"
     "      passthrough (verified here for every sticker), so the existing layer "
@@ -148,10 +176,28 @@ def dump(obj) -> str:
                      width=10 ** 9)
 
 
-# --- the layer block the operator pastes -------------------------------------
+def fragment(mapping: dict, indent: int = 4) -> str:
+    """`dump(mapping)` shifted to the depth it occupies INSIDE `image:`.
+
+    Four spaces: blog-craft's configs are two-space indented, so `image.layers` and
+    `image.composition_orders` hold their keys at depth 2. Emitting at the real
+    indentation is what lets the printed text carry no enclosing `image:` /
+    `layers:` / `composition_orders:` key — the three keys that made the old
+    `image:`-rooted block destructive to paste (see `PASTE_BEGIN`).
+
+    A blank line inside a block scalar is left unindented: legal YAML (block-scalar
+    empty lines need no indentation) and it keeps trailing whitespace out of
+    something the operator is about to commit.
+    """
+    pad = " " * indent
+    return "".join(pad + ln if ln.strip() else ln
+                   for ln in dump(mapping).splitlines(keepends=True))
+
+
+# --- the two fragments the operator merges -----------------------------------
 
 def layer_block(legacy: dict, existing_layers: dict | None = None) -> dict:
-    """The `image:` fragment: the eight-token order plus the layers it names.
+    """The two `image:` sub-mappings: the eight-token order plus the layers it names.
 
     Layers are emitted in composition order (minus the reserved `scene`), which is
     both the most readable arrangement for a reader checking the order against the
@@ -183,8 +229,7 @@ def layer_block(legacy: dict, existing_layers: dict | None = None) -> dict:
             layers[tok] = {"_template": MOOD_TEMPLATE}
         else:
             layers[tok] = _Block(legacy[PROSE_LAYERS[tok]])
-    return {"image": {"composition_orders": {"sticker": list(STICKER_ORDER)},
-                      "layers": layers}}
+    return {"composition_orders": {"sticker": list(STICKER_ORDER)}, "layers": layers}
 
 
 def _resolve_layer():
@@ -473,27 +518,31 @@ def _run(a) -> int:
     items = entries(legacy, stk, legacy_rel)
     if reuse_clothing:
         check_clothing_passthrough(existing_layers["clothing"], legacy["stickers"])
-    # Any REMAINING key the block emits that the config already defines will be
-    # replaced on paste, silently, by YAML's last-wins rule. Against frank that set
-    # is empty (measured: his layers are base_character, base_atmosphere,
-    # reference_guidance, clothing, mood, and his orders are hero / scenery / banner
-    # / banner_transform) — the `sticker_*` namespacing is exactly what makes it
-    # empty. A WARN rather than a refusal: for a prose layer, replacing it with the
-    # legacy prose is what re-running the migration MEANS. Only `clothing` needs the
-    # value preserved, and that one is omitted above.
+    # Any REMAINING key the fragments emit that the config already defines will be
+    # replaced on merge, silently, by YAML's last-wins rule. That set is now the
+    # WHOLE collision surface — the fragments carry no `image:` / `layers:` /
+    # `composition_orders:` key, so only leaves can collide: one order name
+    # (`sticker`) and at most seven layer names (six `sticker_*` plus `clothing`).
+    # Against frank the set is empty (measured: his layers are base_character,
+    # base_atmosphere, reference_guidance, clothing, mood, and his orders are hero /
+    # scenery / banner / banner_transform) — the `sticker_*` namespacing is exactly
+    # what makes it empty. A WARN rather than a refusal: for a prose layer, replacing
+    # it with the legacy prose is what re-running the migration MEANS. Only
+    # `clothing` needs the value preserved, and that one is omitted above.
     existing_orders = (cfg.get("image") or {}).get("composition_orders") or {}
-    clashes = [f"image.layers.{k}" for k in block["image"]["layers"]
+    clashes = [f"image.layers.{k}" for k in block["layers"]
                if isinstance(existing_layers, dict) and k in existing_layers]
     if isinstance(existing_orders, dict) and "sticker" in existing_orders:
         clashes.append("image.composition_orders.sticker")
     if clashes:
-        print(f"WARN: pasting this block REPLACES keys the config already defines "
-              f"(YAML duplicate keys are last-wins): {', '.join(clashes)}",
+        print(f"WARN: merging these fragments REPLACES keys the config already "
+              f"defines (YAML duplicate keys are last-wins): {', '.join(clashes)}",
               file=sys.stderr)
     new_text = (f"# Sticker prompts — generated by tools/migrate_stickers.py from "
                 f"{legacy_rel}/{legacy_path.name}.\n"
-                f"# Paste the layer block the tool printed into .blog-craft.yaml, "
-                f"then set features.stickers.enabled: true.\n"
+                f"# Merge the two fragments the tool printed into image.layers: and "
+                f"image.composition_orders: in\n"
+                f"# .blog-craft.yaml, then set features.stickers.enabled: true.\n"
                 + dump({"images": items}))
     todo = plan_moves(legacy_dir, root, stk) if a.move_assets else []
 
@@ -522,7 +571,9 @@ def _run(a) -> int:
         else:
             move(src, dst)
 
-    print(f"\n{PASTE_BEGIN}\n{dump(block)}{PASTE_END}")
+    print(f"\n{PASTE_BEGIN}\n"
+          f"{ORDERS_MARK}\n{fragment(block['composition_orders'])}"
+          f"{LAYERS_MARK}\n{fragment(block['layers'])}{PASTE_END}")
     if reuse_clothing:
         print(CLOTHING_KEPT_NOTE)
     return 0

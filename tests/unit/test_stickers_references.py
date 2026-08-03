@@ -17,6 +17,11 @@ No engine change is involved, and that is the claim: `primary_reference()` puts
 `reference_images.clothing` in declared order (generate-images.py:228-272), so
 frank's `[canon_face, *style_anchors, clothing_subject?]` is expressible as-is. If
 an engine change ever looks necessary here, the mapping is wrong.
+
+The payload is resolved through the engine's `payload_paths()` — the same call
+`_gen_bytes` makes — rather than re-assembled here. Re-assembling it was a real hole:
+this file would stay green through a reordering inside `_gen_bytes`, and that is the
+single class the goldens cannot see (prompt text is identical whichever image leads).
 """
 from __future__ import annotations
 
@@ -50,19 +55,19 @@ def blog(tmp_path_factory):
 
 @pytest.fixture(scope="module")
 def payloads(blog):
-    """{key: [resolved Path, …]} exactly as `_gen_bytes` assembles it: the primary
-    master sheet first, then the entry's anchors in declared order."""
+    """{key: [resolved Path, …]} as `_gen_bytes` assembles it — through the ENGINE's
+    `payload_paths`, which is the assembly `_gen_bytes` itself calls.
+
+    This used to re-implement the order (`[primary] + entry_reference_paths(...)`),
+    which made the guard blind to exactly the change it exists to catch: a reordering
+    inside `_gen_bytes` would have left this file green. Now there is one assembly and
+    three callers of it (engine, sticker shim `--dry-run`, here)."""
     gi = _engine()
     cfg = fixture_config()
     image_cfg = cfg["image"]
     entries = {e["key"]: e
                for e in sticker_entries(FRANK, cfg["features"]["stickers"]["images_dir"])}
-    out = {}
-    for key, e in entries.items():
-        primary = gi.primary_reference(e, image_cfg, blog, None)
-        rest = gi.entry_reference_paths(e, blog)
-        out[key] = ([primary] if primary else []) + rest
-    return out
+    return {key: gi.payload_paths(e, image_cfg, blog) for key, e in entries.items()}
 
 
 def _golden_refs(key) -> list[str]:
