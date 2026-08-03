@@ -31,9 +31,13 @@ Config (`.blog-craft.yaml`):
     features:
       stickers:
         enabled: true                      # OFF by default; this script refuses
-        prompts_file: blog/_private/stickers/stickers.yaml
+        prompts_file: blog/_private/stickers/stickers-prompts.yaml
         images_dir:   blog/_private/stickers/images
         sheets_dir:   blog/_private/stickers/sheets
+                      # NOT `stickers.yaml`: tools/migrate_stickers.py REFUSES a
+                      # prompts_file that resolves to the legacy source it reads,
+                      # because writing there would destroy the only copy of the
+                      # prose being migrated.
 
 NON-DESTRUCTIVE BY DEFAULT — the load-bearing detail. The engine writes the last
 variant straight to an entry's `output:`; frank's sticker workflow is the exact

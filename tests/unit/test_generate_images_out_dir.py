@@ -458,3 +458,58 @@ def test_the_bare_name_is_written_once_per_run(tmp_path, monkeypatch):
     assert m.main(["--config", str(cfg_path), "--out", str(d), "--count", "3"]) == 0
     assert [p for p in writes if p == d / "k-01.png"] == [d / "k-01.png"], writes
     assert (d / "k-01.png").read_bytes() == payloads[-1]
+
+
+# --- 12. an entry that composes to NOTHING is WARNed about, not silently dropped -
+
+# The unresolvable spelling: `_ORDER_REF` (generate-images.py) matches only
+# `composition_orders[<name>]`, so a bare `sticker` resolves to `[]`, `compose([])`
+# is `""` and the entry drops out of the selected set. That produced ALL 18
+# stickers, no output and exit code 0 during phase 4 (journal
+# `p4-order-sticker-must-be-bracketed-reference`), and it is not sticker-specific:
+# a typo'd order name on a COVER entry behaves the same way.
+E_EMPTY = {"key": "k-empty", "output": "static/images/k-empty.png",
+           "composition": {"order": "sticker", "modifiers": {}, "scene": "S",
+                           "reference_images": {}}}
+
+
+def test_an_entry_whose_prompt_composes_empty_is_warned_about_by_key(tmp_path):
+    r = _run(tmp_path, entries=(E1, E_EMPTY))
+    assert r.returncode == 0, r.stderr          # NOT an error — see below
+    err = r.stderr + r.stdout
+    assert "k-empty" in err, err
+    assert "WARN" in err and "empty" in err, err
+    # the fix is in the entry, so the WARN names the field to look at
+    assert "composition.order" in err, err
+    # the valid entry still generated, and the empty one wrote nothing
+    assert (tmp_path / "static" / "images" / "k-01.png").is_file()
+    assert not (tmp_path / "static" / "images" / "k-empty.png").exists()
+
+
+def test_the_empty_prompt_stays_a_WARNING_and_never_changes_the_exit_code(tmp_path):
+    """Deliberately a warning, not an error. An operator may have a legitimately
+    empty entry, and making it non-zero would be a real behaviour change on the
+    COVER path — every blog's generation run. Loud, not fatal."""
+    r = _run(tmp_path, entries=(E_EMPTY,))
+    assert r.returncode == 0, r.stderr
+    assert "k-empty" in (r.stderr + r.stdout)
+    assert not (tmp_path / "static").exists()
+
+
+def test_the_warning_also_fires_under_out_where_there_is_no_file_to_miss(tmp_path):
+    """Under `--out` nothing is written to `output:` even for a healthy entry, so
+    the absent candidate is the ONLY symptom — which is exactly the case the
+    silence was worst in."""
+    d = tmp_path / "regen"
+    r = _run(tmp_path, "--out", str(d), entries=(E1, E_EMPTY))
+    assert r.returncode == 0, r.stderr
+    assert "k-empty" in (r.stderr + r.stdout)
+    assert (d / "k-01.png").is_file()
+    assert not (d / "k-empty.png").exists()
+
+
+def test_a_healthy_run_emits_no_such_warning(tmp_path):
+    """The negative half: the WARN must not fire for entries that compose."""
+    r = _run(tmp_path, entries=(E1, E2))
+    assert r.returncode == 0, r.stderr
+    assert "composes to nothing" not in (r.stderr + r.stdout)

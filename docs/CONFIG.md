@@ -1,11 +1,11 @@
-# `.blog-craft.yaml` — config contract (v6)
+# `.blog-craft.yaml` — config contract (v7)
 
 The single per-repo file that distinguishes one blog-craft blog from another.
 Validated by `tools/validate_config.py --check <path>` (accepts schema
-versions 2–6; `tools/migrate_config.py` climbs the ladder; `tools/migrate_prompts.py` migrates the entries file).
+versions 2–7; `tools/migrate_config.py` climbs the ladder; `tools/migrate_prompts.py` migrates the entries file).
 
 ```yaml
-version: 6
+version: 7
 blog_craft_version: "<release applied>"   # set by bootstrap/update; see §11
 
 project: { name, tagline, base_url, base_path, module_path }
@@ -23,6 +23,12 @@ site_dir: .               # optional; where the Hugo site lives relative to this
 image:
   provider: gemini
   model: <gemini model>
+  fallback_model: <gemini model>   # v7, optional; retried when `model` raises OR
+                          # returns a response with no image part. Absent => one
+                          # attempt, exactly as before. See §13.
+  timeout_ms: 120000      # v7, optional; HTTP cap in MILLISECONDS, straight into
+                          # the SDK's HttpOptions(timeout=…). Absent => the SDK
+                          # default. See §13.
   api_key_env: GEMINI_API_KEY
   output_dir: static/images
   prompts_file: prompt_for_images.yaml
@@ -81,6 +87,13 @@ features:                 # series_overview_posts, read_tracker, banners,
                           # size in a framed horizontal scroller instead of being
                           # shrunk to the 672px column. `false` restores the
                           # pre-v6 rendering. See §12.
+  stickers:               # v7; die-cut sticker sheets (see §13). DEFAULT OFF —
+    enabled: false        # absent or false ships no sticker scripts at all.
+    prompts_file: blog/_private/stickers/stickers-prompts.yaml
+    images_dir:   blog/_private/stickers/images
+    sheets_dir:   blog/_private/stickers/sheets
+    sheets_prefix: my-stickers          # optional; default <slug(project.name)>-stickers
+    sheet: { size: a4, dpi: 300, grid: [3, 3], gutter: 60 }   # optional; these ARE the defaults
 voice: |
   <tone>
 voice_level: balanced     # optional; dry | balanced | rich — how thick the persona
@@ -780,3 +793,296 @@ are deliberately separate knobs: turning the scroller off does not turn the gate
 off, and vice versa. The gate measures a real render of the **built** site with
 the site's **own** mermaid bundle — reading width from the same inline
 `max-width` the CSS keys off, so gate and renderer cannot disagree.
+
+## §13 Die-cut sticker sheets (`features.stickers`)
+
+**v7, default OFF.** An opt-in capability that composes sticker prompts through
+the *same* engine as covers and lays the chosen images onto print-ready sheets at
+a real DPI. It ships **no Hugo assets** — no page, shortcode, gallery or CSS —
+because a sticker set is a private **print** asset. Two scripts land at
+`<site_dir>/scripts/` when it is on, and nothing at all when it is off:
+
+| script | does |
+|---|---|
+| `scripts/generate-stickers.py` | generates candidates through `generate-images.py`, never over the masters |
+| `scripts/build-sheets.py` | composes the print sheets from the chosen masters |
+
+**Why default OFF, and how the gate reads.** `tools/bootstrap-render.sh` follows
+the `features.glossary` shape, not the `features.mermaid_view` one: `--get-bool`
+reports `false` for a key that is simply **absent**, so a blog that never asked
+for stickers gets neither script. (`mermaid_view` checks `--has` first because
+absence there means *true*; copying that shape here would have shipped sticker
+scripts to every existing blog.) `migrations/006_to_007.py` seeds
+`features.stickers: {enabled: false}` for existing blogs and leaves an explicit
+`true` alone — so after an update the normal shape is **present and disabled**,
+and `absent` is the legacy one.
+
+### The keys
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `enabled` | `false` | Materializes the two scripts. `generate-stickers.py` also refuses to run when it is not `true`. |
+| `prompts_file` | — | The sticker entries file, config-root-relative. **Separate from `image.prompts_file`**, so `sheet`/`pos` stay out of cover entries and the sticker keys out of the cover key namespace. |
+| `images_dir` | — | Where the curated masters live. `build-sheets.py` falls back to `<images_dir>/sticker-<key>.png` for an entry with no `output:`. |
+| `sheets_dir` | — | Where the built sheets are written. |
+| `sheets_prefix` | `<slug(project.name)>-stickers` | Filename prefix, so the port is not frank-shaped: output is `<sheets_dir>/<prefix>-<SIZE>-sheet<N>.png`. |
+| `sheet.size` | `a4` | Paper name from `build-sheets.py`'s millimetre table (`a4`, `letter`). |
+| `sheet.dpi` | `300` | Written **into** the PNG, which is what makes "print at 100%" work. |
+| `sheet.grid` | `[3, 3]` | `[cols, rows]`. Genuinely honoured — it also sets `pos`'s valid range (`1..cols*rows`). |
+| `sheet.gutter` | `60` | Pixels between cells and around the grid. |
+
+`tools/validate_config.py` requires the three path keys **exactly when `enabled`
+is `true`** (a disabled block is allowed to be the stub the migration seeds), and
+checks `sheet` geometry whenever the block is present, enabled or not — bad print
+numbers are nonsense either way, and `build-sheets.py` would otherwise discover
+them at print time. Checks fire on a key being **present**, so a half-written
+`enabled:` (YAML `None`) is an error rather than a silent no-op.
+
+**`sheet.size` is deliberately not validated there.** The paper vocabulary
+belongs to `build-sheets.py` so the table can grow without a schema change, which
+makes that script the only guard: an unknown size is a hard error naming the
+known ones, never a silent fallback to A4.
+
+### The page is derived, not configured
+
+There is no key for page pixels. They come from `size` + `dpi`:
+
+```
+round(210 / 25.4 * 300) == 2480      # A4 width  @ 300 dpi
+round(297 / 25.4 * 300) == 3508      # A4 height @ 300 dpi
+```
+
+Adding explicit pixel keys would let `size: a4` and an inconsistent pixel size
+disagree — a wrong-sized page that prints wrong. **The derivation is per axis and
+is not a linear scale**: at 600 dpi the A4 *height* doubles (`7016 == 2 × 3508`)
+but the *width* is `4961`, not `2 × 2480 = 4960`, because `round()` is not
+linear. Read it as `round(mm / 25.4 * dpi)` per axis, never as "twice the dpi,
+twice the sheet".
+
+The DPI is written into the file (`page.save(dest, dpi=(dpi, dpi))`), which PNG
+stores as integer pixels **per metre** — 300 dpi is `pHYs 11811`. That is why
+Pillow reads it back as `299.9994`: the integer chunk is the contract, the float
+is a derived convenience.
+
+### Placement, and two silent failures made loud
+
+Each sticker entry carries `sheet` (1-based) and `pos` (1-based cell,
+left→right then top→bottom); an entry with neither is simply not on a sheet.
+Three ways to get it wrong are all errors that refuse the run before any page is
+composed, because the failure mode they share is a **printed** sheet with a hole
+in it — paper, ink and manual cutting spent before anyone notices:
+
+- a `pos` outside `1..cols*rows` for the configured grid;
+- a **duplicate `(sheet, pos)`** — the same cell claimed twice. The message names
+  both stickers and the cell. The same `pos` on a *different* sheet is legal and
+  normal;
+- a missing image file for a placed sticker.
+
+The engine has the matching guard on the prompt side: an entry whose composed
+prompt is **empty** is still skipped, but now with a `WARN` naming the key
+instead of in silence. That is a warning and not an error on purpose — an
+operator may have a legitimately empty entry, and a non-zero exit there would be
+a behaviour change on the cover path every blog takes.
+
+### The sticker composition order, and the `_template` directive
+
+Sticker layers are namespaced `sticker_*` because the prose **contradicts** the
+cover prose — a cover `base_character` says "flat-top hair" while a sticker one
+says "NOT a hard blocky / square flat-top". They cannot share a layer name.
+
+```yaml
+image:
+  composition_orders:
+    sticker:
+      - sticker_base_character
+      - sticker_atmosphere
+      - sticker_reference_guidance
+      - sticker_face_pins
+      - clothing
+      - sticker_mood
+      - scene
+      - sticker_border_spec      # AFTER scene, not before
+  layers:
+    sticker_mood:
+      _template: "Frank's expression: {}."
+    clothing: {}                 # only when the blog has no `clothing` layer
+    sticker_base_character: |- …
+```
+
+`sticker_border_spec` **follows** `scene`: the sticker finish is described after
+the scene it frames. Swapping those two produces a prompt that reads perfectly
+well and is not the one that made the artwork.
+
+An entry composes with the **bracketed** reference:
+
+```yaml
+composition:
+  order: composition_orders[sticker]      # a bare `sticker` is NOT a synonym
+  modifiers: { sticker_mood: <free-form text>, clothing: <free-form text> }
+```
+
+A bare `sticker` matches no order reference, resolves to an empty token list and
+composes an empty prompt — which is precisely the case the new WARN above exists
+to shout about.
+
+**`_template` (v7, `compose.py`).** A dict layer may declare
+`_template: "… {} …"`, which frames the value the layer resolved to — a table
+hit or a free-form passthrough alike. A layer that resolves to `""` stays `""`
+(an empty section is dropped, and `"Frank's expression: ."` would be a bug).
+`{}` is a positional `str.format` field, so prose containing braces passes
+through unharmed — only the *template* is parsed. The validator requires exactly
+one `{}` and **no other brace anywhere**, which is stricter than "one
+placeholder" by policy: a frame then has one obvious spelling, stays diffable,
+and can be emitted mechanically.
+
+> **Never put `_template` on a shared layer whose values are already complete
+> sentences.** `_template` attaches to a **layer**, so it applies to every order
+> naming that layer. A cover `mood` table like
+> `curious: Frank's expression is curious — head tilted…` framed with
+> `"Frank's expression: {}."` composes
+> `Frank's expression: Frank's expression is curious — …` on **every cover** —
+> silently, because sticker goldens only cover sticker prompts. That is why the
+> frame lives on its own `sticker_mood` layer and sticker entries carry
+> `modifiers.sticker_mood`, never `modifiers.mood`.
+>
+> Relatedly, `validate_config.py` **rejects** an order token `X[y]` whose layer
+> `X` declares `_template`: the bracket-token path resolves a named chunk without
+> a modifier and is deliberately not framed, so `X` and `X[y]` look identical in
+> config and differ only by silently losing the frame.
+
+Also load-bearing, and the easiest way to break every sticker prompt at once: a
+layer **absent** from `image.layers` resolves to the empty string and `compose()`
+drops the section. So a blog with no `clothing` layer needs `clothing: {}` for
+the sticker `clothing` prose to survive — the empty table is not decorative.
+
+### Non-destructive generation — the `--out` contract
+
+The sticker workflow is *pick a winner, then copy it over*, and the engine's
+default is to write the last variant straight to the entry's `output:`. So
+`generate-stickers.py` **always** passes `--out`, defaulting to `regen`:
+
+```bash
+scripts/generate-stickers.py --list                 # keys, sheet/pos, description
+scripts/generate-stickers.py --dry-run              # the FULL prompt + resolved refs, no API call
+scripts/generate-stickers.py --only 01-wave,05-key  # regenerate two
+scripts/generate-stickers.py                        # regenerate all into <config root>/regen/
+# eyeball regen/, then copy the winner over the master, then:
+scripts/build-sheets.py
+```
+
+Under `--out DIR` (`generate-images.py`, available for covers too):
+
+- the entry's `output:` is **never** written, and its parent directories are not
+  even created;
+- the filename is the **basename of the entry's `output:`**; when two or more
+  *selected* entries collide on that basename, every member of the colliding
+  group becomes `<key>-<basename>`. Deterministic — a function of the selected
+  set, not of iteration order — and extension-correct. For stickers it yields
+  exactly `sticker-<key>.png`, the name of the master to copy over;
+- a `DIR` that would alias any selected entry's `output:` (including through a
+  symlink or a hard link) **refuses the whole run** before the first API call. A
+  path-shaped promise is not a guarantee;
+- `post_process` is skipped entirely: those steps write over or next to the
+  *published* asset;
+- `.regen-archive/<key>/` snapshots and `.txt` sidecars are written as usual. The
+  sidecar records `output: <entry path>` as provenance — it is where a chosen
+  winner *belongs*, not a file that was written;
+- `--dry-run` names the `--out` destination, not the `output:` path it will never
+  touch;
+- a relative `--out` is resolved by the **shim** against the config root and
+  handed to the engine absolute; the engine's own `--out` is CWD-relative, like
+  `--reference`.
+
+`--count` is deliberately not exposed on the shim. A `--count N` run needs
+`image.curation.archive_cap >= N`, or the archive FIFO prunes that run's own
+earlier variants mid-run (it now warns and proceeds with the survivors instead of
+crashing); use `generate-images.py --count` directly, with the cap raised.
+
+**Two contact sheets, and the one that is an accepted divergence.** The engine
+writes a per-**key** sheet across that key's variants to
+`.regen-archive/<key>/contact-sheet.png`, only when `--count > 1` — so a sticker
+run, which makes one image per key, never produces one. The run-level sheet the
+sticker runbook points at is therefore built by the **shim**, at
+`<out>/contact-sheet.png`, whenever at least two keys succeeded, with `cols=5,
+tile_width=420`. Its **layout** is blog-craft's `_contact_sheet` (label at the
+top of a fixed tile), which differs from the pre-port private helper
+(aspect-preserving thumbnails, label in a strip along the bottom). The artifact
+is review-only and the old helper no longer exists, so this is declared, not
+reproduced.
+
+### The two reliability knobs (`image.fallback_model`, `image.timeout_ms`)
+
+Both are engine-wide, not sticker-specific, and both are absent by default —
+with neither set, cover generation is byte-for-byte what it was.
+
+- `image.fallback_model` is attempted when the primary **raises** or returns a
+  response with **no image part**, with each attempt logged to stderr with its
+  model name and the exception *type*. It adds a retry; it never softens a hard
+  failure: if every configured model raises, the last exception **propagates**
+  (and with no fallback configured, the single attempt propagates unchanged, as
+  before). An image-*less* response stays a soft failure — `rc=1` for that key,
+  nothing written. Mixed case — primary raises, fallback answers without an image
+  — propagates the primary's exception, because reporting "the model declined"
+  for a transport or auth error would mislead.
+- `image.timeout_ms` is **milliseconds**, passed to the SDK's
+  `HttpOptions(timeout=…)`.
+
+### Adopting an existing private sticker set
+
+`tools/migrate_stickers.py` is a one-time, blog-craft-side transform (it is never
+shipped into a blog):
+
+```bash
+tools/migrate_stickers.py --config <blog>/.blog-craft.yaml \
+    --legacy <blog>/blog/_private/<dir>/stickers.yaml [--move-assets] [--dry-run]
+```
+
+Both paths are required and nothing is guessed; everything resolves against the
+config's own directory, never the process CWD. It writes the new
+`features.stickers.prompts_file`, **prints** the `image.layers` +
+`composition_orders.sticker` block for the operator to paste, and — only under
+`--move-assets` — `git mv`s `images/` and `sheets/` into the configured
+directories, refusing rather than clobbering when a destination already exists.
+It never edits `.blog-craft.yaml`: that file is the operator's content.
+
+Three things about the printed block that are easy to get wrong:
+
+- **`clothing: {}` is emitted only when the target config has no `clothing`
+  layer.** Emitting it unconditionally would *destroy* a populated one:
+  PyYAML resolves duplicate mapping keys by silently taking the last, and a cover
+  entry that selects with the bracket form (`building[dirty]`) then resolves
+  nothing and loses its clothing sentence **entirely**. When the layer exists the
+  key is omitted with a note, and the tool *checks* rather than assumes that the
+  existing layer still returns every sticker's prose unchanged.
+- **it never emits a bare `mood:` key**, for the double-framing reason above.
+- it **warns** about any emitted key the target config already defines, and
+  **refuses** an empty `clothing`/`mood`/`scene`, a duplicate sticker key, a
+  configured path escaping the blog root, and a `prompts_file` that resolves to
+  the legacy source itself (writing there would destroy the only copy of the
+  prose being migrated — name the new file `stickers-prompts.yaml`, not
+  `stickers.yaml`).
+
+**What `/update` does and does not do.** `templates/manifest.yaml`'s
+`legacy_dests` retires the two *scripts*: `scripts/build-sheets.py` and
+`scripts/generate-stickers.py` are `framework`, so the planned action is
+`replace` — blog-craft's copy wins and the private one is unlinked. Local edits
+to those two scripts are **discarded**, deliberately; only `merged`-class files
+preserve operator edits. Everything else in that private directory is `content`
+— the legacy `stickers.yaml`, the curated masters, the built sheets, the README —
+and `/update` never touches content, so **the directory itself survives** while
+it still holds any of it. Emptying it is the operator's last step, not
+blog-craft's. For a blog that never had those paths there is no legacy side to
+find, so nothing is relocated and nothing is deleted; with the feature disabled
+the scripts are not even staged.
+
+The order matters, because the transform refuses when `features.stickers` is
+missing or its paths are empty:
+
+1. `/update` — climbs the schema ladder to v7 (seeding the disabled block) and
+   retires the two private scripts;
+2. paste the printed block; set `features.stickers.enabled: true` plus the three
+   paths;
+3. `tools/migrate_stickers.py … --move-assets`;
+4. `git rm` what is left of the private directory, then delete the directory by
+   hand;
+5. rebuild the sheets and confirm they are unchanged.

@@ -12,7 +12,7 @@ Config (`.blog-craft.yaml`):
 
     features:
       stickers:
-        prompts_file: blog/_private/stickers/stickers.yaml
+        prompts_file: blog/_private/stickers/stickers-prompts.yaml
         images_dir:   blog/_private/stickers/images
         sheets_dir:   blog/_private/stickers/sheets
         sheets_prefix: frank-stickers          # default: <slug(project.name)>-stickers
@@ -191,7 +191,24 @@ def main(argv: list) -> int:
                 f"features.stickers.sheet.grid [{cols}, {rows}]"
             )
         src = (root / e["output"]) if e.get("output") else images_dir / f"sticker-{key}.png"
-        sheets[int(e["sheet"])][pos] = (key, src)
+        n = int(e["sheet"])
+        # LOUD, never last-wins. frank's `sheets[s["sheet"]][s["pos"]] = key`
+        # silently kept the LAST claimant, so the other sticker was simply absent
+        # from a page the operator PRINTS and CUTS — paper, ink and manual cutting
+        # spent before anyone notices. `pos` out of range is already an error; this
+        # is the same class of mistake and gets the same treatment. It is a
+        # behaviour change against frank's code, and an unobservable one for his
+        # data: his 18 stickers occupy 18 distinct (sheet, pos) pairs (measured,
+        # pinned by test_franks_real_eighteen_still_build_both_sheets).
+        if pos in sheets[n]:
+            other = sheets[n][pos][0]
+            raise SystemExit(
+                f"duplicate placement: sheet {n}, cell {pos} is claimed by both "
+                f"{other!r} and {key!r} — one of them would silently vanish from a "
+                f"printed sheet. Give each sticker its own (sheet, pos) in "
+                f"{prompts}."
+            )
+        sheets[n][pos] = (key, src)
 
     if not sheets:
         print(f"no stickers declare sheet/pos in {prompts} — nothing to build")

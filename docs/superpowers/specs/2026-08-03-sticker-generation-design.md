@@ -586,7 +586,7 @@ frank's real data, not synthetic smoke.
 | 7 | Rebuilt sheets are byte-identical to frank's committed sheets | smoke | `tests/smoke-stickers.sh` |
 | 8 | `features.stickers` gates both scripts in/out of a rendered blog | unit | `tests/unit/test_features_gating.py` (extended) |
 | 9 | `006_to_007` is pure, idempotent, and preserves an explicit opt-in | unit | `tests/unit/test_migration_007.py` |
-| 10 | `/update` retires frank's two script copies | unit | `tests/unit/test_update_relocation.py` (extended) |
+| 10 | `/update` retires frank's two script copies | unit | `tests/unit/test_update_relocation.py` (extended — the legacy_dests contract lives there as a third migration axis; there is no `test_update_legacy_dests.py`) |
 | 11 | `migrate_stickers.py` produces a prompts file whose prompts match goldens | unit | `tests/unit/test_migrate_stickers.py` |
 | 12 | No existing blog's composed cover prompts change | unit | existing `test_image_compose.py` must pass unmodified |
 

@@ -437,6 +437,18 @@ def main(argv: list[str]) -> int:
             continue
         prompt = compose_for(e, image_cfg)
         if not prompt.strip():
+            # LOUD, but not fatal. An entry that composes to nothing is skipped —
+            # and used to be skipped in SILENCE, with rc 0, so a typo'd order name
+            # produced no image and reported success (measured: a bare
+            # `order: sticker` instead of `composition_orders[sticker]` yields all
+            # 18 stickers, zero output, exit 0). Deliberately a WARN and not an
+            # error: an operator may have a legitimately empty entry, and changing
+            # the exit code would be a real behaviour change on the cover path that
+            # every blog takes.
+            print(f"  WARN: {key}: composed prompt is empty — the entry composes to "
+                  f"nothing and is SKIPPED. Check composition.order (a bare name is "
+                  f"not a reference: use composition_orders[<name>]), the modifiers "
+                  f"its layers select on, and scene.", file=sys.stderr)
             continue
         out = root / e.get("output", f"{image_cfg.get('output_dir', 'static/images')}/{key}.png")
         selected.append((key, e, prompt, out))

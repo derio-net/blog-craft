@@ -341,6 +341,54 @@ def test_a_grid_that_cannot_be_laid_out_is_refused(tmp_path):
     assert not (tmp_path / "sheets").exists()
 
 
+# --- 11. a duplicate (sheet, pos) is LOUD, never last-wins (P8.T4) ----------
+
+def test_two_stickers_claiming_the_same_cell_exit_naming_both_and_the_position(tmp_path):
+    """frank's `sheets[s["sheet"]][s["pos"]] = key` is last-wins, so a duplicate
+    silently DROPS one sticker from a page the operator prints and cuts — paper,
+    ink and manual cutting spent before anyone notices, with no warning anywhere.
+    `pos` out of range is already loud (test 10); a duplicate was not.
+
+    This IS a behaviour change against frank's code. It is an unobservable one for
+    his data: his 18 stickers occupy 18 distinct cells (pinned below).
+    """
+    entries = _entries([("05-golden-key", 1, 3), ("12-coffee", 1, 3)])
+    r = _run(tmp_path, _cfg(), entries)
+    assert r.returncode != 0
+    err = r.stderr + r.stdout
+    assert "05-golden-key" in err and "12-coffee" in err, err
+    assert "3" in err and "sheet 1" in err, err
+    # refused BEFORE any page is composed: a sheet missing a sticker is the whole
+    # failure mode, so a half-built one must not exist either.
+    assert not _sheet(tmp_path, 1).exists()
+    assert not (tmp_path / "sheets").exists()
+
+
+def test_the_same_pos_on_a_DIFFERENT_sheet_is_perfectly_legal(tmp_path):
+    """The key is `(sheet, pos)`, not `pos`. frank's own data has pos 1..9 on BOTH
+    sheets, so a guard keyed on `pos` alone would reject his real set."""
+    r = _run(tmp_path, _cfg(), _entries([("a-one", 1, 1), ("b-one", 2, 1)]))
+    assert r.returncode == 0, r.stderr
+    assert _sheet(tmp_path, 1).is_file() and _sheet(tmp_path, 2).is_file()
+
+
+def test_franks_real_eighteen_still_build_both_sheets(tmp_path):
+    """The guard costs frank nothing — measured against the VENDORED real data
+    (`tests/fixtures/stickers/frank-stickers.yaml`), not a synthetic stand-in:
+    18 stickers, 18 distinct `(sheet, pos)` pairs across sheets 1-2."""
+    from _stickers_fixture import frank_config
+    stickers = frank_config()["stickers"]
+    placements = [(s["key"], s["sheet"], s["pos"]) for s in stickers]
+    assert len(placements) == 18
+    assert len({(sheet, pos) for _k, sheet, pos in placements}) == 18
+    assert {sheet for _k, sheet, _p in placements} == {1, 2}
+    assert {pos for _k, _s, pos in placements} == set(range(1, 10))
+
+    r = _run(tmp_path, _cfg(), _entries(placements))
+    assert r.returncode == 0, r.stderr
+    assert _sheet(tmp_path, 1).is_file() and _sheet(tmp_path, 2).is_file()
+
+
 def test_grid_3x3_is_numerically_identical_to_franks_hardcoded_three(tmp_path):
     """The equality that IS the regression test: an EXPLICIT `grid: [3, 3]` and
     the default must both land on frank's cell/offsets, byte for byte."""

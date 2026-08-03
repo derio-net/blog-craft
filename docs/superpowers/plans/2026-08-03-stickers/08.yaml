@@ -79,7 +79,8 @@ tasks:
       Run: fr acceptance report; BLOG_CRAFT_TEST_VENV="$HOME/.cache/bcv" bash tests/run-unit.sh
       EXPECT: full suite green; report_linked.md/html and report_local.html updated for the commit.
 - number: 4
-  title: Two silent failures made loud — duplicate (sheet,pos), and an empty composed prompt
+  title: Two silent failures made loud — duplicate (sheet,pos), and an empty composed
+    prompt
   steps:
   - id: P8.T4.S1
     text: |
@@ -100,38 +101,38 @@ tasks:
 state:
   steps:
     P8.T1.S1:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-08-03T15:46:46+00:00'
       note: null
     P8.T1.S2:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-08-03T15:46:46+00:00'
       note: null
     P8.T2.S1:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-08-03T15:46:47+00:00'
       note: null
     P8.T2.S2:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-08-03T15:47:31+00:00'
       note: null
     P8.T3.S1:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-08-03T16:01:16+00:00'
       note: null
     P8.T3.S2:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-08-03T16:01:18+00:00'
       note: null
     P8.T4.S1:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-08-03T15:39:17+00:00'
       note: null
     P8.T4.S2:
-      state: ' '
-      ticked_at: null
+      state: x
+      ticked_at: '2026-08-03T15:39:19+00:00'
       note: null
   completion:
-    at: null
+    at: '2026-08-03T16:01:19+00:00'
     note: null
     observed_prs: []
