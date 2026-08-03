@@ -21,7 +21,7 @@ tasks:
         2. it PRINTS the layer block (six sticker_* layers, sticker_mood carrying the _template) + composition order for the operator to paste, and does NOT edit .blog-craft.yaml (that file is `content` class; silent config surgery is how #60 happened);
               2b. it NEVER emits a bare `mood:` key - frank already has one whose values are complete sentences, and merging a _template into it double-frames every frank cover (phase-1 finding p1-mood-template-regresses-frank-covers). Assert the emitted block contains no top-level `mood:`;
         3. the two self-referential style_anchor paths — the sticker set uses two of its OWN images as style anchors — are rewritten to the configured images_dir (spec risk 4: get this wrong and goldens still pass while generation silently loses the anchors);
-        4. prose containing a stray { or } is REFUSED with the sticker key named (str.format would raise mid-run);
+        4. prose containing { or } passes through UNHARMED and is NOT refused. str.format never rescans the substituted argument, so only the _template string itself is parsed — spec Risks-2 claimed the opposite and is now withdrawn. Assert a sticker whose scene or mood contains braces composes correctly; do NOT build a brace guard here;
         5. idempotent: a second run over its own output is a no-op, not a double-transform;
         6. it never writes outside the configured dirs.
       Run: bash tests/run-unit.sh -k test_migrate_stickers

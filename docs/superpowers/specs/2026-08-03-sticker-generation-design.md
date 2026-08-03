@@ -100,8 +100,16 @@ blog-craft's, with no behavioral changes**.
    is a different thing: 2480×3508 at exactly 300 DPI, a centered 3×3 grid,
    `dpi=(300,300)` written into the PNG so printing at 100% maps A4 1:1 and
    the `#1b4332` keyline stays a literal cut path. This is the only genuinely
-   new code in the port. frank's *regen* contact sheet also uses different
-   geometry (`cols=5, tile_width=420`) via frank's own `scripts/lib/`.
+   new code in the port.
+
+   frank's *regen* contact sheet called `cols=5, tile_width=420` into a helper
+   at `frank/scripts/lib/contact_sheet.py` — but **that file no longer exists**,
+   and neither does `lib/__init__.py`: frank's own blog-craft cutover
+   (`bd0415e6`) deleted both. Since `generate-stickers.py:35` imports it
+   unconditionally at module level, **frank's sticker generator cannot run at
+   all today** — not even `--list`. There is therefore no runnable baseline for
+   the regen sheet, which changes what Decision 6 can promise (see the
+   correction under it).
 
 ## Goal
 
@@ -163,6 +171,21 @@ Two further decisions taken during design, flagged for review:
 > itself, calling `_contact_sheet(..., cols=5, tile_width=420)` over the keys it
 > generated. The engine keeps its per-key sheet unchanged; the shim owns
 > frank's workflow semantics, which is the right split.
+>
+> **The sheet's LAYOUT is an accepted divergence, not a reproduction** (settled
+> after the phases 1-3 review). Decision 6 was written as if geometry were the
+> only difference. It is not: the surviving `.pyc` of frank's deleted
+> `compose_contact_sheet` shows a different algorithm — thumbnails keep their
+> aspect ratio scaled to `tile_width`, the label sits in a solid strip along the
+> **bottom** of each row, and trailing cells stay background-coloured — whereas
+> `_contact_sheet` draws the label at the **top** of a fixed 400×260 tile. So
+> phase 4 produces the right column count and a visibly different sheet.
+>
+> Accepted rather than ported, for three reasons: the artifact is review-only
+> (never printed, published, or committed), frank's version is unrunnable so
+> nothing regresses, and reconstructing a layout from decompiled bytecode
+> strings is a poor foundation. It MUST be declared in the CHANGELOG — "no
+> behavioral changes" means no *undeclared* changes, and this is one.
 
 ## Architecture
 
@@ -330,6 +353,24 @@ prefix must come from config (`project.name` slugged, or an explicit
 `sheets_prefix`) so the ported script is not frank-shaped. Preserving frank's
 exact filename is required for no-behavioral-change.
 
+### 5a. The `--out` filename contract
+
+Settled after the phases 1-3 review, which found `--out` hardcoded
+`<key>.png`. Neither obvious option works:
+
+- `<key>.png` loses frank's naming. frank's regen files are
+  `sticker-<key>.png` (`generate-stickers.py:118`), matching the master its
+  README tells you to copy over, so a mismatch breaks the runbook.
+- the entry's `output:` basename collides catastrophically for covers: **85 of
+  frank's 91 cover entries have `output:` ending in `/cover.png`**, so a
+  multi-key `--out` run would collapse 85 covers into one file.
+
+So: `dest = <out>/<basename of output:>`, and when two or more *selected*
+entries collide on that basename, **every** colliding entry is written as
+`<key>-<basename>` instead. Deterministic (a function of the selected set, not
+iteration order), extension-correct, and for stickers it yields exactly
+`sticker-<key>.png` — frank's name.
+
 ### 6. Schema migration v6 → v7
 
 The ladder convention is a pure, idempotent `setdefault` migration per rung
@@ -408,7 +449,11 @@ frank's real data, not synthetic smoke.
 - **Golden prompts (the contract).** Vendor frank's real `stickers.yaml` as
   `tests/fixtures/stickers/frank-stickers.yaml`, and its 18 composed prompts
   as `tests/fixtures/stickers/golden/<key>.txt`, generated once from frank's
-  *legacy* script. A test asserts `generate-images.py --print-prompt <key>`
+  legacy `compose_prompt()` **function**, not its CLI. The script cannot be run
+  or even imported as-is (its `lib.contact_sheet` import is dead — see
+  §Findings 5) and `--dry-run` truncates at 300 chars, so the derivation stubs
+  the five API-only modules and calls `compose_prompt` directly. Verified
+  working 2026-08-03; the exact recipe is in plan phase 5. A test asserts `generate-images.py --print-prompt <key>`
   equals the golden for all 18. This is the single test that proves the port,
   and it exercises `_template`, the sticker order, layer namespacing, and the
   transform together. Precedent: `tests/unit/test_image_compose.py`, which
@@ -477,10 +522,13 @@ operator's stated requirement. None restates an implementation detail.
    `scene` — transcribed into §1 and shown against its source there. Called
    out because it is the most likely single cause of a red golden: swapping it
    with `scene` yields a prompt that reads correctly and is still wrong.
-2. **Prose with literal braces.** `_template` uses `str.format`. Any sticker
-   prose containing `{` or `}` would raise or mis-substitute. None of frank's
-   current prose does, but the validator should require exactly one `{}` and
-   the transform should refuse prose containing stray braces.
+2. ~~**Prose with literal braces.**~~ **Withdrawn** — this risk was wrong.
+   `str.format` never rescans the substituted argument, so sticker prose
+   containing `{` or `}` passes through unharmed; only the *template* string
+   itself is parsed. The validator's one-`{}` rule therefore applies to
+   `_template` only, and `tools/migrate_stickers.py` must **not** refuse prose
+   containing braces — a guard there would reject valid content for no reason.
+   §Architecture 2 always said this correctly; this bullet contradicted it.
 3. **Contact-sheet geometry is a named divergence** unless decision 6 is
    implemented. It is a review-only artifact, so the operator may prefer to
    accept the reflow rather than parameterize.
@@ -507,8 +555,10 @@ operator's stated requirement. None restates an implementation detail.
   left `grid` decorative — see §5: a config key that accepts a value and
   quietly ignores it is a trap, so `grid` is implemented and tested rather
   than deferred.
-- Retiring frank's `scripts/lib/contact_sheet.py`, which serves frank's other
-  scripts too.
+- Restoring frank's `scripts/lib/contact_sheet.py`. An earlier draft listed
+  *retiring* it as out of scope, on the belief it still existed and served
+  frank's other scripts; frank's own cutover (`bd0415e6`) had already deleted
+  it. Nothing here brings it back — see the Decision 6 correction.
 
 ## Implementation Plans
 

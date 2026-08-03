@@ -84,7 +84,7 @@ tasks:
     text: |
       [RED] Extend tests/unit/test_generate_stickers_shim.py:
         1. a run generating >=2 keys writes <out>/contact-sheet.png;
-        2. that sheet is laid out cols=5, tile_width=420 (assert the resulting .size), matching frank's geometry exactly;
+        2. that sheet is laid out cols=5, tile_width=420 (assert the resulting .size) — frank's COLUMN COUNT and tile width, but blog-craft's LAYOUT. Do NOT try to match frank's pixel output: its helper frank/scripts/lib/contact_sheet.py was deleted by frank's own cutover bd0415e6 and used a different algorithm (aspect-preserving thumbs, label strip along the BOTTOM, background-coloured trailing cells) vs _contact_sheet's top-label fixed 400x260 tile. The divergence is ACCEPTED and phase 8 declares it in the CHANGELOG — see the Decision 6 correction in the spec;
         3. its tiles are the GENERATED KEYS (one per key), labelled by key — not the variants of a single key;
         4. a run generating exactly 1 key writes NO contact sheet (frank's threshold is >=2, generate-stickers.py:141);
         5. the engine's own per-key .regen-archive sheet is unaffected (still only on --count > 1).

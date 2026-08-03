@@ -43,6 +43,9 @@ tasks:
       Also record the two bugs fixed in passing, both PRE-EXISTING and both on the DEFAULT cover path rather than the sticker path:
         - curation.archive_cap pruned a --count N run's own earlier variants mid-run, after which the contact sheet tried to open the deleted files (phase-2 finding p2-archive-cap-prunes-its-own-count-run, fixed);
         - --dry-run misreported the destination path; it now names the real one.
+      DECLARE these accepted divergences explicitly — "no behavioral changes" means no UNDECLARED changes:
+        - the sticker regen contact sheet uses blog-craft's LAYOUT (top label, fixed tile), not frank's (bottom label strip, aspect-preserving thumbs); frank's helper was deleted by its own cutover bd0415e6 and is unrunnable, and the artifact is review-only;
+        - under --out, files are named from the entry's output: basename with <key>- prefixing on collision (spec 5a); for stickers this reproduces frank's sticker-<key>.png exactly.
       And note that the run-level sticker contact sheet is produced by the shim, not the engine (phase-2 finding p2-decision6-insufficient-for-frank-sheet) — the engine's per-key sheet is unchanged.
       Run: bash tests/run-unit.sh -k test_changelog
       EXPECT: green.
