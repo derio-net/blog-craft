@@ -445,4 +445,6 @@ operator's stated requirement. None restates an implementation detail.
 
 ## Implementation Plans
 
-Not yet written. Hand off to `fr-plan`.
+| Plan | Repo | File | Depends on |
+|---|---|---|---|
+| 2026-08-03-stickers | `derio-net/blog-craft` | `2026-08-03-stickers` | — |

@@ -1,0 +1,74 @@
+schema_version: 2
+phase:
+  number: 3
+  title: Schema v6 -> v7 — features.stickers, fallback_model, timeout_ms
+  tag: agentic
+  depends_on: []
+  tier: mechanical
+  acceptance:
+  - stk-4
+  tracking_issue: null
+tasks:
+- number: 1
+  title: migrations/006_to_007.py
+  steps:
+  - id: P3.T1.S1
+    text: |
+      [RED] New tests/unit/test_migration_007.py, modelled on tests/unit/test_migration_005.py:
+        1. version 6 -> 7 and features.stickers == {"enabled": False};
+        2. an explicit features.stickers.enabled: true is PRESERVED (setdefault semantics — a migration that flips an operator's opt-in is a bug);
+        3. an explicit features.stickers with extra keys keeps them;
+        4. pure: the input dict is not mutated;
+        5. idempotent-by-guard: called with version != 6 it raises ValueError;
+        6. unrelated config is untouched.
+      Also assert tests/unit/test_migration_ladder.py picks the new rung up (it enumerates migrations/*.py).
+      Run: bash tests/run-unit.sh -k "test_migration_007 or test_migration_ladder"
+      EXPECT: RED.
+  - id: P3.T1.S2
+    text: |
+      [GREEN] Write migrations/006_to_007.py following 005_to_006.py exactly: FROM_VERSION=6, TO_VERSION=7, guard on cfg.get("version") != FROM_VERSION, copy dicts rather than mutating, features.setdefault("stickers", {"enabled": False}).
+      Docstring: stickers ship DEFAULT OFF — unlike mermaid_view (v5->v6), which was a default-on fix every blog wanted. A sticker set is per-blog content nobody but frank has; enabling it by default would render two scripts into gondor and stoa for no reason.
+      Run: bash tests/run-unit.sh -k "test_migration"
+      EXPECT: green.
+- number: 2
+  title: validate_config accepts v7 and validates the new keys
+  steps:
+  - id: P3.T2.S1
+    text: |
+      [RED] Extend tests/unit/test_config_schema.py:
+        1. version 7 is accepted (ACCEPTED_VERSIONS 2..7);
+        2. features.stickers must be a mapping; enabled must be a bool;
+        3. when enabled, prompts_file / images_dir / sheets_dir must be non-empty strings;
+        4. features.stickers.sheet, when present: dpi and gutter positive ints, grid a 2-list of positive ints;
+        5. image.fallback_model must be a non-empty string when present;
+        6. image.timeout_ms must be a positive int when present;
+        7. features.stickers ABSENT is valid at every version (the capability is optional).
+      Run: bash tests/run-unit.sh -k test_config_schema
+      EXPECT: RED.
+  - id: P3.T2.S2
+    text: |
+      [GREEN] tools/validate_config.py: extend ACCEPTED_VERSIONS to 2..7 (and the module docstring's "Accepts schema versions 2..6" line), add the features.stickers and image.fallback_model / image.timeout_ms validation. Keep every message naming the offending key path.
+      Run: bash tests/run-unit.sh -k "test_config_schema or test_migration"
+      EXPECT: green.
+state:
+  steps:
+    P3.T1.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P3.T1.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P3.T2.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P3.T2.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+  completion:
+    at: null
+    note: null
+    observed_prs: []

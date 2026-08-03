@@ -1,0 +1,89 @@
+schema_version: 2
+phase:
+  number: 1
+  title: compose.py — the `_template` directive for dict layers
+  tag: agentic
+  depends_on: []
+  tier: standard
+  acceptance:
+  - stk-1
+  tracking_issue: null
+tasks:
+- number: 1
+  title: '`_template` frames a resolved dict-layer value'
+  steps:
+  - id: P1.T1.S1
+    text: |
+      [RED] Extend tests/unit/test_compose.py with a `_template` group:
+        1. table HIT + `_template: "Frank's expression: {}."` -> the table value framed;
+        2. free-form PASSTHROUGH (a modifier value absent from the table) + `_template` -> the raw value framed — this is the sticker case;
+        3. a layer that resolves to "" (modifier absent from the entry) stays "" and is DROPPED by compose — it must never become "Frank's expression: .";
+        4. a `_select` selector-walk layer with `_template` frames its result too (both resolution paths, not just one);
+        5. a layer WITHOUT `_template` is byte-unchanged (regression);
+        6. `_template` itself never appears as prose — it is a `_`-prefixed directive (assert the composed output contains no literal "{}" and no key name).
+      Run: bash tests/run-unit.sh -k test_compose
+      EXPECT: RED — tests 1,2,4 fail (no framing); 3,5,6 pass already.
+  - id: P1.T1.S2
+    text: |
+      [GREEN] tools/compose.py: add a module-level helper
+
+          def _apply_template(table: dict, value: str) -> str:
+              tmpl = table.get("_template")
+              if not value or not isinstance(tmpl, str):
+                  return value
+              return tmpl.format(value)
+
+      Call it at every return point of `_resolve_modifier` that yields prose (the bracket-path descent, the named table hit, and the free-form passthrough) and at the final return of `_resolve_selector_walk` (including its last-step passthrough). Guard on `not value` FIRST so an empty resolution stays empty — an absent mood framed into "Frank's expression: ." is the bug this ordering prevents.
+      Docstring the WHY: frank's sticker generator wrapped a per-entry free-form mood in a code template (generate-stickers.py:53); without this the frame lives in Python and cannot be expressed in config, so a ported sticker set silently loses the sentence frame.
+      Run: bash tests/run-unit.sh -k test_compose
+      EXPECT: green, all six.
+  - id: P1.T1.S3
+    text: |
+      [MIRROR] tools/compose.py is mirrored byte-for-byte into templates/hugo-hextra/scripts/compose.py (tests/unit/test_mirrors.py enforces it). Re-mirror:
+        cp tools/compose.py templates/hugo-hextra/scripts/compose.py
+      Run: bash tests/run-unit.sh -k "test_mirrors or test_compose or test_image_compose"
+      EXPECT: green. test_image_compose.py MUST pass UNMODIFIED — it is the guard that no blog's cover prompts shifted. If it needs editing, the change in S2 is wrong.
+- number: 2
+  title: validate_config rejects a malformed `_template`
+  steps:
+  - id: P1.T2.S1
+    text: |
+      [RED] Extend tests/unit/test_config_schema.py:
+        1. `_template` that is not a string -> error naming the layer;
+        2. `_template` with NO "{}" -> error (it would silently drop the value);
+        3. `_template` with TWO "{}" -> error (str.format would raise IndexError at generation time, i.e. mid-run);
+        4. `_template` containing a stray "{" or "}" beyond the single "{}" -> error (str.format raises on unmatched braces);
+        5. exactly one "{}" -> accepted.
+      Run: bash tests/run-unit.sh -k test_config_schema
+      EXPECT: RED.
+  - id: P1.T2.S2
+    text: |
+      [GREEN] tools/validate_config.py: in the image.layers walk, when a dict layer declares `_template`, require a string containing exactly one "{}" and no other brace characters. Error message names the layer and shows the offending value. Rationale in a comment: the failure without this check surfaces at IMAGE-GENERATION time (a paid API call already in flight), not at validation time.
+      Run: bash tests/run-unit.sh -k "test_config_schema or test_compose"
+      EXPECT: green.
+state:
+  steps:
+    P1.T1.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T1.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T1.S3:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T2.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P1.T2.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+  completion:
+    at: null
+    note: null
+    observed_prs: []

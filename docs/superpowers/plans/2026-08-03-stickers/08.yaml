@@ -1,0 +1,97 @@
+schema_version: 2
+phase:
+  number: 8
+  title: Docs, CHANGELOG, version bump, and acceptance flips
+  tag: agentic
+  depends_on:
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  - 6
+  - 7
+  tier: mechanical
+  acceptance:
+  - stk-1
+  - stk-2
+  - stk-3
+  - stk-4
+  - stk-5
+  tracking_issue: null
+tasks:
+- number: 1
+  title: Document the capability
+  steps:
+  - id: P8.T1.S1
+    text: |
+      docs/CONFIG.md: a new numbered section for features.stickers — every key, the default-OFF rationale, the sticker composition order with the border-after-scene note, the mood._template directive, and the non-destructive --out contract. Also document image.fallback_model and image.timeout_ms in the image section.
+      Add a short "Sticker sets" note to MEDIA-GUIDE.md (or the shipped guide that covers the image workflow — locate it) pointing at the two scripts and the pick-a-winner-then-copy flow.
+      EXPECT: docs describe every key shipped in phases 1-7, no more.
+  - id: P8.T1.S2
+    text: |
+      Cross-check the docs against the code: for each documented key, grep the implementation to confirm the name and default match. A wrong default in CONFIG.md is worse than an undocumented one.
+      Run: grep -n "stickers\|fallback_model\|timeout_ms" docs/CONFIG.md
+      EXPECT: every hit corresponds to a real key.
+- number: 2
+  title: CHANGELOG and version bump
+  steps:
+  - id: P8.T2.S1
+    text: |
+      Add the CHANGELOG entry under Unreleased (the repo stages there and renames on bump — tests/unit/test_changelog.py validates both shapes). Cover: the capability, the five divergences it resolves, the `_template` directive, --out as a data-loss guard, v7, and the /update relocation. State plainly that frank's sticker generation had been broken since its cutover.
+      Run: bash tests/run-unit.sh -k test_changelog
+      EXPECT: green.
+  - id: P8.T2.S2
+    text: |
+      Bump the version off 0.20.0 (shipped-surface change: new template scripts + new config keys). Run the gate to confirm it is satisfied:
+      Run: python tools/check_version_bump_needed.py; bash tests/run-unit.sh -k "test_changelog or test_version"
+      EXPECT: gate passes, tests green.
+- number: 3
+  title: Flip the acceptance rows
+  steps:
+  - id: P8.T3.S1
+    text: |
+      Flip stk-1..stk-5 from not-implemented to ci, attaching the test refs that now prove each:
+        stk-1 -> tests/unit/test_stickers_golden.py
+        stk-2 -> tests/unit/test_generate_images_out_dir.py
+        stk-3 -> tests/unit/test_build_sheets.py
+        stk-4 -> tests/unit/test_features_gating.py, tests/unit/test_migration_007.py
+        stk-5 -> tests/unit/test_update_legacy_dests.py, tests/unit/test_migrate_stickers.py
+      stk-3's print-at-100% claim is only PARTLY provable in CI (dimensions + DPI metadata are; a physical print is not). If the honest status is `skipped` with the reason in notes, set that rather than overclaiming `ci`.
+      Run: fr acceptance check
+      EXPECT: exit 0, no `failing` rows.
+  - id: P8.T3.S2
+    text: |
+      Regenerate the acceptance reports and confirm the full suite is green end to end.
+      Run: fr acceptance report; BLOG_CRAFT_TEST_VENV="$HOME/.cache/bcv" bash tests/run-unit.sh
+      EXPECT: full suite green; report_linked.md/html and report_local.html updated for the commit.
+state:
+  steps:
+    P8.T1.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P8.T1.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P8.T2.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P8.T2.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P8.T3.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P8.T3.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+  completion:
+    at: null
+    note: null
+    observed_prs: []

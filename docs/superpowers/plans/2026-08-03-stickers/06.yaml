@@ -1,0 +1,67 @@
+schema_version: 2
+phase:
+  number: 6
+  title: tools/migrate_stickers.py — the one-time transform /update cannot do
+  tag: agentic
+  depends_on:
+  - 3
+  - 5
+  tier: standard
+  acceptance:
+  - stk-5
+  tracking_issue: null
+tasks:
+- number: 1
+  title: Transform frank's stickers.yaml into a v5 prompts file
+  steps:
+  - id: P6.T1.S1
+    text: |
+      [RED] New tests/unit/test_migrate_stickers.py, run against the vendored fixture:
+        1. output prompts file has 18 v5 entries; feeding it to generate-images.py --print-prompt reproduces the P5 goldens byte-for-byte (the transform is only correct if it is prompt-preserving);
+        2. it PRINTS the layer block + composition order + mood._template for the operator to paste, and does NOT edit .blog-craft.yaml (that file is `content` class; silent config surgery is how #60 happened);
+        3. the two self-referential style_anchor paths — the sticker set uses two of its OWN images as style anchors — are rewritten to the configured images_dir (spec risk 4: get this wrong and goldens still pass while generation silently loses the anchors);
+        4. prose containing a stray { or } is REFUSED with the sticker key named (str.format would raise mid-run);
+        5. idempotent: a second run over its own output is a no-op, not a double-transform;
+        6. it never writes outside the configured dirs.
+      Run: bash tests/run-unit.sh -k test_migrate_stickers
+      EXPECT: RED.
+  - id: P6.T1.S2
+    text: |
+      [GREEN] Write tools/migrate_stickers.py: read the legacy stickers.yaml, emit the v5 prompts file (entries as in P5.T1.S3), print the layer/order/template block to stdout, rewrite style_anchor paths, validate braces, exit non-zero on anything ambiguous with the reason. --dry-run prints the diff without writing.
+      Run: bash tests/run-unit.sh -k "test_migrate_stickers or test_stickers_golden"
+      EXPECT: green.
+- number: 2
+  title: Move the curated images and sheets
+  steps:
+  - id: P6.T2.S1
+    text: |
+      [RED] Extend tests/unit/test_migrate_stickers.py: --move-assets git-mv's images/ and sheets/ to the configured dirs; refuses when a destination already exists (never clobbers a curated master); is a no-op when the source is already gone; --dry-run lists the moves without performing them; falls back to a plain move outside a git repo.
+      Run: bash tests/run-unit.sh -k test_migrate_stickers
+      EXPECT: RED.
+  - id: P6.T2.S2
+    text: |
+      [GREEN] Implement --move-assets. Comment the WHY: these 20 PNGs are `content` class, so /update's plan_update skips them by design (update.py:153) — they are irreplaceable operator artifacts, which is exactly why the tool refuses rather than overwrites.
+      Run: bash tests/run-unit.sh -k test_migrate_stickers
+      EXPECT: green.
+state:
+  steps:
+    P6.T1.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P6.T1.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P6.T2.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P6.T2.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+  completion:
+    at: null
+    note: null
+    observed_prs: []

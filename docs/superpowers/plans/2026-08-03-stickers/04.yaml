@@ -1,0 +1,103 @@
+schema_version: 2
+phase:
+  number: 4
+  title: Feature module — build-sheets.py, generate-stickers.py, and gating
+  tag: agentic
+  depends_on:
+  - 1
+  - 2
+  - 3
+  tier: standard
+  acceptance:
+  - stk-3
+  - stk-4
+  tracking_issue: null
+tasks:
+- number: 1
+  title: build-sheets.py — the print contract
+  steps:
+  - id: P4.T1.S1
+    text: |
+      [RED] New tests/unit/test_build_sheets.py. Build sheets from 18 synthetic solid-colour PNGs (Pillow is in the test venv):
+        1. output is exactly 2480x3508;
+        2. the saved PNG carries dpi == (300, 300) (reopen with Pillow and read .info["dpi"]) — this is what makes "print at 100%" map A4 1:1;
+        3. cell size == min((2480 - 4*60)//3, (3508 - 4*60)//3) and the 3x3 grid is CENTRED: assert each cell's top-left offset equals off_x + c*(cell+gutter), off_y + r*(cell+gutter) by sampling the pixel at each expected corner;
+        4. `pos` 1..9 maps left->right, top->bottom (divmod(pos-1, 3));
+        5. a sticker whose image file is missing fails LOUDLY with the path in the message (never a blank cell);
+        6. two sheets are produced when entries declare sheet 1 and 2, named <prefix>-A4-sheet1.png / -sheet2.png with the prefix from config, NOT hardcoded "frank-";
+        7. entries lacking sheet/pos are skipped, not misplaced.
+      Run: bash tests/run-unit.sh -k test_build_sheets
+      EXPECT: RED (script absent).
+  - id: P4.T1.S2
+    text: |
+      [GREEN] Write templates/features/stickers/scripts/build-sheets.py — a near-verbatim port of frank's blog/_private/frank-stickers/build-sheets.py (59 lines). COPY the geometry maths unchanged (cell = min((W - 4*G)//3, (H - 4*G)//3); grid = 3*cell + 2*G; off = (W-grid)//2, (H-grid)//2; divmod placement; page.save(dest, dpi=(DPI,DPI))) — that maths IS the print contract, so it is transcribed, not re-derived.
+      Replace only the hardcoded inputs: read .blog-craft.yaml via tools/blog_config.py conventions for features.stickers.{prompts_file,images_dir,sheets_dir,sheet.{dpi,gutter,grid},sheets_prefix}; default sheets_prefix to a slug of project.name. Resolve paths against the config root, like generate-images.py does.
+      Run: bash tests/run-unit.sh -k test_build_sheets
+      EXPECT: green.
+- number: 2
+  title: generate-stickers.py — CLI-preserving shim over the shared engine
+  steps:
+  - id: P4.T2.S1
+    text: |
+      [RED] New tests/unit/test_generate_stickers_shim.py (BLOG_CRAFT_TEST_MODE=1):
+        1. --list prints the sticker keys read from features.stickers.prompts_file (NOT image.prompts_file) with sheet/pos and description, like frank's --list;
+        2. --only k1,k2 generates only those, into the default out dir `regen/`;
+        3. the DEFAULT run writes into regen/ and leaves each entry's `output:` untouched — frank's non-destructive contract, inherited from P2.T2;
+        4. --dry-run prints the FULL composed prompt and the resolved reference filenames, and makes no API call. Assert the printed prompt is NOT truncated: frank's own --dry-run cut it at 300 chars (generate-stickers.py:101), which is a defect, and the shim deliberately fixes it;
+        5. an unknown key exits non-zero naming the valid keys;
+        6. features.stickers absent or enabled:false -> exits non-zero with a message pointing at the config knob.
+      Run: bash tests/run-unit.sh -k test_generate_stickers_shim
+      EXPECT: RED.
+  - id: P4.T2.S2
+    text: |
+      [GREEN] Write templates/features/stickers/scripts/generate-stickers.py: resolve features.stickers.prompts_file, then delegate to the sibling generate-images.py (import it as a module rather than shelling out, so a traceback is legible) with --out defaulting to "regen". Map frank's flags: --list, --only, --out, --dry-run (-> per-key --print-prompt plus the resolved refs).
+      Comment the WHY: frank's README documents this exact CLI; preserving it means the operator's runbook and muscle memory survive the port, which is part of "no behavioral changes".
+      Run: bash tests/run-unit.sh -k "test_generate_stickers_shim or test_generate_images"
+      EXPECT: green.
+- number: 3
+  title: bootstrap-render.sh gates both scripts on features.stickers.enabled
+  steps:
+  - id: P4.T3.S1
+    text: |
+      [RED] Extend tests/unit/test_features_gating.py:
+        1. features.stickers ABSENT -> neither sticker script is materialized;
+        2. features.stickers.enabled false -> neither is materialized;
+        3. true -> BOTH land at <site_dir>/scripts/;
+        4. classification: both resolve to class `framework` and root `site` via the EXISTING manifest rows (scripts/**) — assert via tools/path_ownership.classify, and assert tests/unit/test_path_roots.py's exactly-one-match requirement still holds for the two new paths.
+      Run: bash tests/run-unit.sh -k "test_features_gating or test_path_roots"
+      EXPECT: RED.
+  - id: P4.T3.S2
+    text: |
+      [GREEN] tools/bootstrap-render.sh: add a stickers block mirroring the glossary gate at lines 118-123 (read features.stickers.enabled via the renderer's --get-bool, default false, copy templates/features/stickers/scripts/* into the staging scripts dir, else echo a SKIPPED line). Default-OFF semantics: absence means off, unlike the mermaid_view block above it which is default-on — follow glossary, not mermaid_view.
+      Run: bash tests/run-unit.sh -k "test_features_gating or test_path_roots or test_mirrors"
+      EXPECT: green.
+state:
+  steps:
+    P4.T1.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P4.T1.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P4.T2.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P4.T2.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P4.T3.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P4.T3.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+  completion:
+    at: null
+    note: null
+    observed_prs: []

@@ -1,0 +1,82 @@
+schema_version: 2
+phase:
+  number: 5
+  title: Golden fidelity harness — the proof that nothing changed
+  tag: agentic
+  depends_on:
+  - 1
+  - 4
+  tier: hard
+  acceptance:
+  - stk-1
+  tracking_issue: null
+tasks:
+- number: 1
+  title: Vendor frank's sticker data and derive the 18 goldens
+  steps:
+  - id: P5.T1.S1
+    text: |
+      Vendor the inputs, then derive the goldens ONCE and commit them, so no later test needs frank's checkout to exist.
+        a. Copy frank's real data in verbatim:
+           cp /Users/derio/Docs/projects/DERIO_NET/frank/blog/_private/frank-stickers/stickers.yaml tests/fixtures/stickers/frank-stickers.yaml
+        b. Derive 18 goldens by calling frank's OWN compose_prompt(). Its module imports google.genai, PIL and lib.contact_sheet at top level, and lib.contact_sheet NO LONGER EXISTS in frank (deleted by frank's blog-craft cutover bd0415e6), so stub all of them — compose_prompt touches none:
+             for name in ("google", "google.genai", "PIL", "lib", "lib.contact_sheet"): sys.modules.setdefault(name, types.ModuleType(name))
+           then importlib-load generate-stickers.py and write compose_prompt(cfg, s) to tests/fixtures/stickers/golden/<key>.txt for all 18, plus scene_refs(cfg, s) basenames to <key>.refs.txt.
+        c. Commit tests/fixtures/stickers/GOLDEN-PROVENANCE.md recording: the frank commit sha the goldens came from, the stub list and WHY each stub is safe, and the fact that --dry-run could NOT be used (it truncates at 300 chars, generate-stickers.py:101).
+      Verify before committing: all 18 files exist, each splits into exactly 8 blank-line-separated sections, refs counts are 3 or 4, and one spot-check contains "Frank's expression: satisfied — sleepy half-smile, eyes half closed." (measured 2026-08-03).
+      EXPECT: 18 goldens + 18 refs files + provenance committed.
+  - id: P5.T1.S2
+    text: |
+      [RED] New tests/unit/test_stickers_golden.py: a fixture .blog-craft.yaml carrying the sticker layers + the `sticker` composition order + mood._template, and a prompts file built from the vendored frank-stickers.yaml. For each of the 18 keys assert
+        generate-images.py --print-prompt <key>  ==  tests/fixtures/stickers/golden/<key>.txt
+      byte-for-byte. Parametrize over the keys so a failure names the sticker.
+      Run: bash tests/run-unit.sh -k test_stickers_golden
+      EXPECT: RED — the fixture config and the entry shape do not exist yet.
+  - id: P5.T1.S3
+    text: |
+      [GREEN] Author the fixture: the five namespaced layers (sticker_base_character, sticker_atmosphere, sticker_reference_guidance, sticker_face_pins, sticker_border_spec) transcribed VERBATIM from the vendored frank-stickers.yaml's top-level prose keys; mood with `_template: "Frank's expression: {}."`; and composition_orders.sticker in EXACTLY this order:
+        sticker_base_character, sticker_atmosphere, sticker_reference_guidance, sticker_face_pins, clothing, mood, scene, sticker_border_spec
+      border AFTER scene — transcribed from generate-stickers.py:49-54. Swapping those two yields a prompt that reads correctly and is wrong.
+      Each entry: composition.{order: sticker, modifiers: {mood, clothing}, scene, reference_images}, aspect_ratio '1:1', output:, sheet, pos.
+      Iterate until all 18 are byte-identical. A diff here is a real finding — journal it.
+      Run: bash tests/run-unit.sh -k "test_stickers_golden or test_image_compose"
+      EXPECT: green, all 18. test_image_compose.py unmodified.
+- number: 2
+  title: Reference payload order
+  steps:
+  - id: P5.T2.S1
+    text: |
+      [RED] New tests/unit/test_stickers_references.py: for each sticker, the resolved payload is exactly [canon_face, anchor_09, anchor_20] plus the clothing subject when clothing_anchor is set — in that order, primary FIRST. Assert 4 refs for stickers with a clothing_anchor and 3 for those with null (measured: both cases occur). Compare against the committed <key>.refs.txt.
+      Run: bash tests/run-unit.sh -k test_stickers_references
+      EXPECT: RED.
+  - id: P5.T2.S2
+    text: |
+      [GREEN] Map to v5 reference_images: primary = canon_face; clothing = [anchor_09, anchor_20, clothing_subject?]. primary_reference() puts primary first and entry_reference_paths() appends the rest in declared order (generate-images.py:196-254), so no engine change is needed — if one seems necessary, the mapping is wrong.
+      Run: bash tests/run-unit.sh -k test_stickers
+      EXPECT: green.
+state:
+  steps:
+    P5.T1.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P5.T1.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P5.T1.S3:
+      state: ' '
+      ticked_at: null
+      note: null
+    P5.T2.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P5.T2.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+  completion:
+    at: null
+    note: null
+    observed_prs: []
