@@ -25,12 +25,18 @@ tasks:
         4. `pos` 1..9 maps left->right, top->bottom (divmod(pos-1, 3));
         5. a sticker whose image file is missing fails LOUDLY with the path in the message (never a blank cell);
         6. two sheets are produced when entries declare sheet 1 and 2, named <prefix>-A4-sheet1.png / -sheet2.png with the prefix from config, NOT hardcoded "frank-";
-        7. entries lacking sheet/pos are skipped, not misplaced.
+        7. entries lacking sheet/pos are skipped, not misplaced;
+        8. page dimensions are DERIVED from size+dpi, not configured: size a4 + dpi 300 -> exactly 2480x3508 (round(210/25.4*300)=2480, round(297/25.4*300)=3508 — verified exact, these ARE frank's hardcoded constants). Assert a4+600dpi doubles them;
+        9. an UNRECOGNISED size exits non-zero naming the value and the known sizes — validate_config deliberately does not check size (phase-3 discovery p3-stickers-validation-semantics), so this script is the only guard;
+        10. grid genuinely works: grid [2,4] lays out 2 columns x 4 rows with pos valid 1..8 and pos 9 rejected; and grid [3,3] reproduces frank's exact cell size and offsets (the generalised algebra must be numerically identical to the hardcoded 3 for frank's case — that equality IS the regression test).
       Run: bash tests/run-unit.sh -k test_build_sheets
       EXPECT: RED (script absent).
   - id: P4.T1.S2
     text: |
-      [GREEN] Write templates/features/stickers/scripts/build-sheets.py — a near-verbatim port of frank's blog/_private/frank-stickers/build-sheets.py (59 lines). COPY the geometry maths unchanged (cell = min((W - 4*G)//3, (H - 4*G)//3); grid = 3*cell + 2*G; off = (W-grid)//2, (H-grid)//2; divmod placement; page.save(dest, dpi=(DPI,DPI))) — that maths IS the print contract, so it is transcribed, not re-derived.
+      [GREEN] Write templates/features/stickers/scripts/build-sheets.py, porting frank's blog/_private/frank-stickers/build-sheets.py (59 lines).
+      Derive page dims from a known-sizes table in mm: SIZES = {"a4": (210, 297), "letter": (215.9, 279.4)}; W = round(mm_w/25.4*dpi). SystemExit on an unknown size.
+      GENERALISE the gutter algebra to grid [cols, rows] — cell = min((W-(cols+1)*G)//cols, (H-(rows+1)*G)//rows); grid_w = cols*cell + (cols-1)*G; grid_h = rows*cell + (rows-1)*G; off = ((W-grid_w)//2, (H-grid_h)//2); divmod(pos-1, cols); pos valid 1..cols*rows. For cols=rows=3 this MUST reproduce frank's hardcoded numbers exactly (frank: cell = min((W-4G)//3, (H-4G)//3), grid = 3*cell+2*G) — if it does not, the algebra is wrong, not the test.
+      Keep page.save(dest, dpi=(dpi, dpi)) — the DPI metadata is what makes "print at 100%" map the page 1:1, and without it the green keyline stops being a true cut path.
       Replace only the hardcoded inputs: read .blog-craft.yaml via tools/blog_config.py conventions for features.stickers.{prompts_file,images_dir,sheets_dir,sheet.{dpi,gutter,grid},sheets_prefix}; default sheets_prefix to a slug of project.name. Resolve paths against the config root, like generate-images.py does.
       Run: bash tests/run-unit.sh -k test_build_sheets
       EXPECT: green.
@@ -60,8 +66,8 @@ tasks:
   - id: P4.T3.S1
     text: |
       [RED] Extend tests/unit/test_features_gating.py:
-        1. features.stickers ABSENT -> neither sticker script is materialized;
-        2. features.stickers.enabled false -> neither is materialized;
+        1. features.stickers ABSENT -> neither sticker script is materialized (pre-v7 configs, and any blog whose config predates the migration);
+        2. features.stickers.enabled false -> neither is materialized. BOTH shapes matter and neither is hypothetical: after migration 006_to_007 every UPDATED blog carries {enabled: false} explicitly, so `disabled` is the common case and `absent` is the legacy one (phase-3 note). stk-4's acceptance wording should say "disabled", not "absent";
         3. true -> BOTH land at <site_dir>/scripts/;
         4. classification: both resolve to class `framework` and root `site` via the EXISTING manifest rows (scripts/**) — assert via tools/path_ownership.classify, and assert tests/unit/test_path_roots.py's exactly-one-match requirement still holds for the two new paths.
       Run: bash tests/run-unit.sh -k "test_features_gating or test_path_roots"

@@ -291,12 +291,38 @@ load-bearing detail: it is what keeps finding 3 from becoming data loss.
 
 ### 5. `build-sheets.py` — the only new code
 
-A near-verbatim port of frank's 59 lines, with the four hardcoded constants
-(`DPI`, `A4_W/H`, `GUTTER`, the 3×3 grid) read from
-`features.stickers.sheet`, and the three hardcoded paths read from
-`features.stickers.{prompts_file, images_dir, sheets_dir}`. The geometry
-maths — `cell = min((W - 4·G)//3, (H - 4·G)//3)`, centered grid, `divmod` row/col
-placement, `dpi=(300,300)` on save — is copied unchanged, because that maths
+A near-verbatim port of frank's 59 lines, with the hardcoded constants read
+from `features.stickers.sheet` and the three hardcoded paths read from
+`features.stickers.{prompts_file, images_dir, sheets_dir}`.
+
+**Page dimensions are derived, not configured** (corrected after phase 3, which
+found `sheet: {size, dpi, grid, gutter}` did not cover frank's four constants).
+frank hardcodes `A4_W, A4_H = 2480, 3508`; there is no key for them, and adding
+one would let `size: a4` and an inconsistent pixel size disagree. Derive from
+`size` + `dpi` against a known-sizes table in millimetres:
+
+```
+round(210 / 25.4 * 300) == 2480      # A4 width,  exactly frank's constant
+round(297 / 25.4 * 300) == 3508      # A4 height, exactly frank's constant
+```
+
+The derivation is *exact* for frank's values, not an approximation — verified
+2026-08-03. `size` is not validated by `validate_config` (phase 3's deliberate
+choice), so `build-sheets.py` must `SystemExit` on an unrecognised size rather
+than silently producing a wrong-sized page.
+
+**`grid` must genuinely work, or not exist.** frank hardcodes `3` in five
+places: `//3` twice inside the `cell` computation, `3*cell + 2*GUTTER`,
+`range(1, 10)`, and `divmod(pos - 1, 3)`. Honouring `grid: [cols, rows]` is
+therefore a small rewrite of the gutter algebra — `cell = min((W - (cols+1)·G)
+// cols, (H - (rows+1)·G) // rows)`, `grid_w = cols·cell + (cols-1)·G` — plus a
+change to `pos`'s valid range (`1..cols*rows`). It is not a constant read. A
+key that accepts `[2, 4]` and silently lays out 3×3 is worse than no key, so
+the phase pins a non-3×3 case. For `[3, 3]` the generalised algebra must
+reproduce frank's numbers exactly; that equality is the regression test.
+
+Everything else — the centred grid, `divmod` row/col placement, and
+`dpi=(dpi, dpi)` written into the PNG — is copied unchanged, because that maths
 *is* the print contract.
 
 Output filename: frank's is `frank-stickers-A4-sheet<N>.png`. The `frank-`
@@ -475,9 +501,12 @@ operator's stated requirement. None restates an implementation detail.
 - A published sticker gallery, shortcode, or Hugo page (operator decision 3).
 - Sticker sets for gondor or stoa. The capability is available; no content is
   authored.
-- Generalizing `build-sheets.py` beyond A4/300 DPI/3×3 — the config keys exist
-  but only frank's values are exercised. Letter-size and other grids are
-  untested until someone needs them.
+- Page sizes beyond the known-sizes table (`a4`, `letter`). The table is small
+  and additive; an unrecognised `size` is a hard error, never a silent
+  fallback. Note this is narrower than an earlier draft of this spec, which
+  left `grid` decorative — see §5: a config key that accepts a value and
+  quietly ignores it is a trap, so `grid` is implemented and tested rather
+  than deferred.
 - Retiring frank's `scripts/lib/contact_sheet.py`, which serves frank's other
   scripts too.
 
