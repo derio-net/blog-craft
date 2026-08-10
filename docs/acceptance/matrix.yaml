@@ -1207,7 +1207,7 @@ rows:
     acceptance: Operator regenerates any of frank's 18 stickers and the composed prompt
       is byte-identical to the pre-port one
     origin:
-    - blog-craft:docs/superpowers/specs/2026-08-03-sticker-generation-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-08-03-sticker-generation-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_stickers_golden.py
@@ -1228,7 +1228,7 @@ rows:
     acceptance: Operator regenerates a sticker without overwriting the curated master
       image
     origin:
-    - blog-craft:docs/superpowers/specs/2026-08-03-sticker-generation-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-08-03-sticker-generation-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_generate_images_out_dir.py
@@ -1249,7 +1249,7 @@ rows:
     acceptance: Operator rebuilds the A4 sheets and prints at 100% with the green keyline
       as a true cut path
     origin:
-    - blog-craft:docs/superpowers/specs/2026-08-03-sticker-generation-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-08-03-sticker-generation-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_build_sheets.py
@@ -1275,7 +1275,7 @@ rows:
     acceptance: A blog with features.stickers DISABLED (or absent, the pre-v7 shape)
       gets no sticker surface and no change to its composed cover prompts
     origin:
-    - blog-craft:docs/superpowers/specs/2026-08-03-sticker-generation-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-08-03-sticker-generation-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_features_gating.py
@@ -1300,7 +1300,7 @@ rows:
     acceptance: frank's next /update retires its private sticker implementation and
       adopts the shipped one
     origin:
-    - blog-craft:docs/superpowers/specs/2026-08-03-sticker-generation-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-08-03-sticker-generation-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_update_relocation.py
