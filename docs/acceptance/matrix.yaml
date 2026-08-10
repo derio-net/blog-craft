@@ -1202,3 +1202,119 @@ rows:
       resetting innerHTML. Not in CI because focus and scrolling are live-DOM behaviour.
       Journal finding dd6c3194d9f2 stays open - a focusable pre inside the theme's role=img
       wrapper is an accepted a11y tension, not yet checked with a screen reader.
+  - id: stk-1
+    capability: Sticker generation
+    acceptance: Operator regenerates any of frank's 18 stickers and the composed prompt
+      is byte-identical to the pre-port one
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-08-03-sticker-generation-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_stickers_golden.py
+      - blog-craft:tests/unit/test_stickers_references.py
+    status: ci
+    notes: 'Proof of the no-behavioral-change requirement, CI-pinned by phase 5. The
+      18 goldens in tests/fixtures/stickers/golden/ are the output of frank''s OWN
+      compose_prompt() (provenance, stub list and the reason --dry-run was unusable:
+      tests/fixtures/stickers/GOLDEN-PROVENANCE.md), and the 18 entries are derived
+      mechanically from his vendored stickers.yaml — so this is an equality proof,
+      not a transcription check. Exercises _template, the sticker composition order
+      (border after scene), layer namespacing and the bracketed order reference
+      together; the companion file pins the reference payload order, which prompt
+      equality is blind to. Remaining manual step, spec section 8: frank''s own
+      adoption PR re-runs the check against his real config after the transform.'
+  - id: stk-2
+    capability: Sticker generation
+    acceptance: Operator regenerates a sticker without overwriting the curated master
+      image
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-08-03-sticker-generation-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_generate_images_out_dir.py
+    status: ci
+    notes: 'The data-loss guard, CI-pinned by phase 2. --out <dir> never writes the
+      entry output: path — test_pre_existing_output_is_byte_unchanged asserts the curated
+      master is byte- AND mtime-unchanged after a regen, and a second test asserts the
+      output: parent directories are not even created. It also refuses the whole run
+      before the first API call when --out would alias any selected entry output:,
+      seeing through a symlinked out dir and a hard link (a path-shaped promise is not
+      a guarantee), skips post_process (whose step targets are the PUBLISHED asset),
+      and names files from the output: basename with <key>- prefixing on collision (spec
+      5a) — which for stickers reproduces sticker-<key>.png exactly. Copying a chosen
+      candidate over the master stays a manual step by design: that IS the workflow
+      the row protects, not a coverage gap.'
+  - id: stk-3
+    capability: Sticker generation
+    acceptance: Operator rebuilds the A4 sheets and prints at 100% with the green keyline
+      as a true cut path
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-08-03-sticker-generation-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_build_sheets.py
+    status: skipped
+    notes: 'DELIBERATELY skipped rather than ci: the claim ends at a printed page, and
+      only its machine-checkable half is in CI. WHAT IS PINNED (tests/unit/test_build_sheets.py):
+      the page is exactly 2480x3508, DERIVED as round(mm / 25.4 * dpi) per axis rather
+      than configured; the PNG carries pHYs 11811 px/m on both axes; both are byte-identical
+      to the pre-port committed sheet (IHDR 2480 3508, pHYs 11811 11811 1 — measured
+      2026-08-03). The centred grid reproduces the retired hardcoded 3x3 numbers exactly
+      (cell 746, offsets 61/575), an explicit grid [3, 3] and the default produce byte-identical
+      PNGs, a non-3x3 grid ([2, 4]) is genuinely honoured, an unknown sheet.size is
+      a hard error naming the known sizes, and a duplicate (sheet, pos) / an out-of-range
+      pos / a missing image all refuse rather than print a sheet with a hole in it. WHAT
+      CANNOT BE: paper. Nothing in CI prints at 100% or puts a knife along the keyline,
+      so the last step of this acceptance is an operator action. ALSO STILL OWED, and
+      the reason this is not merely unverifiable-by-nature: a rebuild from the real curated
+      masters, byte-compared against the two committed sheets (spec Test Plan row 7,
+      spec section 8 step 7). That needs the consumer blog own 18 PNGs, so it lands in
+      that blog adoption PR, not in blog-craft CI.'
+  - id: stk-4
+    capability: Sticker generation
+    acceptance: A blog with features.stickers DISABLED (or absent, the pre-v7 shape)
+      gets no sticker surface and no change to its composed cover prompts
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-08-03-sticker-generation-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_features_gating.py
+      - blog-craft:tests/unit/test_migration_007.py
+      - blog-craft:tests/unit/test_image_compose.py
+    status: ci
+    notes: 'Blast-radius promise to gondor and stoa. REWORDED in phase 8: the row used
+      to say "a blog WITHOUT features.stickers", but after migrations/006_to_007.py every
+      updated blog carries features.stickers {enabled: false} explicitly, so DISABLED
+      is the normal field shape and ABSENT is the legacy one. Both are pinned separately
+      (test_stickers_disabled_materializes_neither_script, test_stickers_absent_materializes_neither_script)
+      because the render gate reads --get-bool, which reports false for an absent key
+      — the glossary shape, deliberately not the mermaid_view shape, whose absent-means-true
+      would have shipped sticker scripts to every existing blog. Enabled materializes
+      both scripts and NO Hugo asset at all (test_stickers_ship_no_hugo_surface). The
+      migration rung is pure, idempotent and preserves an explicit enabled: true. The
+      no-cover-change half is carried by tests/unit/test_image_compose.py passing UNMODIFIED
+      — its blob is identical on main and on this branch, which is the point of citing
+      it here.'
+  - id: stk-5
+    capability: Sticker generation
+    acceptance: frank's next /update retires its private sticker implementation and
+      adopts the shipped one
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-08-03-sticker-generation-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_update_relocation.py
+      - blog-craft:tests/unit/test_migrate_stickers.py
+    status: ci
+    notes: 'Both halves now exist. Scripts retire automatically via manifest.legacy_dests
+      (framework class, so the planned action is REPLACE — blog-craft copy wins and the
+      private one is unlinked; local edits to those two scripts are discarded, unlike
+      a merged-class row). stickers.yaml / images/ / sheets/ / README.md are content
+      class and /update never touches them; the one-time tools/migrate_stickers.py transform
+      is their path, and its 18 prompts are asserted byte-identical to the goldens through
+      the shipped engine. The private directory itself SURVIVES the update while it still
+      holds that content — measured on the real tree, six of eight entries remain — so
+      emptying it is the operator last step and this row does not promise otherwise.
+      Remaining manual step: the consumer own adoption PR runs /update, merges the two printed
+      fragments and runs the transform (spec section 8). The contract is CI-pinned here;
+      the one-off execution is not.'

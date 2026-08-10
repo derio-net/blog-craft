@@ -1,0 +1,83 @@
+schema_version: 2
+phase:
+  number: 6
+  title: tools/migrate_stickers.py — the one-time transform /update cannot do
+  tag: agentic
+  depends_on:
+  - 3
+  - 5
+  tier: standard
+  acceptance:
+  - stk-5
+  tracking_issue: null
+tasks:
+- number: 1
+  title: Transform frank's stickers.yaml into a v5 prompts file
+  steps:
+  - id: P6.T1.S1
+    text: |
+      [RED] New tests/unit/test_migrate_stickers.py, run against the vendored fixture:
+        1. output prompts file has 18 v5 entries; feeding it to generate-images.py --print-prompt reproduces the P5 goldens byte-for-byte (the transform is only correct if it is prompt-preserving);
+        2. it PRINTS the layer block (six sticker_* layers, sticker_mood carrying the _template) + composition order for the operator to paste, and does NOT edit .blog-craft.yaml (that file is `content` class; silent config surgery is how #60 happened);
+              2b. it NEVER emits a bare `mood:` key - frank already has one whose values are complete sentences, and merging a _template into it double-frames every frank cover (phase-1 finding p1-mood-template-regresses-frank-covers). Assert the emitted block contains no top-level `mood:`;
+        3. the two self-referential style_anchor paths — the sticker set uses two of its OWN images as style anchors — are rewritten to the configured images_dir (spec risk 4: get this wrong and goldens still pass while generation silently loses the anchors);
+        4. prose containing { or } passes through UNHARMED and is NOT refused. str.format never rescans the substituted argument, so only the _template string itself is parsed — spec Risks-2 claimed the opposite and is now withdrawn. Assert a sticker whose scene or mood contains braces composes correctly; do NOT build a brace guard here;
+        5. idempotent: a second run over its own output is a no-op, not a double-transform;
+        6. it never writes outside the configured dirs.
+      Run: bash tests/run-unit.sh -k test_migrate_stickers
+      EXPECT: RED.
+      [CORRECTED during execution — this step could not be RED, the SECOND instance of the same
+       decomposition defect in this plan (phase-6 finding
+       p6-t2-could-not-be-red-move-assets-shipped-with-t1; the first was P5.T2). Two T1
+       assertions pass --move-assets — the config-never-edited claim is strongest on the run
+       that moves 20 files, and --dry-run must list the moves — so the tool was written during
+       T1's GREEN step and T2 had nothing left to redden.
+       The executor also hit a genuine red of its own making and reported it: git status
+       --porcelain reports renames only against a COMMITTED baseline, so a git init + git add
+       fixture counts zero renames and the assertion would have been vacuous rather than wrong.
+       Compensated with seven mutations, each reverted and byte-verified, each reddening exactly
+       the assertion written for it and nothing else.
+       Lesson for future decomposition, the same one P5.T2 taught: if task N's assertions
+       exercise task N+1's surface, the red/green boundary between them is fictional. Either
+       label the later step a coverage step, or move the shared surface out of the earlier task.]
+      SHADOW CONFIG IS A TEST REQUIREMENT, not just a shim detail (phase-5 note): neither generate-images.py --print-prompt nor tools/validate_images.py has a prompts-file flag, so any test that runs the engine over STICKER entries needs a second config in the SAME DIRECTORY as the real one with image.prompts_file repointed — the engine sets root = cfg_path.parent and resolves output:, every reference path and the --out alias guard against that root. tests/unit/_stickers_fixture.py already does this; reuse it rather than re-inventing it.
+  - id: P6.T1.S2
+    text: |
+      [GREEN] Write tools/migrate_stickers.py: read the legacy stickers.yaml, emit the v5 prompts file (entries as in P5.T1.S3), print the layer/order/template block to stdout, rewrite style_anchor paths, validate braces, exit non-zero on anything ambiguous with the reason. --dry-run prints the diff without writing.
+      Run: bash tests/run-unit.sh -k "test_migrate_stickers or test_stickers_golden"
+      EXPECT: green.
+- number: 2
+  title: Move the curated images and sheets
+  steps:
+  - id: P6.T2.S1
+    text: |
+      [RED] Extend tests/unit/test_migrate_stickers.py: --move-assets git-mv's images/ and sheets/ to the configured dirs; refuses when a destination already exists (never clobbers a curated master); is a no-op when the source is already gone; --dry-run lists the moves without performing them; falls back to a plain move outside a git repo.
+      Run: bash tests/run-unit.sh -k test_migrate_stickers
+      EXPECT: RED.
+  - id: P6.T2.S2
+    text: |
+      [GREEN] Implement --move-assets. Comment the WHY: these 20 PNGs are `content` class, so /update's plan_update skips them by design (update.py:153) — they are irreplaceable operator artifacts, which is exactly why the tool refuses rather than overwrites.
+      Run: bash tests/run-unit.sh -k test_migrate_stickers
+      EXPECT: green.
+state:
+  steps:
+    P6.T1.S1:
+      state: x
+      ticked_at: '2026-08-03T14:20:28+00:00'
+      note: null
+    P6.T1.S2:
+      state: x
+      ticked_at: '2026-08-03T14:20:29+00:00'
+      note: null
+    P6.T2.S1:
+      state: x
+      ticked_at: '2026-08-03T14:20:30+00:00'
+      note: null
+    P6.T2.S2:
+      state: x
+      ticked_at: '2026-08-03T14:20:31+00:00'
+      note: null
+  completion:
+    at: '2026-08-03T14:20:31+00:00'
+    note: null
+    observed_prs: []

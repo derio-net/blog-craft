@@ -114,12 +114,52 @@ roots:
 # simply not a relocation, which is what keeps this inert for blogs that never
 # had the problem.
 #
-# One table, because there are two migration axes and both need covering:
-#   - a ROOT change  — .github/** moved out from under site_dir;
-#   - a RENAME       — the hookify rule moved into .claude/ and gained the
-#                      `.local.md` suffix hookify's glob requires.
+# One table, because there are three migration axes and all need covering:
+#   - a ROOT change    — .github/** moved out from under site_dir;
+#   - a RENAME         — the hookify rule moved into .claude/ and gained the
+#                        `.local.md` suffix hookify's glob requires;
+#   - a CAPABILITY ABSORPTION — the sticker scripts. Neither a root change nor a
+#                        rename: they were never shipped by an earlier release at
+#                        all. They lived in ONE operator's private directory
+#                        (`blog/_private/frank-stickers/`, frank), blog-craft has
+#                        absorbed the capability, and the same table retires the
+#                        hand-rolled copies. No new machinery — one declaration.
+#
+# Two things about that third axis differ from the first two, and both are
+# pinned in tests/unit/test_update_relocation.py:
+#
+#   * The rows are ARMED FOR EVERY BLOG. `_private/frank-stickers/x` can never
+#     come out equal to `scripts/x`, so the equality-drop described above never
+#     fires here. Inertness for gondor and stoa rests on `plan_update`'s
+#     `(blog / d).exists()` test instead — the file simply is not there — and,
+#     one layer earlier, on the feature gate: bootstrap-render.sh materializes
+#     templates/features/stickers/ only when `features.stickers.enabled`, so a
+#     blog that never asked for stickers has no such path in staging to plan.
+#
+#   * `scripts/**` is `framework`, so the realistic action is REPLACE, not
+#     `relocate`. `relocate` needs the private copy to be byte-identical to the
+#     staged one; the shipped scripts are a port with deliberate fixes, so a
+#     real frank-shaped blog plans `replace` — blog-craft's copy lands, the
+#     operator's is unlinked. That is what `framework` MEANS, and it is why the
+#     framing "the operator's file MOVES" (true for the merged `.github/**` row)
+#     does not carry over: for a script, blog-craft's copy wins.
+#
+# NOT COVERED HERE, deliberately: frank's `stickers.yaml`, `images/` (18 curated
+# masters), `sheets/` (2 print artifacts) and `README.md`. They are `content`,
+# and `plan_update` skips `content` outright (tools/update.py:153) — these are
+# the operator's irreplaceable artifacts and /update must never move, rewrite or
+# delete them. Adding rows for them would be inert AND misleading. Their path is
+# the one-time `tools/migrate_stickers.py` transform, which the operator runs
+# once (`--move-assets` relocates images/ and sheets/ and REFUSES rather than
+# clobbers), leaving stickers.yaml and README.md for them to `git rm`. So the
+# private directory usually SURVIVES this /update, still holding that content —
+# do not "complete" this table.
 legacy_dests:
   ".github/workflows/blog-ci.yml":
     - "{site}/.github/workflows/blog-ci.yml"
   ".claude/hookify.warn-hextra-weight-zero.local.md":
     - "{site}/.hookify.warn-hextra-weight-zero.md"
+  "scripts/build-sheets.py":
+    - "{site}/_private/frank-stickers/build-sheets.py"
+  "scripts/generate-stickers.py":
+    - "{site}/_private/frank-stickers/generate-stickers.py"
