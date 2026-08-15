@@ -1225,8 +1225,15 @@ rows:
       not a transcription check. Exercises _template, the sticker composition order
       (border after scene), layer namespacing and the bracketed order reference
       together; the companion file pins the reference payload order, which prompt
-      equality is blind to. Remaining manual step, spec section 8: frank''s own
-      adoption PR re-runs the check against his real config after the transform.'
+      equality is blind to. DISCHARGED 2026-08-15 — the remaining manual step (spec
+      section 8 step 5) ran in frank''s adoption PR derio-net/frank#769: all 18 prompts
+      byte-identical to the committed goldens through the shipped engine, against
+      frank''s real post-transform config, via generate-images.py --print-prompt on a
+      shadow config (NOT the shim --dry-run, which prefixes a refs header and is not
+      byte-comparable). The companion order check passed too — 18/18 reference payloads
+      in golden order — and, because the prompt text names no path and is therefore
+      blind to a bad relocation, all 66 reference paths and 18 output paths were
+      additionally asserted to resolve on disk after images/ moved.'
   - id: stk-2
     capability: Sticker generation
     acceptance: Operator regenerates a sticker without overwriting the curated master
@@ -1269,11 +1276,17 @@ rows:
       a hard error naming the known sizes, and a duplicate (sheet, pos) / an out-of-range
       pos / a missing image all refuse rather than print a sheet with a hole in it. WHAT
       CANNOT BE: paper. Nothing in CI prints at 100% or puts a knife along the keyline,
-      so the last step of this acceptance is an operator action. ALSO STILL OWED, and
-      the reason this is not merely unverifiable-by-nature: a rebuild from the real curated
-      masters, byte-compared against the two committed sheets (spec Test Plan row 7,
-      spec section 8 step 7). That needs the consumer blog own 18 PNGs, so it lands in
-      that blog adoption PR, not in blog-craft CI.'
+      so the last step of this acceptance is an operator action. WHAT WAS OWED IS NOW
+      DISCHARGED (2026-08-15): the rebuild from the real curated masters, byte-compared
+      against the two committed sheets (spec Test Plan row 7, spec section 8 step 7),
+      ran in frank''s adoption PR derio-net/frank#769. Both sheets rebuilt BYTE-IDENTICAL
+      — sha256 8b6b352014de6f08163be814897987f9d17fcedc1adddbc22351b4eaf5877815 (sheet1)
+      and c69853572031fea7569bc980ff1add57f4918c45f14265261af90c19fc0c03d2 (sheet2),
+      unchanged across the rebuild and confirmed independently by git reporting no diff
+      — so the 208-line port reproduces the retired 59-line script bit for bit, PNG
+      encoding included. This row therefore stays skipped for the ONE remaining reason
+      it always should have been: paper. It is now merely unverifiable-by-nature, with
+      no machine-checkable half outstanding.'
   - id: stk-4
     capability: Sticker generation
     acceptance: A blog with features.stickers DISABLED (or absent, the pre-v7 shape)
@@ -1323,9 +1336,15 @@ rows:
       the shipped engine. The private directory itself SURVIVES the update while it still
       holds that content — measured on the real tree, six of eight entries remain — so
       emptying it is the operator last step and this row does not promise otherwise.
-      Remaining manual step: the consumer own adoption PR runs /update, merges the two printed
-      fragments and runs the transform (spec section 8). The contract is CI-pinned here;
-      the one-off execution is not.'
+      DISCHARGED 2026-08-15 in frank''s adoption PR derio-net/frank#769: /update planned
+      and applied exactly the two expected relocating replaces
+      (_private/frank-stickers/{build-sheets,generate-stickers}.py -> scripts/), the two
+      fragments were merged, and the transform ran with --move-assets (20 git renames, so
+      the masters keep their history). The private directory was then emptied by hand as
+      this row says it must be — and note the operator-side residue that measurement
+      predicted: the directory survives in an existing clone as a stub of gitignored junk
+      (.DS_Store, __pycache__/), which no pull will remove. The contract remains CI-pinned
+      here; the one-off execution is now evidenced there.'
   - id: brg-1
     capability: bootstrap render gates
     acceptance: A bootstrap renders exactly the gated features the config asks for,

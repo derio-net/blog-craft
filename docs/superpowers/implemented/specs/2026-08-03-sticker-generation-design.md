@@ -626,9 +626,10 @@ frank's real data, not synthetic smoke.
   dimensions `2480×3508`, `dpi == (300, 300)`, and that each cell's top-left
   pixel offset matches the computed centered-grid position. Then, separately,
   a frank-fixture check that rebuilding from the committed masters reproduces
-  the committed sheets byte-for-byte — **not implemented in this repo**: it needs
+  the committed sheets byte-for-byte — **not implementable in this repo**: it needs
   the consumer's 18 curated masters, which do not belong here (decision stk-3),
-  so it lands in the consumer's adoption PR. See Test Plan row 7.
+  so it lands in the consumer's adoption PR. See Test Plan row 7. **Executed
+  2026-08-15 in derio-net/frank#769: both sheets rebuilt byte-identical.**
 - **Gating.** `features.stickers.enabled: false` (and absent) renders no
   sticker scripts; `true` renders both. Precedent:
   `tests/unit/test_features_gating.py`.
@@ -645,7 +646,7 @@ frank's real data, not synthetic smoke.
 | 4 | `--out <dir>` never writes the entry's `output:` | unit | `tests/unit/test_generate_images_out_dir.py` |
 | 5 | `fallback_model` is attempted on primary failure; `timeout_ms` is honored | unit | `tests/unit/test_generate_images_fallback.py` |
 | 6 | Sheets are 2480×3508 @ 300 DPI with a centered 3×3 grid | unit | `tests/unit/test_build_sheets.py` |
-| 7 | Rebuilt sheets are byte-identical to frank's committed sheets | smoke | **not implemented** — needs the consumer's 18 curated masters, which cannot live in this repo (the open half of decision stk-3); `tests/smoke-stickers.sh` does not exist. Row 6 pins the geometry from synthetic PNGs; byte-equality is verified in the consumer's own adoption PR (§8 step 7) |
+| 7 | Rebuilt sheets are byte-identical to frank's committed sheets | smoke | **CLOSED 2026-08-15, in the consumer** (derio-net/frank#769) — not implementable here: it needs the consumer's 18 curated masters, which cannot live in this repo (decision stk-3), and `tests/smoke-stickers.sh` does not exist. Row 6 pins the geometry from synthetic PNGs; byte-equality was verified in the consumer's adoption PR (§8 step 7). Both sheets rebuilt byte-identical (sha256 `8b6b3520…`, `c6985357…`), so the 208-line port reproduces the retired 59-line script's PNG output exactly |
 | 8 | `features.stickers` gates both scripts in/out of a rendered blog | unit | `tests/unit/test_features_gating.py` (extended) |
 | 9 | `006_to_007` is pure, idempotent, and preserves an explicit opt-in | unit | `tests/unit/test_migration_007.py` |
 | 10 | `/update` retires frank's two script copies | unit | `tests/unit/test_update_relocation.py` (extended — the legacy_dests contract lives there as a third migration axis; there is no `test_update_legacy_dests.py`) |
@@ -748,22 +749,47 @@ first performed against merged code.
 
 ### What post-merge verification did NOT cover
 
-- **Test Plan row 7 is still unimplemented** — a rebuild from the consumer's 18
-  curated masters, byte-compared against its committed sheets. It needs those
-  PNGs, which cannot live in this repo. This is the open half of `stk-3`
-  (`skipped`), and it closes in the consumer's adoption PR, not here.
-- **frank has not adopted.** Nothing in frank changed and `/update` has not run
-  there. The two dry-run plans in §7 were produced from frank's real files in a
-  scratch tree, so the *mechanism* is verified end to end while the *adoption*
-  is not.
-- **No human has followed the runbook.** §8 step 3 and `docs/CONFIG.md` §13 are
-  exercised only by tests — including a byte-append test that fails if the
-  emitted fragments could clobber an existing `image:` section. That is real
-  coverage, but it is worth stating plainly that **two of the four
-  cover-destroying defects found in this cycle lived in the paste instruction
-  rather than in code** (`clothing: {}` emitted unconditionally, and the block's
-  own `image:`/`layers:` keys). The runbook is therefore the highest-residual-risk
-  surface in the port, and the adoption PR is where it gets its first real use.
+All three gaps below were **closed on 2026-08-15** by frank's adoption PR
+(derio-net/frank#769), which ran §8 end to end. They are kept, rather than
+deleted, because what the adoption found is only legible against what was
+outstanding before it.
+
+- ~~**Test Plan row 7 is still unimplemented**~~ — **CLOSED.** The rebuild from
+  the consumer's 18 curated masters, byte-compared against its committed sheets,
+  ran there: both sheets byte-identical. This was the open half of `stk-3`, which
+  now stays `skipped` for the one reason it always should have been — paper.
+- ~~**frank has not adopted.**~~ — **CLOSED.** `/update` planned and applied
+  exactly the two relocating replaces the §7 dry runs predicted, against the real
+  tree rather than a scratch copy, and the transform moved 20 masters as git
+  renames.
+- ~~**No human has followed the runbook.**~~ — **CLOSED, and the residual risk
+  called out here was real but did not fire.** The paste step behaved: the
+  fragments carry no structural key, `clothing` was correctly omitted (frank's
+  table survived byte-equal), and `sticker_mood` kept the `_template` off the
+  cover `mood`. The claim "two of the four cover-destroying defects lived in the
+  paste instruction rather than in code" is what made the adoption verify the
+  merge from the **collateral-damage direction** no golden can see: all 90 of
+  frank's composed cover prompts were snapshotted before the update and
+  re-compared after the engine replace *and* after the fragment merge — byte-identical
+  both times. That is the check this section's warning earns; a sticker-prompt
+  equality proof is structurally blind to it, because sticker entries resolve
+  clothing by passthrough and would stay green with the cover table destroyed.
+
+Two defects the adoption *did* surface, neither in this feature:
+
+- **`tools/migrate_config.py` is a lossy round-trip** — `yaml.safe_load` →
+  `yaml.safe_dump(sort_keys=True)` destroyed all 104 comment lines in frank's
+  config and alphabetised it, at `rc 0`. Already filed as #73 (from the v5→v6
+  run); v6→v7 recurred identically, so the ladder is still unsafe to run on a
+  commented config. frank applied the v7 rung by hand and proved it semantically
+  identical to `migrate_config.upgrade()` output.
+- **A consumer tripwire coupled to our source text broke on a refactor that
+  strengthened the property it guarded.** frank asserted the reference payload
+  ORDER by string-indexing `_gen_bytes` for `contents.append(Image.open(ref))`;
+  v0.21.1 consolidated that ordering into `payload_paths()` — the very
+  de-duplication that function's docstring argues for — so the guard failed while
+  the behaviour held. Worth knowing that consolidating an invariant into one
+  function can break downstream guards written against the old spelling.
 
 ### Not drivable in this repo
 
