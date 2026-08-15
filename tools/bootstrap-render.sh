@@ -54,9 +54,65 @@ if [[ -n "$VERSION" ]] && ! grep -qE '^blog_craft_version:' "$ANSWERS"; then
   echo "[bootstrap] stamped blog_craft_version: v$VERSION"
 fi
 
-# Read features.series_overview_posts from the answers YAML using a small Python one-liner.
-# Avoids adding yq as a dependency.
-overview_value=$(cd "$RENDERER_DIR" && go run . --answers "$ANSWERS" --get-bool features.series_overview_posts 2>/dev/null || echo "true")
+# --- gate reads --------------------------------------------------------------
+#
+# Every features.* / content_types.* gate below asks the renderer one question,
+# and that question has THREE possible answers, not two:
+#
+#   1. the key is present   -> exit 0, `true`/`false` on stdout
+#   2. the key is ABSENT     -> exit 1, stderr `key "X" not found or not a bool`
+#      (or, for --has, `render-template: key "X" is absent`)
+#   3. the RENDERER ITSELF failed — compile error, no go.mod, no toolchain,
+#      `go run` contention, disk pressure -> non-zero, compiler/toolchain output
+#
+# The old form, `… 2>/dev/null || echo false`, collapsed 3 into 2: a broken
+# renderer silently took the default, so a bootstrap kept going and produced a
+# PARTIAL blog with no error text anywhere, surfacing much later as a missing
+# file. (It cost one spurious release-gate failure during the sticker cycle.)
+#
+# Exit codes cannot discriminate — `go run` reports both 2 and 3 as exit 1 — and
+# neither can "stderr is empty": `go run` writes its own `exit status 1` line
+# whenever the child exits non-zero, and `go: downloading …` chatter even when it
+# succeeds. So the discriminator is the renderer's OWN sentinel on stderr:
+# match it and take the default exactly as before; anything else is FATAL, with
+# the renderer's output surfaced verbatim.
+_RENDER_ERR=$(mktemp)
+trap 'rm -f "$_RENDER_ERR"' EXIT
+
+_render_fatal() {   # $1 = the read that failed, $2 = exit code
+  echo "ERROR: bootstrap-render: the renderer FAILED reading $1 (exit $2)." >&2
+  echo "       This is NOT a missing key — a missing key takes its default." >&2
+  echo "       Aborting rather than rendering a partial blog. Renderer output:" >&2
+  sed 's/^/       | /' "$_RENDER_ERR" >&2
+}
+
+# Print the bool at dotted key $1, or $2 if the key is absent. Returns non-zero
+# on a renderer failure; every call site is `value=$(_render_get_bool …) || exit 1`
+# so the abort is explicit and does not depend on `set -e` reaching inside `$( )`.
+_render_get_bool() {   # $1 = dotted key, $2 = default when absent
+  local out rc=0
+  out=$( cd "$RENDERER_DIR" && go run . --answers "$ANSWERS" --get-bool "$1" 2>"$_RENDER_ERR" ) || rc=$?
+  if [ "$rc" -eq 0 ]; then printf '%s\n' "$out"; return 0; fi
+  if grep -q 'not found or not a bool' "$_RENDER_ERR"; then printf '%s\n' "$2"; return 0; fi
+  _render_fatal "--get-bool $1" "$rc"
+  return 1
+}
+
+# 0 = key present (even if its value is `false`), 1 = key absent. A renderer
+# failure cannot be a return code here — `if _render_has k` would read it as
+# "absent" — so it aborts the script itself. MUST be called directly in a
+# condition, never inside `$( )` / `( )`, or the exit only leaves the subshell.
+_render_has() {   # $1 = dotted key
+  local rc=0
+  ( cd "$RENDERER_DIR" && go run . --answers "$ANSWERS" --has "$1" ) 2>"$_RENDER_ERR" || rc=$?
+  if [ "$rc" -eq 0 ]; then return 0; fi
+  if grep -q '^render-template: key .* is absent$' "$_RENDER_ERR"; then return 1; fi
+  _render_fatal "--has $1" "$rc"
+  exit 1
+}
+
+# features.series_overview_posts — DEFAULT ON (absent means true).
+overview_value=$(_render_get_bool features.series_overview_posts true) || exit 1
 [[ "$overview_value" == "true" ]] && overview_enabled=1 || overview_enabled=0
 
 echo "[bootstrap] target:                $TARGET"
@@ -78,7 +134,7 @@ fi
 # Opt-in content type: papers shared assets (shortcodes + cross-link partials),
 # gated on content_types.papers.enabled. The per-paper bundle + dossier come from
 # scaffold-paper.sh, not bootstrap.
-papers_value=$(cd "$RENDERER_DIR" && go run . --answers "$ANSWERS" --get-bool content_types.papers.enabled 2>/dev/null || echo "false")
+papers_value=$(_render_get_bool content_types.papers.enabled false) || exit 1
 if [[ "$papers_value" == "true" ]]; then
   echo "[3b] content-type-papers: shared/"
   ( cd "$RENDERER_DIR" && go run . --src "$PLUGIN_ROOT/templates/content-type-papers/shared" --dst "$TARGET" --answers "$ANSWERS" )
@@ -89,7 +145,7 @@ fi
 # Opt-in content type: explainers shared assets (scaffold + validate scripts),
 # gated on content_types.explainers.enabled. The per-post bundle comes from
 # scaffold-explainer.sh, not bootstrap.
-explainers_value=$(cd "$RENDERER_DIR" && go run . --answers "$ANSWERS" --get-bool content_types.explainers.enabled 2>/dev/null || echo "false")
+explainers_value=$(_render_get_bool content_types.explainers.enabled false) || exit 1
 if [[ "$explainers_value" == "true" ]]; then
   echo "[3b2] content-type-explainers: shared/"
   ( cd "$RENDERER_DIR" && go run . --src "$PLUGIN_ROOT/templates/content-type-explainers/shared" --dst "$TARGET" --answers "$ANSWERS" )
@@ -98,14 +154,14 @@ else
 fi
 
 # Optional feature assets, gated on features.*
-rt_value=$(cd "$RENDERER_DIR" && go run . --answers "$ANSWERS" --get-bool features.read_tracker 2>/dev/null || echo "false")
+rt_value=$(_render_get_bool features.read_tracker false) || exit 1
 if [[ "$rt_value" == "true" ]]; then
   echo "[3c] read-tracker"
   ( cd "$RENDERER_DIR" && go run . --src "$PLUGIN_ROOT/templates/features/read-tracker" --dst "$TARGET" --answers "$ANSWERS" )
 else
   echo "[3c] read-tracker: SKIPPED (features.read_tracker != true)"
 fi
-if ( cd "$RENDERER_DIR" && go run . --answers "$ANSWERS" --has features.analytics ) 2>/dev/null; then
+if _render_has features.analytics; then
   echo "[3d] analytics"
   ( cd "$RENDERER_DIR" && go run . --src "$PLUGIN_ROOT/templates/features/analytics" --dst "$TARGET" --answers "$ANSWERS" )
 else
@@ -115,7 +171,7 @@ fi
 # Abbreviation glossary: the {{< abbr >}} / {{< glossary-index >}} shortcodes and
 # their stylesheet. The registry itself (data/glossary.yaml) is operator-owned
 # and written by /glossary, never by bootstrap.
-gl_value=$(cd "$RENDERER_DIR" && go run . --answers "$ANSWERS" --get-bool features.glossary.enabled 2>/dev/null || echo "false")
+gl_value=$(_render_get_bool features.glossary.enabled false) || exit 1
 if [[ "$gl_value" == "true" ]]; then
   echo "[3f] glossary"
   ( cd "$RENDERER_DIR" && go run . --src "$PLUGIN_ROOT/templates/features/glossary" --dst "$TARGET" --answers "$ANSWERS" )
@@ -127,7 +183,7 @@ fi
 # <script> that `script-src 'self'` drops, leaving diagrams stuck in the light
 # theme. OPT-IN on purpose: without a CSP the theme's block still runs, and
 # materializing this too would race two MutationObservers. See the asset header.
-mm_value=$(cd "$RENDERER_DIR" && go run . --answers "$ANSWERS" --get-bool features.mermaid_csp_init 2>/dev/null || echo "false")
+mm_value=$(_render_get_bool features.mermaid_csp_init false) || exit 1
 if [[ "$mm_value" == "true" ]]; then
   echo "[3g] mermaid-csp-init"
   ( cd "$RENDERER_DIR" && go run . --src "$PLUGIN_ROOT/templates/features/mermaid-csp" --dst "$TARGET" --answers "$ANSWERS" )
@@ -138,16 +194,15 @@ fi
 # Natural-size mermaid rendering: the framed, horizontally scrollable diagram
 # container (assets/css/mermaid-view.css + the render-codeblock-mermaid.html
 # hook). DEFAULT ON — unlike every other features.* gate above, absence of the
-# key means true, not false. `--get-bool` returns "false" (via its stderr/exit
-# path, caught by `|| echo`) for a key that is simply ABSENT from the config,
-# which is exactly the case for every blog that has not yet run
-# migrations/005_to_006.py — copying the mermaid-csp-init pattern verbatim here
+# key means true, not false, and that is the case for every blog that has not yet
+# run migrations/005_to_006.py. Copying the mermaid-csp-init pattern verbatim
 # would silently deny the fix to every existing blog until it updates. So the
 # key's PRESENCE is checked first (`--has`, which is true for an explicit
 # `false` too, since false is non-nil) and only an explicit value overrides the
-# true default.
-if ( cd "$RENDERER_DIR" && go run . --answers "$ANSWERS" --has features.mermaid_view ) 2>/dev/null; then
-  mv_value=$(cd "$RENDERER_DIR" && go run . --answers "$ANSWERS" --get-bool features.mermaid_view 2>/dev/null || echo "false")
+# true default. (The inner default is therefore unreachable: _render_has already
+# established the key is there.)
+if _render_has features.mermaid_view; then
+  mv_value=$(_render_get_bool features.mermaid_view false) || exit 1
 else
   mv_value="true"
 fi
@@ -164,11 +219,11 @@ fi
 # layout, shortcode, CSS or gallery to render.
 #
 # DEFAULT OFF: follow the glossary gate above, NOT the mermaid_view one directly
-# above this. `--get-bool` reports "false" for a key that is simply ABSENT, which is
+# above this. An ABSENT key takes the `false` passed to _render_get_bool, which is
 # exactly what an opt-in capability wants — a blog that never asked for stickers
 # gets none of them. (mermaid_view checks `--has` first because absence there means
 # TRUE; copying that shape here would ship sticker scripts to every existing blog.)
-stk_value=$(cd "$RENDERER_DIR" && go run . --answers "$ANSWERS" --get-bool features.stickers.enabled 2>/dev/null || echo "false")
+stk_value=$(_render_get_bool features.stickers.enabled false) || exit 1
 if [[ "$stk_value" == "true" ]]; then
   echo "[3i] stickers"
   ( cd "$RENDERER_DIR" && go run . --src "$PLUGIN_ROOT/templates/features/stickers" --dst "$TARGET" --answers "$ANSWERS" )
@@ -179,7 +234,7 @@ fi
 # Opt-in layer palette: when the config declares series_index.layers, generate
 # data/layer_palette.yaml (colours the series-index cards + roadmap). Non-fatal —
 # a machine without PyYAML gets a warning; the author runs the generator manually.
-if ( cd "$RENDERER_DIR" && go run . --answers "$ANSWERS" --has series_index.layers ) 2>/dev/null; then
+if _render_has series_index.layers; then
   PYBIN="${PYTHON:-python3}"
   if "$PYBIN" -c 'import yaml' 2>/dev/null; then
     mkdir -p "$TARGET/data"

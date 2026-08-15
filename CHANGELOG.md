@@ -10,6 +10,28 @@ matching `vX.Y.Z` tag on merge (#18).
 
 ## [Unreleased]
 
+### Fixed
+- **A gate read that FAILS in `tools/bootstrap-render.sh` no longer looks exactly
+  like an unset feature flag.** Every `features.*` / `content_types.*` gate asks
+  the renderer a question with three possible answers — the key is present, the
+  key is absent, or *the renderer never ran at all* (compile error, missing
+  `go.mod`, no toolchain, `go run` contention, disk pressure) — and
+  `2>/dev/null || echo false` collapsed the last two into "absent". A renderer
+  that could not run therefore took every default **silently**, so a bootstrap
+  carried on and produced a **partial blog** with no error text anywhere,
+  surfacing much later as a missing file. Exit codes cannot tell the two apart
+  (`go run` reports both as 1) and neither can an empty stderr (`go run` writes
+  its own `exit status 1` line, and `go: downloading …` chatter even when it
+  succeeds), so each gate now matches the renderer's **own sentinel**: an absent
+  key takes its documented default exactly as before, and anything else aborts
+  with the renderer's output quoted verbatim. The observable change is that this
+  failure is now loud, and happens before anything is written. **No default
+  changed** — nine gates, `features.mermaid_view` still ON when its key is absent
+  and the other eight still OFF, each pinned by a whole-line assertion in
+  `tests/unit/test_bootstrap_render_gates.py`. `render-template --has` now names
+  the absent key on stderr (exit status unchanged), so the two presence-only
+  gates can make the same distinction.
+
 ## [0.21.0] - 2026-08-03
 
 > **Nothing in this release changes an existing blog's composed cover prompts.**
