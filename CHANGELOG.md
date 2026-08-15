@@ -10,6 +10,8 @@ matching `vX.Y.Z` tag on merge (#18).
 
 ## [Unreleased]
 
+## [0.21.1] - 2026-08-15
+
 ### Fixed
 - **A gate read that FAILS in `tools/bootstrap-render.sh` no longer looks exactly
   like an unset feature flag.** Every `features.*` / `content_types.*` gate asks
