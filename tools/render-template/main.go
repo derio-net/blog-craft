@@ -72,6 +72,16 @@ func main() {
 		if ok && v != nil {
 			return
 		}
+		// Say WHY we are exiting 1. Callers (tools/bootstrap-render.sh) have to
+		// tell "the key is absent, take the documented default" apart from "the
+		// renderer never ran" — a compile error, a missing go.mod, toolchain
+		// contention — and `go run` reports BOTH as exit 1. Exit codes alone
+		// cannot discriminate, and neither can "stderr is empty": `go run`
+		// writes its own `exit status 1` line plus module-download chatter.
+		// A positive sentinel on the absent path is the only reliable signal.
+		// --get-bool already has one ('not found or not a bool'); this is its
+		// counterpart. Keep the wording in step with bootstrap-render.sh's grep.
+		fmt.Fprintf(os.Stderr, "render-template: key %q is absent\n", *has)
 		os.Exit(1)
 	}
 

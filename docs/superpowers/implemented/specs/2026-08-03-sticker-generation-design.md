@@ -724,3 +724,66 @@ operator's stated requirement. None restates an implementation detail.
 | Plan | Repo | File | Depends on |
 |---|---|---|---|
 | 2026-08-03-stickers | `derio-net/blog-craft` | `2026-08-03-stickers` | — |
+
+## Post-merge evidence (2026-08-11)
+
+Merged as `2837db1` (#80, blog-craft 0.21.0). Tag `v0.21.0` cut by `auto-tag`;
+`ci` and `acceptance-report` both **success** on the merge commit.
+
+**The merge is the thing that was tested.** `origin/main` is byte-identical to
+the branch HEAD the release gate ran against — `git diff HEAD origin/main` is
+empty — so the 1183-passed / 7-skipped suite state is exactly what shipped, not
+a near-neighbour of it. `fr isolation verify-merge` confirms the changes are
+present on `origin/main` with the PR `MERGED`. The surface is there:
+`migrations/006_to_007.py`, both feature scripts, and 36 golden files (18
+prompts + 18 reference manifests).
+
+**stk-1 re-verified after the merge, against the live consumer.** frank's own
+`compose_prompt()` was imported from its live checkout (five API-only modules
+stubbed; the function touches none of them) and run over its live
+`stickers.yaml`: **18/18 byte-identical** to the goldens now on `main`, 0
+drifted. The vendored fixture is still sha256 `723c2b5b…`, matching frank's live
+file. This is the fourth independent derivation of the same equality, and the
+first performed against merged code.
+
+### What post-merge verification did NOT cover
+
+- **Test Plan row 7 is still unimplemented** — a rebuild from the consumer's 18
+  curated masters, byte-compared against its committed sheets. It needs those
+  PNGs, which cannot live in this repo. This is the open half of `stk-3`
+  (`skipped`), and it closes in the consumer's adoption PR, not here.
+- **frank has not adopted.** Nothing in frank changed and `/update` has not run
+  there. The two dry-run plans in §7 were produced from frank's real files in a
+  scratch tree, so the *mechanism* is verified end to end while the *adoption*
+  is not.
+- **No human has followed the runbook.** §8 step 3 and `docs/CONFIG.md` §13 are
+  exercised only by tests — including a byte-append test that fails if the
+  emitted fragments could clobber an existing `image:` section. That is real
+  coverage, but it is worth stating plainly that **two of the four
+  cover-destroying defects found in this cycle lived in the paste instruction
+  rather than in code** (`clothing: {}` emitted unconditionally, and the block's
+  own `image:`/`layers:` keys). The runbook is therefore the highest-residual-risk
+  surface in the port, and the adoption PR is where it gets its first real use.
+
+### Not drivable in this repo
+
+- **The physical half of `stk-3`.** Page dimensions and the `pHYs 11811` chunk
+  are pinned in CI against the shipped artifact; a printed page at 100% with the
+  keyline as a true cut path is not machine-checkable. `skipped` records exactly
+  that split, and the report workflow keeps warning until the adoption PR closes
+  it.
+- **Sticker image generation.** It needs a paid API key. No image was generated
+  at any point in this cycle: the goldens are prompts, and every sheet test
+  builds from synthetic PNGs.
+
+### Two follow-ups this cycle surfaced, neither in scope
+
+- `tools/bootstrap-render.sh` reads four feature gates as
+  `$(cd … && go run . --get-bool KEY 2>/dev/null || echo DEFAULT)`, so a `go run`
+  that fails for any reason — contention, disk pressure — is swallowed and the
+  gate silently takes its default, surfacing much later as a partial render with
+  no error text. It cost one spurious release-gate failure here (a
+  `render_staging` assertion that passes in isolation). Pre-existing.
+- Concurrent unit suites sharing `BLOG_CRAFT_TEST_VENV` collide; a reviewer saw
+  218 spurious errors that way, and the identical selection re-run alone gave
+  300 passed. CI must never run two unit jobs against one venv.

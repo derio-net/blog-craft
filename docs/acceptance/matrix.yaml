@@ -978,7 +978,7 @@ rows:
     acceptance: /update accepts the documented relative --config/--blog invocation from
       a blog root
     origin:
-    - blog-craft:docs/superpowers/specs/2026-07-27-path-roots-and-subprocess-legibility-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-07-27-path-roots-and-subprocess-legibility-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_update_paths.py
@@ -991,7 +991,7 @@ rows:
     capability: update-path-roots
     acceptance: A renderer failure surfaces the renderer's own stderr, not a bare CalledProcessError
     origin:
-    - blog-craft:docs/superpowers/specs/2026-07-27-path-roots-and-subprocess-legibility-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-07-27-path-roots-and-subprocess-legibility-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_proc.py
@@ -1004,7 +1004,7 @@ rows:
     acceptance: Repo-rooted materialized paths (.github/**, .claude/**) are never placed
       under site_dir
     origin:
-    - blog-craft:docs/superpowers/specs/2026-07-27-path-roots-and-subprocess-legibility-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-07-27-path-roots-and-subprocess-legibility-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_path_roots.py
@@ -1022,7 +1022,7 @@ rows:
     acceptance: /update relocates a stale pre-root-model copy instead of leaving two,
       and a re-run plans nothing
     origin:
-    - blog-craft:docs/superpowers/specs/2026-07-27-path-roots-and-subprocess-legibility-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-07-27-path-roots-and-subprocess-legibility-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_update_relocation.py
@@ -1040,7 +1040,7 @@ rows:
     acceptance: A site_dir blog's CI workflow renders repo-root-relative paths that
       resolve from the repository root
     origin:
-    - blog-craft:docs/superpowers/specs/2026-07-27-path-roots-and-subprocess-legibility-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-07-27-path-roots-and-subprocess-legibility-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_ci_template.py
@@ -1077,7 +1077,7 @@ rows:
     acceptance: The shipped CI validates papers against the papers section only, so
       a blog with papers alongside another series passes
     origin:
-    - blog-craft:docs/superpowers/specs/2026-07-27-path-roots-and-subprocess-legibility-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-07-27-path-roots-and-subprocess-legibility-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_ci_template.py
@@ -1098,7 +1098,7 @@ rows:
     acceptance: Every mermaid diagram renders at its authored size regardless of the
       content column width
     origin:
-    - blog-craft:docs/superpowers/specs/2026-07-28-mermaid-readability-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-07-28-mermaid-readability-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_mermaid_view.py
@@ -1116,7 +1116,7 @@ rows:
     acceptance: A diagram wider than the column exposes a visible scroll affordance
       without user interaction
     origin:
-    - blog-craft:docs/superpowers/specs/2026-07-28-mermaid-readability-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-07-28-mermaid-readability-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_mermaid_view.py
@@ -1133,7 +1133,7 @@ rows:
     capability: Mermaid diagram gates
     acceptance: A diagram exceeding the configured width budget fails the build
     origin:
-    - blog-craft:docs/superpowers/specs/2026-07-28-mermaid-readability-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-07-28-mermaid-readability-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_mermaid_layout_gate.py
@@ -1154,7 +1154,7 @@ rows:
     acceptance: A disabled diagram gate reports that it is disabled and how many findings
       it would have reported
     origin:
-    - blog-craft:docs/superpowers/specs/2026-07-28-mermaid-readability-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-07-28-mermaid-readability-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_mermaid_validator.py
@@ -1173,10 +1173,11 @@ rows:
     capability: Mermaid readability
     acceptance: A blog can opt out of the framed scroller and keep the previous rendering
     origin:
-    - blog-craft:docs/superpowers/specs/2026-07-28-mermaid-readability-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-07-28-mermaid-readability-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_mermaid_view.py
+      - blog-craft:tests/unit/test_bootstrap_render_gates.py
     status: ci
     notes: 'features.mermaid_view defaults true; migration 005_to_006 writes it for existing
       blogs and leaves an explicit false alone. Directly asserted by
@@ -1185,12 +1186,15 @@ rows:
       render-hook override is materialized (prior rendering intact), true and ABSENT =>
       both are. The absent case is the load-bearing one — this is the first features.*
       gate where absent means TRUE, so bootstrap-render.sh checks --has before
-      --get-bool rather than defaulting to false like every other flag.'
+      --get-bool rather than defaulting to false like every other flag. That asymmetry is
+      now guarded from the other side too: test_bootstrap_render_gates.py asserts all nine
+      gate defaults as WHOLE log lines, and this is the only one whose absent-key line is
+      the rendering one rather than a SKIPPED one (row brg-1).'
   - id: mmd-6
     capability: Mermaid readability
     acceptance: A scrollable diagram container is reachable and scrollable by keyboard
     origin:
-    - blog-craft:docs/superpowers/specs/2026-07-28-mermaid-readability-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-07-28-mermaid-readability-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_mermaid_view.py
@@ -1207,7 +1211,7 @@ rows:
     acceptance: Operator regenerates any of frank's 18 stickers and the composed prompt
       is byte-identical to the pre-port one
     origin:
-    - blog-craft:docs/superpowers/specs/2026-08-03-sticker-generation-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-08-03-sticker-generation-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_stickers_golden.py
@@ -1228,7 +1232,7 @@ rows:
     acceptance: Operator regenerates a sticker without overwriting the curated master
       image
     origin:
-    - blog-craft:docs/superpowers/specs/2026-08-03-sticker-generation-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-08-03-sticker-generation-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_generate_images_out_dir.py
@@ -1249,7 +1253,7 @@ rows:
     acceptance: Operator rebuilds the A4 sheets and prints at 100% with the green keyline
       as a true cut path
     origin:
-    - blog-craft:docs/superpowers/specs/2026-08-03-sticker-generation-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-08-03-sticker-generation-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_build_sheets.py
@@ -1275,12 +1279,13 @@ rows:
     acceptance: A blog with features.stickers DISABLED (or absent, the pre-v7 shape)
       gets no sticker surface and no change to its composed cover prompts
     origin:
-    - blog-craft:docs/superpowers/specs/2026-08-03-sticker-generation-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-08-03-sticker-generation-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_features_gating.py
       - blog-craft:tests/unit/test_migration_007.py
       - blog-craft:tests/unit/test_image_compose.py
+      - blog-craft:tests/unit/test_bootstrap_render_gates.py
     status: ci
     notes: 'Blast-radius promise to gondor and stoa. REWORDED in phase 8: the row used
       to say "a blog WITHOUT features.stickers", but after migrations/006_to_007.py every
@@ -1294,13 +1299,16 @@ rows:
       migration rung is pure, idempotent and preserves an explicit enabled: true. The
       no-cover-change half is carried by tests/unit/test_image_compose.py passing UNMODIFIED
       — its blob is identical on main and on this branch, which is the point of citing
-      it here.'
+      it here. The absent-key half is now ALSO covered by test_bootstrap_render_gates.py,
+      which asserts this gate SKIPPED line and the absence of both scripts next to the
+      other eight gates, so a change to the shared gate helper cannot flip the default
+      unnoticed (row brg-1).'
   - id: stk-5
     capability: Sticker generation
     acceptance: frank's next /update retires its private sticker implementation and
       adopts the shipped one
     origin:
-    - blog-craft:docs/superpowers/specs/2026-08-03-sticker-generation-design.md
+    - blog-craft:docs/superpowers/implemented/specs/2026-08-03-sticker-generation-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_update_relocation.py
@@ -1318,3 +1326,27 @@ rows:
       Remaining manual step: the consumer own adoption PR runs /update, merges the two printed
       fragments and runs the transform (spec section 8). The contract is CI-pinned here;
       the one-off execution is not.'
+  - id: brg-1
+    capability: bootstrap render gates
+    acceptance: A bootstrap renders exactly the gated features the config asks for,
+      and a renderer that cannot run fails loudly instead of silently producing a partial
+      blog
+    origin:
+    - blog-craft:docs/superpowers/implemented/journals/plans/2026-08-03-stickers.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_bootstrap_render_gates.py
+    status: ci
+    notes: 'Nine gate reads in tools/bootstrap-render.sh. The DEFAULTS half is the regression
+      guard and matters most: absent keys are the common field shape, and every one
+      of the nine is asserted as a whole log line plus its filesystem effect, so the
+      one gate that defaults ON (features.mermaid_view) cannot be flattened into the
+      eight that default OFF. The FAILURE half is the fix: go run reports an absent
+      key and a renderer that never ran identically (exit 1), and go run also writes
+      its own stderr (exit status 1 on any child failure, go: downloading chatter on
+      success), so neither the exit code nor an empty stderr can discriminate. The gate
+      now matches the renderer''s own sentinel on stderr, and a non-sentinel failure
+      aborts with the renderer output quoted, before anything is written. Pinned for
+      three renderer-broken shapes (no go package, compile error, a fault injected at
+      the --has path) and for a malformed answers file. RED before the fix: the faults-on-has
+      shape bootstrapped OK, exit 0, with the analytics feature silently skipped.'
