@@ -28,16 +28,8 @@
           {{ partial "reader/meta.html" . }}
           {{ if not (in .Params.series "operating") }}{{ with $cover }}<div class="post-cover">{{ partial "opt-image.html" (dict "resource" . "alt" $.Title "loading" "eager" "fetchpriority" "high") }}</div>{{ end }}{{ end }}
           {{ end }}
-          <div data-article-body>{{ .Content }}{{ if and site.Params.reader.enabled (in .Params.series "papers") }}{{ partial "papers/references.html" . }}{{ end }}</div>
+          <div data-article-body>{{ .Content }}</div>
         </div>
-        {{- if in .Params.series "papers" }}
-          {{- partial "papers-forwardlinks.html" . }}
-          {{- if not site.Params.reader.enabled }}{{ partial "papers/references.html" . }}{{ end }}
-          {{- partial "papers/dossier-link.html" . }}
-          {{- partial "papers-prev-next.html" . }}
-        {{- else if and (not (in .Params.series "papers")) (not (eq .Section "")) }}
-          {{- partial "papers-backlink.html" . }}
-        {{- end }}
         {{ partial "components/last-updated.html" . }}
         {{- if and (not (in .Params.series "papers")) (site.Params.page.displayPagination | default true) -}}
           {{- partial "components/pager.html" . -}}

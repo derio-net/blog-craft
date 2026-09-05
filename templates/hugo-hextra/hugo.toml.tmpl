@@ -1,4 +1,5 @@
 baseURL = "{{ .project.base_url }}"
+enableRobotsTXT = true
 languageCode = "en-us"
 title = "{{ default .project.name .project.title }}"
 
@@ -82,7 +83,7 @@ title = "{{ default .project.name .project.title }}"
     style = "monokai"
 
 [outputs]
-  home = ["HTML", "RSS", "JSON"]
+  home = ["HTML", "RSS", "JSON"{{ with .features }}{{ with .reader_experience }}{{ if .agent_exports }}, "Catalog", "LLMS"{{ end }}{{ end }}{{ end }}]
 
 # Hugo 0.158+ default security.http.urls excludes URLs containing "@", which
 # blocks Hextra's flexsearch CDN load (cdn.jsdelivr.net/npm/flexsearch@<ver>).
@@ -90,3 +91,26 @@ title = "{{ default .project.name .project.title }}"
 [security]
   [security.http]
     urls = ['(?i)^https?://[a-z]', '! (?i)localhost']
+
+
+[frontmatter]
+  lastmod = ["last_updated", "lastmod", "date"]
+
+{{ with .features }}{{ with .reader_experience }}{{ if .enabled }}
+[params.reader]
+  enabled = true
+  agentExports = {{ .agent_exports | default false }}
+{{ with .author }}
+[params.reader.author]
+  name = {{ quote .name }}
+  url = {{ quote .url }}
+{{ end }}
+[outputFormats.Catalog]
+  mediaType = "application/json"
+  baseName = "content-index"
+  isPlainText = true
+[outputFormats.LLMS]
+  mediaType = "text/plain"
+  baseName = "llms"
+  isPlainText = true
+{{ end }}{{ end }}{{ end }}
