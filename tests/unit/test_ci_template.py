@@ -324,3 +324,10 @@ def test_site_dir_less_render_matches_the_pre_site_dir_template(tmp_path, deploy
                  "", new, flags=re.DOTALL)
 
     assert new == old, f"a site_dir-less blog's CI changed ({deploy} deploy)"
+
+
+def test_reader_exports_build_from_the_site_root(tmp_path):
+    y = _render({"site_dir": "blog", "features": {"reader_experience": {"enabled": True, "agent_exports": True}}}, tmp_path)
+    step = next(s for s in yaml.safe_load(y)['jobs']['validate']['steps'] if s.get('name') == 'Hugo build')
+    assert step['working-directory'] == 'blog'
+    assert step['run'] == 'python3 scripts/build-site.py'

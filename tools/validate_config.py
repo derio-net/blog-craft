@@ -398,7 +398,7 @@ def validate_config(cfg: dict) -> list[str]:
     if isinstance(feats, dict) and "stickers" in feats:
         _validate_stickers(feats["stickers"], errors)
 
-    reader = feats.get("reader_experience")
+    reader = feats.get("reader_experience") if isinstance(feats, dict) else None
     if reader is not None:
         if not isinstance(reader, dict):
             errors.append("features.reader_experience must be a mapping")
@@ -412,7 +412,7 @@ def validate_config(cfg: dict) -> list[str]:
                 author = reader["author"]
                 if not isinstance(author, dict) or not all(isinstance(author.get(k), str) and author[k].strip() for k in ("name", "url")):
                     errors.append("reader_experience.author requires name and url strings")
-                elif not author["url"].startswith(("https://", "/")):
+                elif author["url"].startswith("//") or not author["url"].startswith(("https://", "/")):
                     errors.append("reader_experience.author.url must be HTTPS or site-relative")
 
     return errors

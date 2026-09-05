@@ -10,6 +10,21 @@ matching `vX.Y.Z` tag on merge (#18).
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-09-05
+
+### Added
+- Optional reader experience with curated home and topic layouts, compact article
+  headers, reading and evidence metadata, share images, and accessible controls.
+- Opt-in published-page catalog, `llms.txt`, and rendered Markdown exports with
+  canonical links, code, tables, glossary definitions, references and digests.
+- A production build helper and publication-boundary/export-fidelity tests.
+
+### Fixed
+- Home RSS includes docs articles instead of relying on Hugo's default blog type.
+- Responsive images declare viewport sizes; reader article covers load eagerly.
+- Editorial update dates respect `last_updated` without implying verification.
+
+
 ## [0.21.1] - 2026-08-15
 
 ### Fixed

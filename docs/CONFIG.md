@@ -1109,3 +1109,10 @@ has run:
 6. `git rm` what is left of the private directory, then delete the directory by
    hand;
 7. rebuild the sheets and confirm they are unchanged.
+
+## Optional reader experience
+
+`features.reader_experience` enables the reader layouts and, independently,
+published-content agent exports. See [Reader and agent publishing](READER-EXPERIENCE.md)
+for configuration, local data ownership, metadata semantics and the required
+production build/deployment command. Both feature switches default to false.

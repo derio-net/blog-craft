@@ -106,7 +106,13 @@ jobs:
 {{- if $site }}
         working-directory: {{ .site_dir }}
 {{- end }}
+{{- $exports := false }}
+{{- with .features }}{{ with .reader_experience }}{{ $exports = .agent_exports }}{{ end }}{{ end }}
+{{- if $exports }}
+        run: python3 scripts/build-site.py
+{{- else }}
         run: hugo --minify
+{{- end }}
 {{- if $mmw }}
       # Mermaid width gate: a diagram measuring wider than {{ $mmw }}px fails
       # CI (waive one with a `%% blog-craft: wide-ok — …` comment inside the

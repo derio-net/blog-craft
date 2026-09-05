@@ -73,7 +73,7 @@ def markdown(node, url):
             for cls in code.attrs.get('class','').split():
                 if cls.startswith('language-'): language = cls[9:]
         fence = '`' * max(3,1+max((len(m) for m in re.findall(r'`+',source)),default=0))
-        return f'\n\n{fence}{language}\n{source.strip(chr(10))}\n{fence}\n\n'
+        return f'\n\n{fence}{language}\n{source}{'' if source.endswith(chr(10)) else chr(10)}{fence}\n\n'
     if tag == 'table':
         rows=[]
         def collect(n):
@@ -131,8 +131,9 @@ def export(public):
         if body is None:body=document.root.find(lambda n:n.tag=='main' and n.attrs.get('id')=='content')
         if body is None:raise ValueError(f'No article body: {article["url"]}')
         text=markdown(body,article['url'])
-        text=re.sub(r'\n[ \t]+\n','\n\n',text)
-        text=re.sub(r'\n{3,}','\n\n',text).strip()
+        # Do not normalize generated Markdown globally: whitespace inside fenced
+        # code is source data, including blank lines and indentation.
+        text=text.strip()
         def unresolved(n):
             if isinstance(n,str):return bool(re.search(r'\{\{[<%]',n))
             return n.tag not in {'pre','code'} and any(unresolved(c) for c in n.children)
