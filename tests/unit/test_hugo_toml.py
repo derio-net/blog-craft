@@ -99,3 +99,41 @@ def test_shipped_ci_template_pins_hugo_extended():
     tmpl = os.path.join(ROOT, "templates", "hugo-hextra", ".github", "workflows", "blog-ci.yml.tmpl")
     body = open(tmpl).read()
     assert "extended: true" in body, "blog-ci.yml.tmpl must set extended:true (WebP needs it)"
+
+
+
+# --- reader experience (0.22.0) ----------------------------------------------
+
+def _reader(cfg, **reader):
+    return {**cfg, "features": {**cfg.get("features", {}), "reader_experience": reader}}
+
+
+def test_reader_blocks_absent_without_the_feature(tmp_path):
+    toml = _render(BASE, tmp_path)
+    assert "[params.reader]" not in toml
+    assert "[frontmatter]" not in toml          # last_updated stays free text elsewhere
+    assert "Catalog" not in toml and "llms" not in toml
+    assert "enableRobotsTXT" not in toml        # would override an operator's static/robots.txt
+    assert '[params.rss]\n  sections = ["docs"]' in toml   # Hextra's feed knob; theme default is "blog"
+
+
+def test_reader_exports_need_enabled_not_just_agent_exports(tmp_path):
+    """outputs and outputFormats must be gated on the SAME condition: a home
+    output naming a format that is not defined is a Hugo config error, and
+    nothing in bootstrap runs validate_config to catch the mismatch first."""
+    toml = _render(_reader(BASE, agent_exports=True), tmp_path)
+    assert "Catalog" not in toml and "llms" not in toml and "[params.reader]" not in toml
+    toml = _render(_reader(BASE, enabled=True), tmp_path)
+    assert "[params.reader]" in toml and "agentExports = false" in toml
+    assert "[frontmatter]" in toml
+    assert "Catalog" not in toml and '"llms"' not in toml
+
+
+def test_reader_exports_reuse_hextras_llms_format(tmp_path):
+    toml = _render(_reader(BASE, enabled=True, agent_exports=True,
+                           author={"name": "Op", "url": "https://example.org/about/"}), tmp_path)
+    assert 'home = ["HTML", "RSS", "JSON", "Catalog", "llms"]' in toml
+    assert "[outputFormats.Catalog]" in toml
+    assert "[outputFormats.LLMS]" not in toml and "[outputFormats.llms]" not in toml
+    assert "agentExports = true" in toml
+    assert 'name = "Op"' in toml and 'url = "https://example.org/about/"' in toml

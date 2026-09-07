@@ -13,16 +13,26 @@ matching `vX.Y.Z` tag on merge (#18).
 ## [0.22.0] - 2026-09-05
 
 ### Added
-- Optional reader experience with curated home and topic layouts, compact article
-  headers, reading and evidence metadata, share images, and accessible controls.
-- Opt-in published-page catalog, `llms.txt`, and rendered Markdown exports with
-  canonical links, code, tables, glossary definitions, references and digests.
-- A production build helper and publication-boundary/export-fidelity tests.
+- Optional reader experience (`features.reader_experience`, default off) with
+  curated home and topic layouts, compact article headers, reading and evidence
+  metadata, share images, and accessible controls. Ships as one gated feature
+  bundle: a blog that does not enable it materializes none of its layouts,
+  scripts or assets, and keeps Hextra's own `docs/single.html`.
+- Opt-in published-page catalog (`content-index.json`), `llms.txt`, and rendered
+  Markdown exports with canonical links, code, tables, glossary definitions,
+  references and digests (`agent_exports`, requires `enabled`).
+- A production build helper (`scripts/build-site.py`) and publication-boundary,
+  export-fidelity and feature-gating tests.
 
 ### Fixed
-- Home RSS includes docs articles instead of relying on Hugo's default blog type.
+- Home RSS lists the `docs` section (`params.rss.sections`); Hextra's default is
+  a `blog` section no blog-craft blog has, so the feed was empty.
 - Responsive images declare viewport sizes; reader article covers load eagerly.
-- Editorial update dates respect `last_updated` without implying verification.
+- On reader blogs, editorial update dates resolve from `last_updated` (then
+  `lastmod`, `date`) without implying verification; the `last-updated`
+  shortcode prints that key as a date either way.
+- A series without a `description` bootstraps again (the series index used
+  `quote` on the missing value).
 
 
 ## [0.21.1] - 2026-08-15
