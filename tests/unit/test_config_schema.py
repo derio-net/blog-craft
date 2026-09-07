@@ -688,3 +688,19 @@ def test_image_timeout_ms_valid_or_absent_ok():
     assert validate_config(cfg) == []
     cfg["image"].pop("timeout_ms")
     assert validate_config(cfg) == []
+
+
+def test_reader_exports_require_enabled_reader():
+    cfg = _valid()
+    cfg.setdefault('features', {})['reader_experience'] = {'agent_exports': True}
+    assert any('requires enabled' in e for e in validate_config(cfg))
+
+
+def test_reader_config_preserves_old_schema_compatibility():
+    cfg = _valid()
+    cfg.setdefault('features', {})['reader_experience'] = {
+        'enabled': True, 'agent_exports': True,
+        'author': {'name': 'Operator', 'url': 'https://example.org/about/'}}
+    assert validate_config(cfg) == []
+    cfg['features']['reader_experience']['author']['url'] = '//example.org/'
+    assert any('author.url' in e for e in validate_config(cfg))

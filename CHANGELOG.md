@@ -10,6 +10,37 @@ matching `vX.Y.Z` tag on merge (#18).
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-09-05
+
+### Added
+- Optional reader experience (`features.reader_experience`, default off) with
+  curated home and topic layouts, compact article headers, reading and evidence
+  metadata, share images, and accessible controls. Ships as one gated feature
+  bundle: a blog that does not enable it materializes none of its layouts,
+  scripts or assets, and keeps Hextra's own `docs/single.html`.
+- Opt-in published-page catalog (`content-index.json`), `llms.txt`, and rendered
+  Markdown exports with canonical links, code, tables, glossary definitions,
+  references and digests (`agent_exports`, requires `enabled`).
+- A production build helper (`scripts/build-site.py`) and publication-boundary,
+  export-fidelity and feature-gating tests.
+
+### Changed
+- The generated `hugo.toml` pins the mermaid bundle (`params.mermaid.base`,
+  11.16.1). Hextra fetches `mermaid@latest` at build time, and mermaid 11.17
+  changed flowchart layout enough to fail the width gate on unchanged diagrams
+  (frank#787). Bump deliberately and re-run the layout gate.
+
+### Fixed
+- Home RSS lists the `docs` section (`params.rss.sections`); Hextra's default is
+  a `blog` section no blog-craft blog has, so the feed was empty.
+- Responsive images declare viewport sizes; reader article covers load eagerly.
+- On reader blogs, editorial update dates resolve from `last_updated` (then
+  `lastmod`, `date`) without implying verification; the `last-updated`
+  shortcode prints that key as a date either way.
+- A series without a `description` bootstraps again (the series index used
+  `quote` on the missing value).
+
+
 ## [0.21.1] - 2026-08-15
 
 ### Fixed

@@ -71,7 +71,8 @@ quality:                  # optional; educational-writing gate (see §7). Absent
           min_command_blocks, require_actionable_section }
 
 features:                 # series_overview_posts, read_tracker, banners,
-                          # roadmap{enabled,data}, analytics, css{mermaid_palette}
+                          # roadmap{enabled,data}, analytics, css{mermaid_palette},
+                          # reader_experience{enabled,agent_exports,author} (§14)
   mermaid_csp_init: true  # optional; default false. Turn ON when the site serves
                           # `script-src 'self'` without 'unsafe-inline': that drops
                           # the theme's inline mermaid init, and diagrams then
@@ -1109,3 +1110,10 @@ has run:
 6. `git rm` what is left of the private directory, then delete the directory by
    hand;
 7. rebuild the sheets and confirm they are unchanged.
+
+## §14 Optional reader experience (`features.reader_experience`)
+
+`features.reader_experience` enables the reader layouts and, independently,
+published-content agent exports. See [Reader and agent publishing](READER-EXPERIENCE.md)
+for configuration, local data ownership, metadata semantics and the required
+production build/deployment command. Both feature switches default to false.

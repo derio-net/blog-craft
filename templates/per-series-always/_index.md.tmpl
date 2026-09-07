@@ -1,8 +1,9 @@
 ---
-title: "{{ .this.title }}"
+title: "{{ .this.title }}"{{ with .this.description }}
+description: {{ quote . }}{{ end }}
 weight: {{ .this.weight }}
 sidebar:
-  open: true
+  open: {{ $reader := false }}{{ with .features }}{{ with .reader_experience }}{{ if .enabled }}{{ $reader = true }}{{ end }}{{ end }}{{ end }}{{ if $reader }}false{{ else }}true{{ end }}
 ---
 
 {{ .this.description }}

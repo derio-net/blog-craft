@@ -1369,3 +1369,17 @@ rows:
       three renderer-broken shapes (no go package, compile error, a fault injected at
       the --has path) and for a malformed answers file. RED before the fix: the faults-on-has
       shape bootstrapped OK, exit 0, with the analytics feature silently skipped.'
+  - id: reader-exports-1
+    capability: reader and agent publishing
+    acceptance: Agent exports include only published Hugo pages and retain code whitespace, tables, glossary definitions, references and canonical links; path escapes fail before writing exports
+    origin:
+    - blog-craft:docs/READER-EXPERIENCE.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_reader_exports.py
+      - blog-craft:tests/unit/test_ci_template.py
+      - blog-craft:tests/unit/test_config_schema.py
+      - blog-craft:tests/unit/test_features_gating.py
+      - blog-craft:tests/unit/test_hugo_toml.py
+    status: ci
+    notes: Hugo publication-boundary integration runs with the pinned Hugo installed in CI. Unknown verification and command-state metadata are explicit, and Markdown digests cover the emitted bytes.

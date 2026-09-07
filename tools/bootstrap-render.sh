@@ -121,6 +121,26 @@ echo "[bootstrap] series_overview_posts: $overview_enabled"
 echo "[1] one-pass: hugo-hextra/"
 ( cd "$RENDERER_DIR" && go run . --src "$PLUGIN_ROOT/templates/hugo-hextra" --dst "$TARGET" --answers "$ANSWERS" )
 
+# Reader experience: the reader-home layout + shortcodes, the reader/* partials,
+# a reader-aware docs/single.html, the catalog / llms.txt output templates,
+# reader.css + reader.js, and the production build helper + Markdown exporter.
+# DEFAULT OFF, like stickers: an absent key takes the `false` default, so a blog
+# that never asked for a reader surface materializes none of it (gondor and
+# stoa carry nothing). The base bundle's head-end.html and the read-tracker
+# footer include the reader partials only when they exist (templates.Exists),
+# which is what makes this gate safe to skip.
+#
+# Rendered HERE — before the papers overlay ([3b]) — on purpose: both ship a
+# layouts/docs/single.html, and the papers copy (references, cross-links, and
+# reader-aware itself) must be the one that survives.
+rx_value=$(_render_get_bool features.reader_experience.enabled false) || exit 1
+if [[ "$rx_value" == "true" ]]; then
+  echo "[1b] reader-experience"
+  ( cd "$RENDERER_DIR" && go run . --src "$PLUGIN_ROOT/templates/features/reader-experience" --dst "$TARGET" --answers "$ANSWERS" )
+else
+  echo "[1b] reader-experience: SKIPPED (features.reader_experience.enabled != true)"
+fi
+
 echo "[2] per-series-always: per-series-always/"
 ( cd "$RENDERER_DIR" && go run . --src "$PLUGIN_ROOT/templates/per-series-always" --dst "$TARGET/content/docs" --answers "$ANSWERS" --per-series )
 

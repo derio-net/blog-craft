@@ -60,4 +60,5 @@ The reference image is resolved automatically from `.blog-craft.yaml` (`image.re
 
 ## Deploy
 
-blog-craft does not ship a deploy pipeline. Pick whatever fits — GitHub Pages, Netlify, Cloudflare Pages, or container-into-cluster (Frank's pattern). The static site is whatever `hugo --minify` produces in `public/`.
+{{- $exports := false }}{{ with .features }}{{ with .reader_experience }}{{ if .agent_exports }}{{ $exports = true }}{{ end }}{{ end }}{{ end }}
+blog-craft does not ship a deploy pipeline. Pick whatever fits — GitHub Pages, Netlify, Cloudflare Pages, or container-into-cluster (Frank's pattern). {{ if $exports }}Build with `python3 scripts/build-site.py` and deploy the complete `public/` directory. This includes the configured agent exports; plain `hugo` alone does not create the Markdown endpoints.{{ else }}The static site is whatever `hugo --minify` produces in `public/`.{{ end }}
