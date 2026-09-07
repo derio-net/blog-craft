@@ -24,9 +24,15 @@ Both switches default to false. `agent_exports` requires `enabled`. Set
 The updater merges that setting into Hugo; preview builds may override the origin.
 Existing Hextra version pins are preserved by the three-way updater.
 
-Run the normal updater dry run and apply. Do not patch generated layouts: layouts,
-JavaScript and scripts are framework-owned and replaced on update. CSS and
-`hugo.toml` are merged. Content, `data/`, and the configuration are operator-owned.
+Run the normal updater dry run and apply. Everything reader-specific — the
+`reader-home` layout and shortcodes, the `reader/*` partials, a reader-aware
+`docs/single.html`, the catalog and `llms.txt` output templates, `reader.css`,
+`reader.js`, `scripts/build-site.py` and `scripts/export-content.py` — ships as
+one feature bundle (`templates/features/reader-experience/`) that materializes
+only when `enabled` is true; a blog without the feature gets none of it, and the
+shared templates include the reader partials only when they exist. Do not patch
+generated layouts: layouts, JavaScript and scripts are framework-owned and
+replaced on update. CSS and `hugo.toml` are merged. Content, `data/`, and the configuration are operator-owned.
 Commit the generated `.blog-craft.sync.yaml` together with the update. Follow the
 update skill's version-pin instructions so the next three-way merge has its base.
 
@@ -60,7 +66,12 @@ items to suit the blog. The footer shows these links only when the pages exist.
 A missing curated featured page fails the build instead of silently dropping it.
 
 Article headings precede imagery. Operating posts omit decorative covers; Papers
-use larger reading type. Existing content, glossary, diagrams, references and
+use larger reading type. Site and track banners render on section and home
+pages only — article pages open with the title, meta and cover instead. The
+theme's `custom/footer.html` hook becomes framework-owned when the feature is
+on (as it already is with `read_tracker`): an operator's own copy of that
+partial is replaced on update, so put footer additions in `custom.css`-style
+merged paths or ask for a hook. Existing content, glossary, diagrams, references and
 cross-links remain in place. Readers can use the existing search, theme switch,
 series navigation and table of contents.
 
@@ -71,13 +82,19 @@ article frontmatter includes `reader_goal`, `prerequisites` (list),
 `tested_versions` (list), `last_verified` (date), and `commands_change_state` (bool).
 Only populate verification fields from actual checks; never infer them from a
 publication or edit date. Hugo resolves the editorial update date from
-`last_updated`, `lastmod`, then `date`. The catalog emits `false` for an unknown
-verification date and `"unknown"` for missing command-state metadata; explicit
-`commands_change_state: false` stays false.
+`last_updated`, `lastmod`, then `date` — on a reader blog `last_updated` must
+therefore be a date (the `{{</* last-updated */>}}` shortcode still prints it);
+blogs without the feature keep Hugo's default chain and may use the key as free
+text. A page with no date (About, Topics) gets empty `published` / `updated`
+fields and no date lines in its export rather than a fake `0001-01-01`. The
+catalog emits `false` for an unknown verification date and `"unknown"` for
+missing command-state metadata; explicit `commands_change_state: false` stays
+false.
 
 ## Production build
 
-Use Python 3.9+ and the blog's pinned Hugo version:
+Use Python 3.9+ (both scripts are stdlib-only and avoid newer syntax) and the
+blog's pinned Hugo version:
 
 ```sh
 cd path/to/hugo-site
@@ -85,8 +102,9 @@ python3 scripts/build-site.py
 ```
 
 The helper builds clean production output in `public/`, then runs the stdlib
-exporter when the catalog exists. It rejects draft/future/expired publication
-flags. Use `hugo server` for editorial previews; Markdown endpoints require a
+exporter when the catalog exists. It takes no arguments at all (a flag
+allowlist cannot be made safe against hugo's combined shorthands such as
+`-DF`). Use `hugo server` for editorial previews; Markdown endpoints require a
 completed production build. Wire this helper into the consuming repository's
 CI/deployment. A container without Python in its Hugo stage can run
 `python3 scripts/export-content.py public` in a separate build stage after Hugo.
@@ -103,8 +121,12 @@ preserving code whitespace, Mermaid source, tables, glossary definitions and
 references. Heading links point back to their canonical HTML anchors. This is a
 reading representation, not a round-trip copy of the original authoring source.
 
-`llms.txt` is a discovery convenience, not an access policy or a guarantee of
-agent adoption. Robots and sitemap behavior remain Hugo's. No new analytics,
+`llms.txt` uses Hextra's own `llms` output format; the feature overrides the
+theme's generic page listing with a catalog-first entry point. Do not add
+Hextra's `markdown` output format to `outputs.page`: it also writes `index.md`
+(the raw source, shortcodes unexpanded) and would race the exporter for the same
+file. `llms.txt` is a discovery convenience, not an access policy or a guarantee
+of agent adoption. Robots and sitemap behavior remain Hugo's. No new analytics,
 third-party scripts or inline JSON-LD are required. The copy action fetches the
 Markdown only when clicked and offers a readable link if clipboard access fails.
 

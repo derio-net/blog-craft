@@ -1379,5 +1379,7 @@ rows:
       - blog-craft:tests/unit/test_reader_exports.py
       - blog-craft:tests/unit/test_ci_template.py
       - blog-craft:tests/unit/test_config_schema.py
+      - blog-craft:tests/unit/test_features_gating.py
+      - blog-craft:tests/unit/test_hugo_toml.py
     status: ci
     notes: Hugo publication-boundary integration runs with the pinned Hugo installed in CI. Unknown verification and command-state metadata are explicit, and Markdown digests cover the emitted bytes.

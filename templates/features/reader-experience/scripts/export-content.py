@@ -73,7 +73,8 @@ def markdown(node, url):
             for cls in code.attrs.get('class','').split():
                 if cls.startswith('language-'): language = cls[9:]
         fence = '`' * max(3,1+max((len(m) for m in re.findall(r'`+',source)),default=0))
-        return f'\n\n{fence}{language}\n{source}{'' if source.endswith(chr(10)) else chr(10)}{fence}\n\n'
+        newline = '' if source.endswith('\n') else '\n'
+        return f'\n\n{fence}{language}\n{source}{newline}{fence}\n\n'
     if tag == 'table':
         rows=[]
         def collect(n):
@@ -126,7 +127,9 @@ def export(public):
         if base_path and not path.startswith(base_path+'/'):raise ValueError(f'Article outside site: {path}')
         directory=(public/path[len(base_path):].strip('/')).resolve()
         if not directory.is_relative_to(public):raise ValueError('Export escapes public directory')
-        document=Document((directory/'index.html').read_text())
+        rendered=directory/'index.html'
+        if not rendered.is_file():raise ValueError(f'No rendered page for {article["url"]}: expected {rendered} (a custom `url:` or uglyURLs breaks the permalink-to-file mapping)')
+        document=Document(rendered.read_text())
         body=document.root.find(lambda n:'data-article-body' in n.attrs)
         if body is None:body=document.root.find(lambda n:n.tag=='main' and n.attrs.get('id')=='content')
         if body is None:raise ValueError(f'No article body: {article["url"]}')
@@ -134,11 +137,14 @@ def export(public):
         # Do not normalize generated Markdown globally: whitespace inside fenced
         # code is source data, including blank lines and indentation.
         text=text.strip()
-        def unresolved(n):
-            if isinstance(n,str):return bool(re.search(r'\{\{[<%]',n))
-            return n.tag not in {'pre','code'} and any(unresolved(c) for c in n.children)
-        if unresolved(body):raise ValueError(f'Unresolved shortcode outside code in {article["url"]}')
-        header=f'# {article["title"]}\n\nSource: {article["url"]}\nPublished: {article["published"]}\nUpdated: {article["updated"]}\n'
+        # A literal `{{< name >}}` in prose is Hugo's documented escape ({{</* name */>}})
+        # rendered as intended — not an unresolved shortcode (an unknown one fails the
+        # Hugo build long before this runs), so it is exported verbatim.
+        header=f'# {article["title"]}\n\nSource: {article["url"]}\n'
+        # Dateless pages (an About page with only a title) carry no editorial dates:
+        # the catalog emits "" for them and the header says nothing, not 0001-01-01.
+        if article.get('published'):header+=f'Published: {article["published"]}\n'
+        if article.get('updated'):header+=f'Updated: {article["updated"]}\n'
         if article.get('last_verified'):header+=f'Last verified: {article["last_verified"]}\n'
         result=header+'\n'+text+'\n'
         outputs.append((directory/'index.md',result))
