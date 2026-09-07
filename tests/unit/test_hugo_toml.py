@@ -117,6 +117,14 @@ def test_reader_blocks_absent_without_the_feature(tmp_path):
     assert '[params.rss]\n  sections = ["docs"]' in toml   # Hextra's feed knob; theme default is "blog"
 
 
+def test_mermaid_bundle_is_pinned_to_an_exact_release(tmp_path):
+    """Hextra GetRemotes mermaid@latest at build time; a floating bundle flips
+    the width gate (and readers' diagrams) with no repo change (frank#787)."""
+    import re
+    m = re.search(r'\[params\.mermaid\]\n  base = "https://cdn\.jsdelivr\.net/npm/mermaid@(\d+\.\d+\.\d+)/dist"', _render(BASE, tmp_path))
+    assert m, "params.mermaid.base must pin an exact mermaid release"
+
+
 def test_reader_exports_need_enabled_not_just_agent_exports(tmp_path):
     """outputs and outputFormats must be gated on the SAME condition: a home
     output naming a format that is not defined is a Hugo config error, and

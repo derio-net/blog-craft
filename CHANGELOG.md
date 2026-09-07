@@ -24,6 +24,12 @@ matching `vX.Y.Z` tag on merge (#18).
 - A production build helper (`scripts/build-site.py`) and publication-boundary,
   export-fidelity and feature-gating tests.
 
+### Changed
+- The generated `hugo.toml` pins the mermaid bundle (`params.mermaid.base`,
+  11.16.1). Hextra fetches `mermaid@latest` at build time, and mermaid 11.17
+  changed flowchart layout enough to fail the width gate on unchanged diagrams
+  (frank#787). Bump deliberately and re-run the layout gate.
+
 ### Fixed
 - Home RSS lists the `docs` section (`params.rss.sections`); Hextra's default is
   a `blog` section no blog-craft blog has, so the feed was empty.

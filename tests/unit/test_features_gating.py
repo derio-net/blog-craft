@@ -204,6 +204,15 @@ def test_reader_enabled_materializes_the_whole_surface_and_nothing_else(tmp_path
     assert '"Catalog", "llms"' in (on / "hugo.toml").read_text()
 
 
+def test_reader_home_keeps_hextras_sidebar_container():
+    """Hextra's menu.js dereferences .hextra-sidebar-container unconditionally;
+    a home layout without the (disabled) sidebar partial loses the mobile nav
+    and the footer theme toggle (frank#787)."""
+    home = open(os.path.join(ROOT, "templates", "features", "reader-experience", "layouts", "reader-home.html")).read()
+    assert 'partial "sidebar.html" (dict "context" . "disableSidebar" true)' in home
+    assert "hextra-max-page-width" in home
+
+
 def test_reader_defers_to_the_papers_docs_layout(tmp_path):
     """Both bundles ship layouts/docs/single.html. The papers overlay renders
     AFTER the reader bundle, so a papers blog keeps its references, forward

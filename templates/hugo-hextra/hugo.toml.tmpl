@@ -51,6 +51,15 @@ title = "{{ default .project.name .project.title }}"
 [params.rss]
   sections = ["docs"]
 
+# Pin the mermaid bundle Hextra fetches at build time (_partials/scripts/mermaid.html
+# GetRemotes `mermaid@latest` by default, so diagram layout floated between builds:
+# mermaid 11.17 pushed 8 of frank's 186 diagrams past the 1400px width gate with
+# no diagram edits — frank#787). Bump deliberately, rebuild, and re-run
+# validate_mermaid_layout.mjs; never `latest`. imageZoom / asciinema / katex have
+# the same `@latest` default in Hextra if a blog turns them on.
+[params.mermaid]
+  base = "https://cdn.jsdelivr.net/npm/mermaid@11.16.1/dist"
+
 [taxonomies]
   series = "series"
   capabilities = "capabilities"

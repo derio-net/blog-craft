@@ -59,6 +59,11 @@ topics:
     layers: [obs, gitops]
 ```
 
+Share images: the reader emits an `og:image` from the page cover (or the
+landing banner) only when neither the page's `images` frontmatter nor
+`params.images` is set — those go through Hextra's own opengraph partial and
+take precedence, so a page never carries two tags.
+
 Create `content/topics/troubleshooting/index.md` with a title, description and
 `{{< reader-topic "troubleshooting" >}}`. Topic lists use the article's existing
 `series` and `layer` metadata. Add About and Topics section pages and navigation

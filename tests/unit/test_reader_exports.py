@@ -72,6 +72,25 @@ def test_escaped_shortcode_in_prose_is_exported_verbatim(tmp_path):
     assert 'Use the {{< screenshot >}} shortcode in prose.' in (page / 'index.md').read_text()
 
 
+def test_generic_layout_fallback_drops_the_themes_own_title(tmp_path):
+    """about/ and topics/* render through Hextra's generic single.html: no
+    data-article-body, and <main> opens with the theme's <h1>. The export
+    header already carries the title, so the fallback must not emit it twice."""
+    page = tmp_path / 'docs/example'
+    page.mkdir(parents=True)
+    (page / 'index.html').write_text('<main id="content"><div class="content"><h1>Example</h1><p>Body — with an em dash.</p></div></main>', encoding='utf-8')
+    catalog = dict(site='https://example.org/blog/', articles=[dict(title='Example', url='https://example.org/blog/docs/example/', published='2026-01-01', updated='2026-01-01')])
+    (tmp_path / 'content-index.json').write_text(json.dumps(catalog), encoding='utf-8')
+    exporter.export(tmp_path)
+    raw = (page / 'index.md').read_bytes()
+    text = raw.decode('utf-8')
+    assert text.count('Example') == 1 and text.startswith('# Example\n')
+    assert 'Body — with an em dash.' in text
+    # the hash covers the UTF-8 bytes actually written, whatever the host locale
+    catalog = json.loads((tmp_path / 'content-index.json').read_text(encoding='utf-8'))
+    assert catalog['articles'][0]['content_sha256'] == hashlib.sha256(raw).hexdigest()
+
+
 @pytest.mark.parametrize('argv', [['-DF'], ['-dpublic2'], ['--destination=elsewhere'], ['--buildDrafts']])
 def test_build_site_refuses_every_argument(argv):
     """hugo's pflag accepts combined shorthands and attached values, so a flag
