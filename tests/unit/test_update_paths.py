@@ -71,6 +71,36 @@ def test_update_cli_accepts_the_documented_relative_invocation(tmp_path):
     assert "dry-run" in r.stdout
 
 
+def test_a_missing_config_is_named_not_tracebacked(tmp_path):
+    """Found by driving #59's own post-merge Test Plan.
+
+    A typo'd `--config` is the likeliest way to get the documented invocation
+    wrong, and it arrived as a bare `FileNotFoundError` traceback out of
+    `open()` — the same illegibility #59 is about, one step before the renderer
+    is even reached. The message must name the RESOLVED path and the directory
+    it was resolved from, because "a relative argument is not resolved where you
+    assumed" is the whole subject of the issue.
+    """
+    blog = _blog(tmp_path)
+    r = subprocess.run([sys.executable, os.path.join(ROOT, "tools", "update.py"),
+                        "--config", "nope.yaml", "--blog", "."],
+                       cwd=str(blog), capture_output=True, text=True)
+    assert r.returncode == 2
+    assert "Traceback" not in r.stderr, f"still a stdlib traceback:\n{r.stderr}"
+    assert "nope.yaml" in r.stderr
+    assert str(blog) in r.stderr, "must say where it resolved the path from"
+
+
+def test_a_missing_blog_dir_is_named_too(tmp_path):
+    blog = _blog(tmp_path)
+    r = subprocess.run([sys.executable, os.path.join(ROOT, "tools", "update.py"),
+                        "--config", ".blog-craft.yaml", "--blog", "no-such-dir"],
+                       cwd=str(blog), capture_output=True, text=True)
+    assert r.returncode == 2
+    assert "Traceback" not in r.stderr
+    assert "no-such-dir" in r.stderr
+
+
 def test_reproduce_cli_accepts_relative_config_and_scratch(tmp_path):
     """The third and fourth instances of the same bug — never reported."""
     blog = _blog(tmp_path)
