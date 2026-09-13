@@ -138,6 +138,7 @@ READER_SURFACE = (
     "layouts/reader-home.html",
     "layouts/shortcodes/reader-home.html",
     "layouts/shortcodes/reader-topic.html",
+    "layouts/shortcodes/reader-topics.html",
     "layouts/partials/reader/head.html",
     "layouts/partials/reader/meta.html",
     "layouts/partials/reader/footer.html",

@@ -17,6 +17,7 @@ features:
     author:
       name: Example author
       url: https://example.org/about/
+    coverless_series: []   # optional; series whose posts render no decorative cover
 ```
 
 Both switches default to false. `agent_exports` requires `enabled`. Set
@@ -52,6 +53,7 @@ series:
     title: Building
     path: /docs/building/
     description: Decisions and implementation.
+    image: images/tile-building.png   # optional; an assets/ path -> an image tile
 topics:
   - slug: troubleshooting
     title: Troubleshooting
@@ -65,13 +67,19 @@ landing banner) only when neither the page's `images` frontmatter nor
 take precedence, so a page never carries two tags.
 
 Create `content/topics/troubleshooting/index.md` with a title, description and
-`{{< reader-topic "troubleshooting" >}}`. Topic lists use the article's existing
+`{{< reader-topic "troubleshooting" >}}`. Give the `content/topics/_index.md`
+section page `{{< reader-topics >}}` for a tiled index of every topic (each tile
+shows the topic's layers as colour chips when the blog has a layer palette, and a
+live article count). A top-level section outside `docs/` (`topics/`, `about/`)
+gets its own site banner from `assets/images/banner-<section>.png` when that
+file exists. Topic lists use the article's existing
 `series` and `layer` metadata. Add About and Topics section pages and navigation
 items to suit the blog. The footer shows these links only when the pages exist.
 A missing curated featured page fails the build instead of silently dropping it.
 
-Article headings precede imagery. Operating posts omit decorative covers; Papers
-use larger reading type. Site and track banners render on section and home
+Article headings precede imagery. Every post shows its cover; list a series in
+`features.reader_experience.coverless_series` (for example `[operating]`) to
+omit decorative covers there. Papers use larger reading type. Site and track banners render on section and home
 pages only — article pages open with the title, meta and cover instead. The
 theme's `custom/footer.html` hook becomes framework-owned when the feature is
 on (as it already is with `read_tracker`): an operator's own copy of that

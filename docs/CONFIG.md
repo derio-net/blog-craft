@@ -72,7 +72,8 @@ quality:                  # optional; educational-writing gate (see §7). Absent
 
 features:                 # series_overview_posts, read_tracker, banners,
                           # roadmap{enabled,data}, analytics, css{mermaid_palette},
-                          # reader_experience{enabled,agent_exports,author} (§14)
+                          # reader_experience{enabled,agent_exports,author,
+                          # coverless_series} (§14)
   mermaid_csp_init: true  # optional; default false. Turn ON when the site serves
                           # `script-src 'self'` without 'unsafe-inline': that drops
                           # the theme's inline mermaid init, and diagrams then
