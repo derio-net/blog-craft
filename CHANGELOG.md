@@ -10,6 +10,8 @@ matching `vX.Y.Z` tag on merge (#18).
 
 ## [Unreleased]
 
+## [0.22.2] - 2026-09-13
+
 ### Added
 - Reader experience: `{{< reader-topics >}}` renders a tiled `/topics/` index
   (layer colour chips when the blog has a layer palette, live article counts);
