@@ -118,6 +118,10 @@ title = "{{ default .project.name .project.title }}"
 [params.reader]
   enabled = true
   agentExports = {{ if .agent_exports }}true{{ else }}false{{ end }}
+{{- with .coverless_series }}
+  # series whose posts render no decorative cover (features.reader_experience.coverless_series)
+  coverless = [{{ range $i, $s := . }}{{ if $i }}, {{ end }}{{ quote $s }}{{ end }}]
+{{- end }}
 {{ with .author }}
 [params.reader.author]
   name = {{ quote .name }}

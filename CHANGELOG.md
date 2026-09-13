@@ -10,6 +10,19 @@ matching `vX.Y.Z` tag on merge (#18).
 
 ## [Unreleased]
 
+### Added
+- Reader experience: `{{< reader-topics >}}` renders a tiled `/topics/` index
+  (layer colour chips when the blog has a layer palette, live article counts);
+  a series entry in `data/reader.yaml` may carry `image:` for an image tile on
+  the home page; a top-level section outside `docs/` gets its own site banner
+  from `assets/images/banner-<section>.png`. Lifted from the first consumer
+  (derio-net/frank#787).
+
+### Changed
+- Reader experience: every post shows its cover. 0.22.0 hardcoded no cover for
+  the `operating` series; that is now the operator's choice via
+  `features.reader_experience.coverless_series` (default: none).
+
 ## [0.22.1] - 2026-09-11
 
 ### Fixed
