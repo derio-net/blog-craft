@@ -6,9 +6,10 @@ per-path action:
   framework -> replace (shipped, overwrite)
   content   -> leave   (operator-owned)
   merged    -> 3-way merge (base=re-render at recorded version, local=on-disk,
-               incoming=staging) via `git merge-file`; conflicts are surfaced,
-               never auto-resolved. A merge that keeps local wholesale writes
-               nothing and is reported as `noop`, not `merge`.
+                incoming=staging) via `git merge-file`; conflicts are surfaced,
+                never auto-resolved. A merge that keeps local wholesale writes
+                nothing and is reported as `noop`, not `merge`.
+  divergence -> a consumer-declared framework path, merged with the same rules.
 
 The base answers "what did blog-craft last give this blog?" — that is
 `render(config_at_last_sync, templates_at_recorded_version)`. The templates come
@@ -55,6 +56,46 @@ _NO_SNAPSHOT_WARNING = (
     "         dropped on `merged` paths (derio-net/blog-craft#60). A conflict-free\n"
     "         --apply records the snapshot; updates after that are exact."
 )
+OVERRIDES_NAME = ".blog-craft.overrides.yaml"
+
+
+class OverridesError(ValueError):
+    """A consumer divergence declaration is malformed or targets the wrong path."""
+
+
+def load_overrides(blog: str | Path, manifest: dict) -> dict[str, dict[str, str]]:
+    """Read declared framework divergences from the consumer-owned manifest."""
+    import yaml
+
+    path = Path(blog) / OVERRIDES_NAME
+    if not path.exists():
+        return {}
+    try:
+        data = yaml.safe_load(path.read_text()) or {}
+    except yaml.YAMLError as e:
+        raise OverridesError(f"invalid {OVERRIDES_NAME}: {e}") from e
+    if not isinstance(data, dict):
+        raise OverridesError(f"{OVERRIDES_NAME}: document must be a mapping")
+    entries = data.get("overrides")
+    if not isinstance(entries, list):
+        raise OverridesError(f"{OVERRIDES_NAME}: overrides must be a list")
+
+    declared: dict[str, dict[str, str]] = {}
+    for entry in entries:
+        if not isinstance(entry, dict):
+            raise OverridesError(f"{OVERRIDES_NAME}: each override must be a mapping")
+        values = {key: entry.get(key) for key in ("path", "reason", "upstream_ref")}
+        if any(not isinstance(value, str) or not value.strip() for value in values.values()):
+            raise OverridesError(
+                f"{OVERRIDES_NAME}: path, reason, and upstream_ref must be non-empty strings"
+            )
+        relpath = values["path"]
+        if relpath in declared:
+            raise OverridesError(f"{OVERRIDES_NAME}: duplicate override path: {relpath}")
+        if classify(relpath, manifest) != "framework":
+            raise OverridesError(f"{OVERRIDES_NAME}: {relpath} is not a framework path")
+        declared[relpath] = {"reason": values["reason"], "upstream_ref": values["upstream_ref"]}
+    return declared
 
 
 def render_staging(config: str, staging: str) -> Path:
@@ -139,7 +180,8 @@ def three_way(base: Path, local: Path, incoming: Path) -> tuple[bytes, bool]:
 
 
 def plan_update(blog: str | Path, staging: str | Path, base: str | Path | None, manifest: dict,
-                cfg: dict | None = None, only: list[str] | None = None) -> list[dict]:
+                cfg: dict | None = None, only: list[str] | None = None,
+                overrides: dict[str, dict[str, str]] | None = None) -> list[dict]:
     blog, staging = Path(blog), Path(staging)
     base = Path(base) if base else None
     only_res = [_glob_to_regex(g) for g in (only or [])]
@@ -147,7 +189,7 @@ def plan_update(blog: str | Path, staging: str | Path, base: str | Path | None, 
     for p in materialized_paths(staging):
         # classification runs on the STAGING-relative path (manifest is
         # site-shaped); comparison + application use the mapped destination
-        cls = classify(p, manifest)
+        cls = "divergence" if p in (overrides or {}) else classify(p, manifest)
         dest = map_dest(p, cfg, manifest)
         inc = staging / p
         if cls in (None, "content"):
@@ -187,7 +229,7 @@ def plan_update(blog: str | Path, staging: str | Path, base: str | Path | None, 
             continue
         if cls == "framework":
             plan.append({**entry, "action": "replace"})
-        else:  # merged -> 3-way
+        else:  # merged or declared divergence -> 3-way
             b = base / p if base and (base / p).exists() else None
             if b is None:
                 plan.append({**entry, "action": "conflict",
@@ -454,6 +496,11 @@ def _main(argv):
     fallback_base = not a.base and read_snapshot(blog) is None
     m = default_manifest()
     cfg = yaml.safe_load(open(config)) or {}
+    try:
+        overrides = load_overrides(blog, m)
+    except OverridesError as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        return 2
     with tempfile.TemporaryDirectory() as td:
         staging = render_staging(str(config), str(Path(td) / "staging"))
         base = str(Path(a.base).resolve()) if a.base else None
@@ -461,7 +508,7 @@ def _main(argv):
             ver = cfg.get("blog_craft_version")
             if ver:
                 base = render_base(config, blog, ver, str(Path(td) / "base"))
-        plan = plan_update(blog, staging, base, m, cfg=cfg, only=a.only)
+        plan = plan_update(blog, staging, base, m, cfg=cfg, only=a.only, overrides=overrides)
         print(dry_run_diff(plan))
         if plan:
             print(f"\n{plan_summary(plan)}")     # dry_run_diff already says "no changes"
