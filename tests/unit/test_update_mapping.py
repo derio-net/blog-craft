@@ -86,8 +86,9 @@ def _mk(root: Path, files: dict):
 def test_plan_compares_and_applies_at_mapped_dest(tmp_path):
     # staged scripts/x replaces the blog's copy at blog/scripts/x (site_dir)
     _mk(tmp_path / "stg", {"scripts/generate-images.py": "NEW\n"})
+    _mk(tmp_path / "base", {"scripts/generate-images.py": "OLD\n"})
     _mk(tmp_path / "blog", {"blog/scripts/generate-images.py": "OLD\n"})
-    plan = plan_update(tmp_path / "blog", tmp_path / "stg", None, M, cfg=FRANK_CFG)
+    plan = plan_update(tmp_path / "blog", tmp_path / "stg", tmp_path / "base", M, cfg=FRANK_CFG)
     e = {x["path"]: x for x in plan}["scripts/generate-images.py"]
     assert e["action"] == "replace"
     assert e["dest"] == "blog/scripts/generate-images.py"

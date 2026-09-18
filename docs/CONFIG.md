@@ -694,6 +694,32 @@ blog_craft_version: "v0.16.1" #    time: comments, key order and all
 Delete it only to deliberately forget what was last synced; `/update` will then
 warn and rebuild it from whatever the config says today.
 
+## §11a Consumer framework overrides — `.blog-craft.overrides.yaml`
+
+`framework` paths normally belong to blog-craft and are replaced on `/update`.
+When a consumer deliberately changes one, declare it beside
+`.blog-craft.yaml` rather than maintaining a patch queue:
+
+```yaml
+overrides:
+  - path: layouts/_default/home.html
+    reason: Add the publication's mobile navigation
+    diverged_from: v0.22.2
+```
+
+Each entry must name a unique staging-relative `framework` path and include a
+non-empty reason and upstream ref. `/update` treats the declared path as
+`merged`: its base is the recorded render, its local side is the consumer copy,
+and its incoming side is the new release. Non-overlapping changes land together;
+conflicts leave the consumer file untouched for manual resolution.
+
+An edited framework path without a declaration is a blocking conflict, including
+when the blog has no usable recorded base. This conservative adoption behavior
+prevents an update from silently erasing a pre-existing consumer change. Every
+dry run reports declared divergences and identifies declarations whose local file
+now matches upstream so they can be removed. Commit this file: it is consumer
+content and `/update` never writes it.
+
 ## §12 Mermaid rendering (`features.mermaid_view`)
 
 ```yaml

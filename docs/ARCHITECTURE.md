@@ -47,7 +47,10 @@ are easy to conflate:
 
 - **Class** — *who owns this file?* `framework` (shipped, overwritten),
   `merged` (config-templated, 3-way merged), `content` (operator's, never
-  touched). Guard: `tests/unit/test_path_manifest.py`.
+  touched). A consumer can declare a deliberate exception for one framework
+  path in `.blog-craft.overrides.yaml`; `/update` then uses its recorded render
+  as a 3-way base rather than replacing the file. Guard:
+  `tests/unit/test_path_manifest.py`.
 - **Root** — *who defines this path's location?* `site` (Hugo's layout — lands
   under `site_dir`) or `repo` (a contract outside Hugo — never prefixed).
   Guard: `tests/unit/test_path_roots.py`.

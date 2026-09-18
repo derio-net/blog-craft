@@ -10,6 +10,21 @@ matching `vX.Y.Z` tag on merge (#18).
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-09-19
+
+### Added
+- Consumers can declare deliberate changes to framework-owned files in a
+  repository-root `.blog-craft.overrides.yaml`. Each declared path records its
+  reason and upstream ref; `/update` three-way-merges it from the recorded
+  render instead of silently replacing it. Dry runs report declared
+  divergences and identify declarations whose local copy now matches upstream.
+
+### Changed
+- `/update` blocks a differing framework file that has no declaration,
+  including an adoption-era copy with no usable recorded base. The operator
+  must explicitly declare the divergence before it can be merged, preventing
+  silent replacement of consumer work (derio-net/blog-craft#88).
+
 ## [0.22.2] - 2026-09-13
 
 ### Added

@@ -37,6 +37,7 @@ merged:
 
 content:
   - ".blog-craft.yaml"
+  - ".blog-craft.overrides.yaml"  # consumer-declared divergences from framework paths (#88)
   - ".blog-craft.sync.yaml"   # the sync snapshot (tools/sync_state.py) — the config
                               # as of the last sync, written explicitly by bootstrap
                               # and update.py, never through the update plan. The row
@@ -74,6 +75,7 @@ content:
 roots:
   repo:
     - ".blog-craft.yaml"          # the config root, by definition
+    - ".blog-craft.overrides.yaml" # consumer-owned update declarations (#88)
     - ".blog-craft.sync.yaml"     # the sync snapshot sits beside the config it
                                   # snapshots — sync_state writes it at --blog,
                                   # which is the config root (#60)
