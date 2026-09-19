@@ -1,8 +1,10 @@
 """P6.T2 — 3-way-merge update flow (staging classify + diff3, no auto-resolve)."""
 from pathlib import Path
 
-from update import (apply_plan, default_manifest, dry_run_diff, plan_summary,
-                    plan_update, three_way)
+import pytest
+
+from update import (OverridesError, apply_plan, default_manifest, dry_run_diff,
+                    load_overrides, plan_summary, plan_update, three_way)
 
 M = default_manifest()
 
@@ -14,11 +16,48 @@ def _mk(root: Path, files: dict):
         p.write_text(content)
 
 
-def _plan(tmp_path, base, blog, stg):
+def _plan(tmp_path, base, blog, stg, overrides=None):
     _mk(tmp_path / "base", base)
     _mk(tmp_path / "blog", blog)
     _mk(tmp_path / "stg", stg)
-    return plan_update(tmp_path / "blog", tmp_path / "stg", tmp_path / "base", M)
+    return plan_update(tmp_path / "blog", tmp_path / "stg", tmp_path / "base", M,
+                       overrides=overrides)
+
+
+def test_load_overrides_returns_declared_framework_paths(tmp_path):
+    overrides = tmp_path / ".blog-craft.overrides.yaml"
+    overrides.write_text("""overrides:
+  - path: layouts/_default/home.html
+    reason: Keep the consumer's mobile navigation.
+    upstream_ref: v0.22.1
+""")
+
+    assert load_overrides(tmp_path, M) == {
+        "layouts/_default/home.html": {
+            "reason": "Keep the consumer's mobile navigation.",
+            "upstream_ref": "v0.22.1",
+        }
+    }
+
+
+@pytest.mark.parametrize("body, message", [
+    ("not a mapping\n", "mapping"),
+    ("overrides:\n  - path: layouts/x.html\n    upstream_ref: v0.22.1\n", "reason"),
+    ("overrides:\n  - path: hugo.toml\n    reason: local\n    upstream_ref: v0.22.1\n", "framework"),
+    ("""overrides:
+  - path: layouts/x.html
+    reason: first
+    upstream_ref: v0.22.1
+  - path: layouts/x.html
+    reason: second
+    upstream_ref: v0.22.2
+""", "duplicate"),
+])
+def test_load_overrides_rejects_invalid_declarations(tmp_path, body, message):
+    (tmp_path / ".blog-craft.overrides.yaml").write_text(body)
+
+    with pytest.raises(OverridesError, match=message):
+        load_overrides(tmp_path, M)
 
 
 def test_framework_replace_and_content_left(tmp_path):
@@ -31,6 +70,38 @@ def test_framework_replace_and_content_left(tmp_path):
     by = {e["path"]: e for e in plan}
     assert by["layouts/x.html"]["action"] == "replace"   # framework changed -> overwrite
     assert "content/p.md" not in by                      # content is left alone
+
+
+def test_declared_framework_divergence_merges_and_is_labelled(tmp_path):
+    plan = _plan(
+        tmp_path,
+        base={"layouts/x.html": "header\nbody\ncontext\nfooter\n"},
+        blog={"layouts/x.html": "header\nconsumer\ncontext\nfooter\n"},
+        stg={"layouts/x.html": "header\nbody\ncontext\nupstream\nfooter\n"},
+        overrides={"layouts/x.html": {"reason": "consumer copy", "upstream_ref": "v0.22.1"}},
+    )
+    entry = {e["path"]: e for e in plan}["layouts/x.html"]
+
+    assert entry["class"] == "divergence"
+    assert entry["action"] == "merge"
+    assert b"consumer" in entry["merged"] and b"upstream" in entry["merged"]
+    assert "[divergence]" in dry_run_diff(plan)
+
+    apply_plan(tmp_path / "blog", tmp_path / "stg", plan)
+    assert (tmp_path / "blog" / "layouts/x.html").read_text() == entry["merged"].decode()
+
+
+def test_undeclared_framework_divergence_still_replaces(tmp_path):
+    plan = _plan(
+        tmp_path,
+        base={"layouts/x.html": "original\n"},
+        blog={"layouts/x.html": "consumer\n"},
+        stg={"layouts/x.html": "upstream\n"},
+    )
+
+    entry = {e["path"]: e for e in plan}["layouts/x.html"]
+    assert entry["class"] == "framework"
+    assert entry["action"] == "replace"
 
 
 def test_merged_clean_3way(tmp_path):

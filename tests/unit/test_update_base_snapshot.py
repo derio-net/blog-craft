@@ -190,6 +190,18 @@ def test_an_unscoped_apply_records_the_snapshot(tmp_path, monkeypatch, capsys):
     assert "recorded sync snapshot" in capsys.readouterr().out
 
 
+def test_main_rejects_invalid_override_before_planning(tmp_path, monkeypatch, capsys):
+    blog = _tree(tmp_path / "blog", {"layouts/x.html": "old\n"})
+    stg = _tree(tmp_path / "stg", {"layouts/x.html": "new\n"})
+    cfg = tmp_path / "cfg.yaml"
+    cfg.write_text("version: 5\n")
+    (blog / ".blog-craft.overrides.yaml").write_text("overrides: invalid\n")
+    monkeypatch.setattr(update, "render_staging", lambda c, dest: stg)
+
+    assert update._main(["--config", str(cfg), "--blog", str(blog)]) == 2
+    assert "overrides must be a list" in capsys.readouterr().err
+
+
 def test_a_snapshot_write_failure_does_not_undo_a_successful_apply(tmp_path, monkeypatch, capsys):
     # The files landed; only the bookkeeping failed. Failing the run would tell
     # the operator nothing was applied, which is false.

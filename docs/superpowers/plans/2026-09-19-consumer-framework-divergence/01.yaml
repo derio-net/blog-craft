@@ -1,0 +1,41 @@
+schema_version: 2
+phase:
+  number: 1
+  title: Override manifest parser and validation
+  tag: agentic
+  depends_on: []
+  tracking_issue: null
+  acceptance:
+  - consumer-framework-divergence
+  skeleton: true
+tasks:
+- number: 1
+  title: Define consumer override loading contract
+  steps:
+  - id: P1.T1.S1
+    text: |-
+      Write unit tests for valid declarations and invalid missing, duplicate, and non-framework declarations; run them red.
+  - id: P1.T1.S2
+    text: |-
+      Add the minimal override loader and validator that returns declared framework paths with their metadata; run the focused tests green.
+  - id: P1.T1.S3
+    text: |-
+      Refactor only if needed to keep ownership validation and errors direct; rerun the focused suite.
+state:
+  steps:
+    P1.T1.S1:
+      state: x
+      ticked_at: '2026-09-18T23:16:51+00:00'
+      note: null
+    P1.T1.S2:
+      state: x
+      ticked_at: '2026-09-18T23:16:51+00:00'
+      note: null
+    P1.T1.S3:
+      state: x
+      ticked_at: '2026-09-18T23:16:52+00:00'
+      note: null
+  completion:
+    at: '2026-09-18T23:17:00+00:00'
+    note: null
+    observed_prs: []
