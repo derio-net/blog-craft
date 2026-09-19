@@ -102,17 +102,18 @@ def test_operator_edits_survive_the_move(tmp_path):
     assert not (tmp_path / "blog" / "blog" / ".github").exists()
 
 
-def test_framework_class_relocation_replaces_and_prunes(tmp_path):
+def test_framework_class_relocation_without_a_base_is_blocked(tmp_path):
     _mk(tmp_path / "stg", {HOOKIFY: "NEW RULE\n"})
     _mk(tmp_path / "blog", {"blog/.hookify.warn-hextra-weight-zero.md": "OLD RULE\n"})
     plan = plan_update(tmp_path / "blog", tmp_path / "stg", None, M, cfg=SITE_CFG)
     e = {x["path"]: x for x in plan}[HOOKIFY]
-    assert e["action"] == "replace"
+    assert e["action"] == "conflict"
+    assert "undeclared framework divergence" in e["reason"]
     assert e["legacy"] == "blog/.hookify.warn-hextra-weight-zero.md"
 
     apply_plan(tmp_path / "blog", tmp_path / "stg", plan)
-    assert (tmp_path / "blog" / HOOKIFY).read_text() == "NEW RULE\n"
-    assert not (tmp_path / "blog" / "blog" / ".hookify.warn-hextra-weight-zero.md").exists()
+    assert not (tmp_path / "blog" / HOOKIFY).exists()
+    assert (tmp_path / "blog" / "blog" / ".hookify.warn-hextra-weight-zero.md").read_text() == "OLD RULE\n"
 
 
 def test_a_merge_that_keeps_local_still_MOVES_a_relocated_file(tmp_path):
@@ -327,8 +328,8 @@ def test_the_scripts_are_still_framework_and_site_rooted():
 
 # --- planning: the operator's copy is retired, not left beside a new one ------
 
-def test_frank_shaped_blog_plans_replace_for_a_DIFFERING_private_copy(tmp_path):
-    """The realistic case. frank's scripts are not the shipped port's bytes."""
+def test_frank_shaped_blog_blocks_a_DIFFERING_private_copy_without_a_declaration(tmp_path):
+    """A private script may be a consumer divergence, not stale framework output."""
     _mk(tmp_path / "stg", {BUILD_SHEETS: "SHIPPED PORT\n", GEN_STICKERS: "SHIPPED SHIM\n"})
     _mk(tmp_path / "blog", {f"blog/{LEGACY_DIR}/build-sheets.py": "frank's 59 lines\n",
                             f"blog/{LEGACY_DIR}/generate-stickers.py": "frank's generator\n"})
@@ -337,8 +338,8 @@ def test_frank_shaped_blog_plans_replace_for_a_DIFFERING_private_copy(tmp_path):
 
     for p, name in ((BUILD_SHEETS, "build-sheets.py"), (GEN_STICKERS, "generate-stickers.py")):
         e = plan[p]
-        assert e["action"] == "replace", \
-            f"framework + differing bytes is a replace, not a relocate (got {e['action']})"
+        assert e["action"] == "conflict"
+        assert "undeclared framework divergence" in e["reason"]
         assert e["dest"] == "blog/" + p
         assert e["legacy"] == f"blog/{LEGACY_DIR}/{name}"
         assert e["legacy_floor"] == "blog", "pruning must stop at the site dir"
@@ -370,11 +371,15 @@ def test_a_correct_copy_at_BOTH_paths_prunes_only_the_stale_duplicate(tmp_path):
 
 # --- applying: the private directory goes, the site directory never does -------
 
-def test_apply_retires_both_scripts_and_prunes_the_emptied_private_dir(tmp_path):
+def test_declared_overrides_relocate_both_scripts_and_prune_the_emptied_private_dir(tmp_path):
     _mk(tmp_path / "stg", {BUILD_SHEETS: "SHIPPED PORT\n", GEN_STICKERS: "SHIPPED SHIM\n"})
     _mk(tmp_path / "blog", {f"blog/{LEGACY_DIR}/build-sheets.py": "frank's\n",
                             f"blog/{LEGACY_DIR}/generate-stickers.py": "frank's\n"})
-    plan = plan_update(tmp_path / "blog", tmp_path / "stg", None, M, cfg=SITE_CFG)
+    _mk(tmp_path / "base", {BUILD_SHEETS: "frank's\n", GEN_STICKERS: "frank's\n"})
+    overrides = {p: {"path": p, "reason": "Adopted local sticker script", "diverged_from": "v0.22.2"}
+                 for p in (BUILD_SHEETS, GEN_STICKERS)}
+    plan = plan_update(tmp_path / "blog", tmp_path / "stg", tmp_path / "base", M,
+                       cfg=SITE_CFG, overrides=overrides)
     assert apply_plan(tmp_path / "blog", tmp_path / "stg", plan) == []
 
     blog = tmp_path / "blog"
@@ -385,7 +390,7 @@ def test_apply_retires_both_scripts_and_prunes_the_emptied_private_dir(tmp_path)
     assert (blog / "blog").is_dir(), "but NEVER the operator's site directory"
 
 
-def test_the_private_dir_SURVIVES_while_it_still_holds_operator_files(tmp_path):
+def test_declared_overrides_leave_the_private_dir_while_it_holds_operator_files(tmp_path):
     """frank's real tree, and the reason the runbook cannot promise a clean dir.
 
     Measured on frank 2026-08-03: `blog/_private/frank-stickers/` holds
@@ -400,7 +405,11 @@ def test_the_private_dir_SURVIVES_while_it_still_holds_operator_files(tmp_path):
                             f"blog/{LEGACY_DIR}/README.md": "frank's readme\n",
                             f"blog/{LEGACY_DIR}/images/sticker-01-wave.png": "PNG\n",
                             f"blog/{LEGACY_DIR}/.DS_Store": "\x00"})
-    plan = plan_update(tmp_path / "blog", tmp_path / "stg", None, M, cfg=SITE_CFG)
+    _mk(tmp_path / "base", {BUILD_SHEETS: "frank's\n", GEN_STICKERS: "frank's\n"})
+    overrides = {p: {"path": p, "reason": "Adopted local sticker script", "diverged_from": "v0.22.2"}
+                 for p in (BUILD_SHEETS, GEN_STICKERS)}
+    plan = plan_update(tmp_path / "blog", tmp_path / "stg", tmp_path / "base", M,
+                       cfg=SITE_CFG, overrides=overrides)
     apply_plan(tmp_path / "blog", tmp_path / "stg", plan)
 
     legacy = tmp_path / "blog" / "blog" / LEGACY_DIR
@@ -436,22 +445,28 @@ def test_no_content_row_exists_for_the_sticker_data(tmp_path):
         assert classify(k, M) is not None, f"unclassified legacy_dests key: {k}"
 
 
-def test_re_running_after_apply_plans_nothing_for_the_scripts(tmp_path):
+def test_re_running_after_declared_override_apply_plans_nothing_for_the_scripts(tmp_path):
     _mk(tmp_path / "stg", {BUILD_SHEETS: "SHIPPED\n", GEN_STICKERS: "SHIPPED\n"})
     _mk(tmp_path / "blog", {f"blog/{LEGACY_DIR}/build-sheets.py": "frank's\n",
                             f"blog/{LEGACY_DIR}/generate-stickers.py": "frank's\n"})
-    plan = plan_update(tmp_path / "blog", tmp_path / "stg", None, M, cfg=SITE_CFG)
+    _mk(tmp_path / "base", {BUILD_SHEETS: "frank's\n", GEN_STICKERS: "frank's\n"})
+    overrides = {p: {"path": p, "reason": "Adopted local sticker script", "diverged_from": "v0.22.2"}
+                 for p in (BUILD_SHEETS, GEN_STICKERS)}
+    plan = plan_update(tmp_path / "blog", tmp_path / "stg", tmp_path / "base", M,
+                       cfg=SITE_CFG, overrides=overrides)
     apply_plan(tmp_path / "blog", tmp_path / "stg", plan)
-    again = plan_update(tmp_path / "blog", tmp_path / "stg", None, M, cfg=SITE_CFG)
+    again = plan_update(tmp_path / "blog", tmp_path / "stg", tmp_path / "base", M,
+                        cfg=SITE_CFG, overrides=overrides)
     assert [e for e in again if e["path"] in (BUILD_SHEETS, GEN_STICKERS)] == []
 
 
-def test_the_dry_run_names_the_private_copy_it_is_about_to_delete(tmp_path):
-    """The dry-run IS the migration notice — the operator must see WHICH file goes."""
+def test_the_dry_run_names_the_private_copy_and_the_required_declaration(tmp_path):
+    """The adoption block identifies WHICH consumer copy needs an override."""
     _mk(tmp_path / "stg", {BUILD_SHEETS: "SHIPPED\n"})
     _mk(tmp_path / "blog", {f"blog/{LEGACY_DIR}/build-sheets.py": "frank's\n"})
     out = dry_run_diff(plan_update(tmp_path / "blog", tmp_path / "stg", None, M, cfg=SITE_CFG))
-    assert "REPLACE" in out
+    assert "CONFLICT" in out
+    assert "undeclared framework divergence" in out
     assert f"blog/{LEGACY_DIR}/build-sheets.py -> blog/scripts/build-sheets.py" in out
 
 

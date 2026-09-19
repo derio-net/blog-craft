@@ -3,7 +3,8 @@
 
 Renders to a STAGING tree, classifies each path via the manifest, and computes a
 per-path action:
-  framework -> replace (shipped, overwrite)
+  framework -> replace (shipped, overwrite), unless the consumer declares an
+               override in .blog-craft.overrides.yaml
   content   -> leave   (operator-owned)
   merged    -> 3-way merge (base=re-render at recorded version, local=on-disk,
                incoming=staging) via `git merge-file`; conflicts are surfaced,
@@ -45,6 +46,7 @@ from reproduce import apply, materialized_paths      # noqa: E402
 from sync_state import SNAPSHOT_NAME, read_snapshot, write_snapshot  # noqa: E402
 
 _PLUGIN_ROOT = Path(__file__).resolve().parent.parent
+OVERRIDES_NAME = ".blog-craft.overrides.yaml"
 
 # Ordered for the dry-run tally: what lands, then what needs a human.
 _ACTIONS = ("add", "replace", "merge", "relocate", "prune", "noop", "conflict")
@@ -138,8 +140,54 @@ def three_way(base: Path, local: Path, incoming: Path) -> tuple[bytes, bool]:
     return r.stdout, r.returncode != 0
 
 
+def overrides_path(blog: str | Path) -> Path:
+    """The consumer-owned declaration file, beside the blog-craft config."""
+    return Path(blog) / OVERRIDES_NAME
+
+
+def load_overrides(blog: str | Path, manifest: dict) -> dict[str, dict]:
+    """Read declared framework divergences, rejecting ambiguous declarations.
+
+    The manifest continues to own the default class. This file only records a
+    consumer's deliberate exception, so an update can merge that one framework
+    path rather than silently replacing it.
+    """
+    p = overrides_path(blog)
+    if not p.exists():
+        return {}
+    if not p.is_file():
+        raise ValueError(f"{OVERRIDES_NAME} must be a file")
+    import yaml
+    try:
+        data = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError as e:
+        raise ValueError(f"cannot parse {OVERRIDES_NAME}: {e}") from e
+    if not isinstance(data, dict) or set(data) != {"overrides"}:
+        raise ValueError(f"{OVERRIDES_NAME} must contain only an 'overrides' list")
+    entries = data["overrides"]
+    if not isinstance(entries, list):
+        raise ValueError(f"{OVERRIDES_NAME}: 'overrides' must be a list")
+    out = {}
+    for i, entry in enumerate(entries, 1):
+        where = f"{OVERRIDES_NAME} entry {i}"
+        if not isinstance(entry, dict) or set(entry) != {"path", "reason", "diverged_from"}:
+            raise ValueError(f"{where} must contain exactly path, reason, and diverged_from")
+        path, reason, ref = (entry["path"], entry["reason"], entry["diverged_from"])
+        if not all(isinstance(value, str) and value.strip() for value in (path, reason, ref)):
+            raise ValueError(f"{where}: path, reason, and diverged_from must be non-empty strings")
+        if Path(path).is_absolute() or path.startswith("../") or "/../" in path:
+            raise ValueError(f"{where}: path must be staging-relative: {path}")
+        if classify(path, manifest) != "framework":
+            raise ValueError(f"{where}: {path} is not a framework path")
+        if path in out:
+            raise ValueError(f"{where}: duplicate path: {path}")
+        out[path] = entry
+    return out
+
+
 def plan_update(blog: str | Path, staging: str | Path, base: str | Path | None, manifest: dict,
-                cfg: dict | None = None, only: list[str] | None = None) -> list[dict]:
+                cfg: dict | None = None, only: list[str] | None = None,
+                overrides: dict[str, dict] | None = None) -> list[dict]:
     blog, staging = Path(blog), Path(staging)
     base = Path(base) if base else None
     only_res = [_glob_to_regex(g) for g in (only or [])]
@@ -148,6 +196,8 @@ def plan_update(blog: str | Path, staging: str | Path, base: str | Path | None, 
         # classification runs on the STAGING-relative path (manifest is
         # site-shaped); comparison + application use the mapped destination
         cls = classify(p, manifest)
+        declared = (overrides or {}).get(p)
+        effective_cls = "merged" if declared and cls == "framework" else cls
         dest = map_dest(p, cfg, manifest)
         inc = staging / p
         if cls in (None, "content"):
@@ -159,7 +209,9 @@ def plan_update(blog: str | Path, staging: str | Path, base: str | Path | None, 
         # sitting at its old destination. That file is the operator's — it is
         # the `local` side, not something to ignore and re-add blank (#61).
         legacy = next((d for d in legacy_dests(p, cfg, manifest) if (blog / d).exists()), None)
-        entry = {"path": p, "dest": dest, "class": cls}
+        entry = {"path": p, "dest": dest, "class": effective_cls}
+        if declared:
+            entry["override"] = declared
         if legacy:
             entry["legacy"] = legacy
             # Pruning the directories the old copy needed must stop at the site
@@ -185,8 +237,18 @@ def plan_update(blog: str | Path, staging: str | Path, base: str | Path | None, 
                 continue                               # already up to date
             plan.append({**entry, "action": "relocate"})   # identical -> pure move
             continue
-        if cls == "framework":
-            plan.append({**entry, "action": "replace"})
+        if effective_cls == "framework":
+            # A base proves whether this is an ordinary shipped update. Without
+            # one, any mismatch might be an adoption-era consumer edit, so block
+            # rather than recreate the silent replacement #88 fixes.
+            b = base / p if base and (base / p).exists() else None
+            if b is None or loc.read_bytes() != b.read_bytes():
+                entry["action"] = "conflict"
+                entry["reason"] = ("undeclared framework divergence; add it to "
+                                   f"{OVERRIDES_NAME} to merge")
+                plan.append(entry)
+            else:
+                plan.append({**entry, "action": "replace"})
         else:  # merged -> 3-way
             b = base / p if base and (base / p).exists() else None
             if b is None:
@@ -236,6 +298,24 @@ def dry_run_diff(plan: list[dict]) -> str:
             line += f"  ({e['reason']})"
         lines.append(line)
     return "\n".join(lines) if lines else "no changes"
+
+
+def overrides_now_upstream(blog: str | Path, staging: str | Path, manifest: dict,
+                           cfg: dict | None, overrides: dict[str, dict]) -> list[str]:
+    """Declared paths whose consumer copy is now byte-identical to upstream."""
+    blog, staging = Path(blog), Path(staging)
+    matched = []
+    for path in overrides:
+        incoming = staging / path
+        if not incoming.exists():
+            continue
+        local = blog / map_dest(path, cfg, manifest)
+        if not local.exists():
+            local = next((blog / legacy for legacy in legacy_dests(path, cfg, manifest)
+                          if (blog / legacy).exists()), local)
+        if local.exists() and local.read_bytes() == incoming.read_bytes():
+            matched.append(path)
+    return matched
 
 
 def _prune_empty_parents(floor: Path, path: Path) -> None:
@@ -366,7 +446,8 @@ def base_by_rerender(config: str, blog_craft_version: str, base_dir: str) -> Pat
         # warns about, and git says which ref it could not find (#59).
         run_checked(["git", "-C", str(_PLUGIN_ROOT), "archive", "--output", str(arch),
                      blog_craft_version])
-        old = Path(td) / "old"; old.mkdir()
+        old = Path(td) / "old"
+        old.mkdir()
         subprocess.run(["tar", "-xf", str(arch), "-C", str(old)], check=True)  # output visible
         run_checked(["bash", str(old / "tools" / "bootstrap-render.sh"),
                      str(config), str(base_dir)])
@@ -453,6 +534,11 @@ def _main(argv):
     # always be "no" and the one chance to flag pre-existing drift would be gone.
     fallback_base = not a.base and read_snapshot(blog) is None
     m = default_manifest()
+    try:
+        overrides = load_overrides(blog, m)
+    except ValueError as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        return 2
     cfg = yaml.safe_load(open(config)) or {}
     with tempfile.TemporaryDirectory() as td:
         staging = render_staging(str(config), str(Path(td) / "staging"))
@@ -461,10 +547,16 @@ def _main(argv):
             ver = cfg.get("blog_craft_version")
             if ver:
                 base = render_base(config, blog, ver, str(Path(td) / "base"))
-        plan = plan_update(blog, staging, base, m, cfg=cfg, only=a.only)
+        plan = plan_update(blog, staging, base, m, cfg=cfg, only=a.only, overrides=overrides)
         print(dry_run_diff(plan))
         if plan:
             print(f"\n{plan_summary(plan)}")     # dry_run_diff already says "no changes"
+        if overrides:
+            current = overrides_now_upstream(blog, staging, m, cfg, overrides)
+            print(f"\n{len(overrides)} declared divergence(s)")
+            if current:
+                print("now matches upstream — remove its override declaration:")
+                print(*current, sep="\n  ")
         if not a.apply:
             print("\n(dry-run — pass --apply to write)")
             return 0

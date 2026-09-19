@@ -87,16 +87,21 @@ cfg["site_dir"] = "blog"
 cfg["image"]["prompts_file"] = "blog/prompt_for_images.yaml"
 yaml.safe_dump(cfg, open(fr + "/.blog-craft.yaml", "w"))
 PY
-echo "STALE VENDORED COPY" > "$FR/blog/scripts/generate-images.py"
+# The consumer still has the recorded script; the staging tree models the next
+# upstream release changing it. This is a safe framework replacement, unlike a
+# consumer-edited copy without an override declaration.
+echo "# shipped script update" >> "$STG/scripts/generate-images.py"
 SENTINEL_CONTENT="$FR/blog/content/docs/keep.md"; echo "operator content" > "$SENTINEL_CONTENT"
 
-FR_ACTIONS=$("$PY" - "$REPO_ROOT" "$FR" "$STG" <<'PY'
+FR_ACTIONS=$("$PY" - "$REPO_ROOT" "$FR" "$STG" "$BASE" <<'PY'
 import sys, yaml
 sys.path.insert(0, sys.argv[1] + "/tools")
 from update import plan_update, apply_plan, default_manifest
-fr, stg = sys.argv[2], sys.argv[3]
+fr, stg, base = sys.argv[2], sys.argv[3], sys.argv[4]
 cfg = yaml.safe_load(open(fr + "/.blog-craft.yaml"))
-plan = plan_update(fr, stg, None, default_manifest(), cfg=cfg, only=["scripts/**"])
+# The stale copy matches this recorded base, so its framework replacement is
+# safe. A differing copy without a base is intentionally blocked by #88.
+plan = plan_update(fr, stg, base, default_manifest(), cfg=cfg, only=["scripts/**"])
 apply_plan(fr, stg, plan)
 print(";".join(f"{e['dest']}={e['action']}" for e in plan))
 PY
@@ -104,7 +109,7 @@ PY
 echo "  actions: $FR_ACTIONS"
 grep -q "blog/scripts/generate-images.py=replace" <<<"$FR_ACTIONS" && pass "site_dir: vendored script replaced under blog/" || fail "site_dir mapping missed blog/scripts"
 grep -vq "layouts" <<<"$FR_ACTIONS" && pass "--only scoped the plan to scripts/**" || fail "--only leaked non-script paths"
-grep -q "STALE VENDORED COPY" "$FR/blog/scripts/generate-images.py" && fail "vendored script not actually replaced" || pass "vendored script content updated on disk"
+grep -q "shipped script update" "$FR/blog/scripts/generate-images.py" && pass "vendored script content updated on disk" || fail "vendored script not actually replaced"
 grep -q "operator content" "$SENTINEL_CONTENT" && pass "content untouched by scoped update" || fail "scoped update touched content"
 [[ -e "$FR/scripts/generate-images.py" ]] && fail "wrote outside site_dir" || pass "nothing written outside site_dir"
 

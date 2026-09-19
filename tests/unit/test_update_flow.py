@@ -33,6 +33,71 @@ def test_framework_replace_and_content_left(tmp_path):
     assert "content/p.md" not in by                      # content is left alone
 
 
+def test_undeclared_framework_divergence_is_blocked(tmp_path):
+    plan = _plan(
+        tmp_path,
+        base={"layouts/x.html": "BASE\n"},
+        blog={"layouts/x.html": "CONSUMER EDIT\n"},
+        stg={"layouts/x.html": "UPSTREAM EDIT\n"},
+    )
+    e = {x["path"]: x for x in plan}["layouts/x.html"]
+    assert e["action"] == "conflict"
+    assert "undeclared framework divergence" in e["reason"]
+
+    assert apply_plan(tmp_path / "blog", tmp_path / "stg", plan) == ["layouts/x.html"]
+    assert (tmp_path / "blog" / "layouts/x.html").read_text() == "CONSUMER EDIT\n"
+
+
+def test_framework_mismatch_without_a_base_is_blocked(tmp_path):
+    # An adopted blog may have edits from before blog-craft recorded a base. It
+    # is unsafe to assume this is stale framework output and replace it.
+    _mk(tmp_path / "blog", {"layouts/x.html": "CONSUMER EDIT\n"})
+    _mk(tmp_path / "stg", {"layouts/x.html": "UPSTREAM EDIT\n"})
+    plan = plan_update(tmp_path / "blog", tmp_path / "stg", None, M)
+    e = {x["path"]: x for x in plan}["layouts/x.html"]
+    assert e["action"] == "conflict"
+    assert "undeclared framework divergence" in e["reason"]
+
+
+def test_declared_framework_divergence_three_way_merges(tmp_path):
+    def layout(title, footer):
+        return f"<title>{title}</title>\n\n<footer>{footer}</footer>\n"
+
+    _mk(tmp_path / "base", {"layouts/x.html": layout("blog", "base")})
+    _mk(tmp_path / "blog", {"layouts/x.html": layout("consumer title", "base")})
+    _mk(tmp_path / "stg", {"layouts/x.html": layout("blog", "upstream footer")})
+    overrides = {"layouts/x.html": {
+        "path": "layouts/x.html", "reason": "Reader-specific page title", "diverged_from": "v0.22.2",
+    }}
+    plan = plan_update(tmp_path / "blog", tmp_path / "stg", tmp_path / "base", M,
+                       overrides=overrides)
+    e = {x["path"]: x for x in plan}["layouts/x.html"]
+    assert e["action"] == "merge"
+    assert e["class"] == "merged"
+    assert e["override"] == overrides["layouts/x.html"]
+
+    assert apply_plan(tmp_path / "blog", tmp_path / "stg", plan) == []
+    landed = (tmp_path / "blog" / "layouts/x.html").read_text()
+    assert "consumer title" in landed
+    assert "upstream footer" in landed
+
+
+def test_declared_framework_divergence_conflict_stays_on_disk(tmp_path):
+    _mk(tmp_path / "base", {"layouts/x.html": "shared\n"})
+    _mk(tmp_path / "blog", {"layouts/x.html": "consumer change\n"})
+    _mk(tmp_path / "stg", {"layouts/x.html": "upstream change\n"})
+    plan = plan_update(
+        tmp_path / "blog", tmp_path / "stg", tmp_path / "base", M,
+        overrides={"layouts/x.html": {
+            "path": "layouts/x.html", "reason": "Intentional consumer customization",
+            "diverged_from": "v0.22.2",
+        }},
+    )
+    assert plan[0]["action"] == "conflict"
+    assert apply_plan(tmp_path / "blog", tmp_path / "stg", plan) == ["layouts/x.html"]
+    assert (tmp_path / "blog" / "layouts/x.html").read_text() == "consumer change\n"
+
+
 def test_merged_clean_3way(tmp_path):
     # hugo.toml is 'merged'; local unchanged from base, incoming changed -> clean merge
     plan = _plan(

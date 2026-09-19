@@ -164,11 +164,13 @@ def test_a_scoped_apply_does_not_claim_a_sync(tmp_path, monkeypatch, capsys):
     # rendered with — #60 again, by another door.
     blog = _tree(tmp_path / "blog", {"scripts/x.py": "old\n"})
     stg = _tree(tmp_path / "stg", {"scripts/x.py": "new\n"})
-    (tmp_path / "cfg.yaml").write_text("version: 5\n")
+    base = _tree(tmp_path / "base", {"scripts/x.py": "old\n"})
+    (tmp_path / "cfg.yaml").write_text("version: 5\nblog_craft_version: v0.16.0\n")
     before = sync_state.write_snapshot(_config(tmp_path, "old.yaml", "version: 5\nfeatures: {}\n"),
                                        blog).read_bytes()
 
     monkeypatch.setattr(update, "render_staging", lambda cfg, dest: stg)
+    monkeypatch.setattr(update, "render_base", lambda c, b, v, dest: str(base))
     rc = update._main(["--config", str(tmp_path / "cfg.yaml"), "--blog", str(blog),
                        "--only", "scripts/**", "--apply"])
 
@@ -181,10 +183,12 @@ def test_a_scoped_apply_does_not_claim_a_sync(tmp_path, monkeypatch, capsys):
 def test_an_unscoped_apply_records_the_snapshot(tmp_path, monkeypatch, capsys):
     blog = _tree(tmp_path / "blog", {"scripts/x.py": "old\n"})
     stg = _tree(tmp_path / "stg", {"scripts/x.py": "new\n"})
+    base = _tree(tmp_path / "base", {"scripts/x.py": "old\n"})
     cfg = tmp_path / "cfg.yaml"
-    cfg.write_text("version: 5\nfeatures: {glossary: {enabled: true}}\n")
+    cfg.write_text("version: 5\nblog_craft_version: v0.16.0\nfeatures: {glossary: {enabled: true}}\n")
 
     monkeypatch.setattr(update, "render_staging", lambda c, dest: stg)
+    monkeypatch.setattr(update, "render_base", lambda c, b, v, dest: str(base))
     assert update._main(["--config", str(cfg), "--blog", str(blog), "--apply"]) == 0
     assert "enabled: true" in sync_state.snapshot_path(blog).read_text()
     assert "recorded sync snapshot" in capsys.readouterr().out
@@ -195,10 +199,12 @@ def test_a_snapshot_write_failure_does_not_undo_a_successful_apply(tmp_path, mon
     # the operator nothing was applied, which is false.
     blog = _tree(tmp_path / "blog", {"scripts/x.py": "old\n"})
     stg = _tree(tmp_path / "stg", {"scripts/x.py": "new\n"})
+    base = _tree(tmp_path / "base", {"scripts/x.py": "old\n"})
     cfg = tmp_path / "cfg.yaml"
-    cfg.write_text("version: 5\n")
+    cfg.write_text("version: 5\nblog_craft_version: v0.16.0\n")
 
     monkeypatch.setattr(update, "render_staging", lambda c, dest: stg)
+    monkeypatch.setattr(update, "render_base", lambda c, b, v, dest: str(base))
     monkeypatch.setattr(update, "write_snapshot",
                         lambda c, b: (_ for _ in ()).throw(OSError("read-only file system")))
     rc = update._main(["--config", str(cfg), "--blog", str(blog), "--apply"])
