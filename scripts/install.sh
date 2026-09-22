@@ -173,10 +173,15 @@ if command -v jq &>/dev/null; then
     echo "  Registered $MARKETPLACE_NAME in extraKnownMarketplaces"
   fi
 
+  # `lastUpdated` is required: Claude Code's `/plugin` rejects the WHOLE file
+  # ("Marketplace configuration file is corrupted: <name>.lastUpdated: Invalid
+  # input") when one entry lacks it, and this replaces the entry wholesale, so
+  # it must write every field. This install re-syncs the marketplace dir, so
+  # "now" is the true value.
   if [ -f "$KNOWN_MARKETPLACES" ]; then
     jq --arg name "$MARKETPLACE_NAME" --argjson src "$MARKETPLACE_SOURCE" \
-      --arg loc "$MARKETPLACE_DIR" \
-      '.[$name] = {"source":$src,"installLocation":$loc}' \
+      --arg loc "$MARKETPLACE_DIR" --arg now "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" \
+      '.[$name] = {"source":$src,"installLocation":$loc,"lastUpdated":$now}' \
       "$KNOWN_MARKETPLACES" > "${KNOWN_MARKETPLACES}.tmp" && mv "${KNOWN_MARKETPLACES}.tmp" "$KNOWN_MARKETPLACES"
     echo "  Registered $MARKETPLACE_NAME in known_marketplaces.json"
   fi
