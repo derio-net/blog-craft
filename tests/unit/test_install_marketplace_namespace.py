@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -178,6 +179,19 @@ class TestInstallsUnderOwnName:
 
         source = _settings(fake_home)["extraKnownMarketplaces"][MARKETPLACE_NAME]["source"]
         assert source == {"source": "github", "repo": "derio-net/blog-craft"}
+
+    def test_registered_entry_carries_the_fields_claude_code_requires(
+        self, fake_home: Path
+    ) -> None:
+        """Claude Code's `/plugin` refuses the WHOLE registry — "Marketplace
+        configuration file is corrupted: <name>.lastUpdated: Invalid input" — when
+        one entry lacks `lastUpdated`. The entry is replaced wholesale, so it must
+        be written complete (found live 2026-09-22; same fix as derio-net/super-fr#573)."""
+        _run_install(fake_home)
+
+        entry = _known(fake_home)[MARKETPLACE_NAME]
+        assert set(entry) == {"source", "installLocation", "lastUpdated"}
+        assert re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z", entry["lastUpdated"]), entry
 
     def test_plugin_id_is_namespaced_to_our_marketplace(self, fake_home: Path) -> None:
         _run_install(fake_home)

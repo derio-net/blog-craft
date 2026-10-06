@@ -18,6 +18,15 @@ matching `vX.Y.Z` tag on merge (#18).
   and three-way merges a declared path as a visible `divergence` instead of
   silently replacing it; conflicts remain for manual resolution. Undeclared
   framework paths retain the existing replacement behavior (#88).
+## [0.22.3] - 2026-09-23
+
+### Fixed
+- `scripts/install.sh` now writes `lastUpdated` into its
+  `known_marketplaces.json` entry. It replaced the entry with only `source` and
+  `installLocation`, and Claude Code's `/plugin` then rejected the whole
+  registry ("Marketplace configuration file is corrupted:
+  derio-net--blog-craft.lastUpdated: Invalid input"). Same fix as
+  derio-net/super-fr#573.
 
 ## [0.22.2] - 2026-09-13
 
