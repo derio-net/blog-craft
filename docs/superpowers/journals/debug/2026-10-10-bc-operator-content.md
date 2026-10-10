@@ -19,3 +19,8 @@ templates/manifest.yaml:18 lists `.gitignore` under `framework`; tools/update.py
 ### 04e399808849 · ruled-out · Plain ruamel round-trip is not enough for #73
 
 ruamel rt preserves comments and key order, but on the frank fixture it still re-indented (load_yaml_guess_indent guessed 4, frank uses 2), normalised flow-collection whitespace (`{ a: 1 }` -> `{a: 1}`), joined a multi-line flow map, and dropped column alignment — on blocks the migration never touched. Tests passed only because the V6 fixture had no flow style and the frank test checked full-line comments. Next: keep ruamel for rendering, but splice the ORIGINAL text for every key whose value the migration left unchanged (recursing into changed block mappings), so only migrated keys are re-rendered; tighten the frank test to an exact removed-lines set.
+
+<!-- fr:journal kind=finding scope=debug id=0b821d29c1ce created=2026-10-10T19:12:15+00:00 state=fixed -->
+### 0b821d29c1ce · finding [fixed] · Fixed #73 and #83
+
+#73: tools/migrate_config.py renders with ruamel.yaml and splices original lines back for every unchanged key (recursing into changed block mappings; new keys drop the trailing comment ruamel relocates onto them). #83: templates/manifest.yaml moves `.gitignore` framework -> merged. Pinned by tests/unit/test_operator_content_preserved.py (red at fceacd7): frank fixture v2->v7 removes exactly the two migrated lines, adds no comment/blank lines; .gitignore operator rules survive a 3-way merge, a clash is a conflict leaving the file untouched; missing ruamel writes nothing.
