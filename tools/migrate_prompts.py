@@ -13,8 +13,9 @@ Standard fields stay top-level: key, output, description, aspect_ratio,
 image_size, operator_generated, post_process. `series` is copied into
 modifiers (v5 home) — reference selection no longer consumes it.
 
-Non-destructive: writes a .bak. NOTE: yaml round-trip drops comments — the
-same tradeoff as migrate_config.py; hand-migrate when comments matter.
+Non-destructive: writes a .bak. NOTE: yaml round-trip drops comments (unlike
+migrate_config.py, which splices to keep them — #73); hand-migrate when comments
+matter.
 
 Usage: migrate_prompts.py --config <path/to/.blog-craft.yaml> [--check]
 """

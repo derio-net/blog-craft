@@ -10,6 +10,25 @@ matching `vX.Y.Z` tag on merge (#18).
 
 ## [Unreleased]
 
+## [0.22.4] - 2026-10-10
+
+### Fixed
+- **`tools/migrate_config.py` no longer rewrites the whole `.blog-craft.yaml`
+  (#73).** It round-tripped the operator-owned config through
+  `yaml.safe_load` -> `yaml.safe_dump(sort_keys=True)`, deleting every comment
+  (load-bearing warnings included) and alphabetising every key: a two-key
+  migration became a ~500-line diff. Migrations still run on a plain dict; the
+  result is rendered with ruamel.yaml and the operator's original lines are
+  spliced back for every key the migration left alone, so only migrated keys
+  change. On frank's config, v2 -> v7 now removes exactly the two lines the
+  ladder rewrites. **New dependency: `ruamel.yaml`** (pyproject, and the unit
+  venv in `tests/run-unit.sh`).
+- **`/update` no longer deletes operator rules from `.gitignore` (#83).** It
+  was classed `framework`, so every `--apply` replaced it and silently dropped
+  additions like `*.bak` and `.DS_Store`. It is now `merged` (3-way, like
+  `assets/css/**`): operator lines survive, new shipped lines are delivered,
+  and a genuine clash surfaces as a conflict that leaves the file untouched.
+
 ## [0.22.3] - 2026-09-23
 
 ### Fixed

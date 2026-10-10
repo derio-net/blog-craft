@@ -17,7 +17,9 @@ python <blog-craft>/tools/migrate_config.py .blog-craft.yaml           # upgrade
 ```
 
 Applies `migrations/NNN_to_MMM.py` in order from the config's `version:` to the
-latest — pure, idempotent, and non-destructive (a `.bak` is written).
+latest — pure, idempotent, and non-destructive (a `.bak` is written). Only the
+keys a migration changes are rewritten; every other line of the config — comments,
+key order, quoting, flow style — is kept byte-for-byte (needs `ruamel.yaml`).
 
 ## 2. Re-apply blog-craft (3-way merge)
 

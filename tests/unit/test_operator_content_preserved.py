@@ -83,13 +83,22 @@ def test_multi_rung_migration_keeps_every_comment_and_top_level_order(tmp_path):
     assert r.returncode == 0, r.stderr
     new = cfg.read_text()
     assert yaml.safe_load(new) == upgrade(yaml.safe_load(original))
-    comments = [l.split("#", 1)[1].strip() for l in original.splitlines()
-                if "#" in l and l.lstrip().startswith("#")]
-    for c in comments:
-        assert c in new, f"comment lost: {c!r}"
-    orig_keys = [k for k in yaml.safe_load(original) if k in yaml.safe_load(new)]
-    new_keys = [k for k in yaml.safe_load(new) if k in orig_keys]
-    assert new_keys == orig_keys        # not alphabetised
+    # Byte-level: the ONLY original lines allowed to go are the two the ladder
+    # rewrites (the version, and 001->002's composition_order -> composition_orders
+    # rename). Flow maps, alignment padding, inline comments, block scalars and
+    # indentation everywhere else are the operator's and must survive verbatim.
+    diff = list(difflib.ndiff(original.splitlines(), new.splitlines()))
+    removed = [l[2:] for l in diff if l.startswith("- ")]
+    assert removed == [
+        "version: 2",
+        "  composition_order: [base_character, base_atmosphere, reference_guidance, torso, mood, scene]",
+    ], new
+    # ...and nothing added but the migrated keys: no comment printed twice, no
+    # stray blank line (ruamel relocates a mapping's trailing comment).
+    added = [l[2:] for l in diff if l.startswith("+ ")]
+    assert not [l for l in added if not l.strip() or l.lstrip().startswith("#")], new
+    orig_keys = list(yaml.safe_load(original))
+    assert [k for k in yaml.safe_load(new) if k in orig_keys] == orig_keys   # not alphabetised
 
 
 def test_migration_leaves_a_backup_of_the_exact_original(tmp_path):
@@ -97,6 +106,18 @@ def test_migration_leaves_a_backup_of_the_exact_original(tmp_path):
     cfg.write_text(V6)
     _migrate(cfg)
     assert (tmp_path / ".blog-craft.yaml.bak").read_text() == V6
+
+
+def test_missing_ruamel_writes_nothing(tmp_path, monkeypatch, capsys):
+    """Without ruamel the tool refuses loudly — it never falls back to the lossy dump."""
+    import migrate_config
+    monkeypatch.setitem(sys.modules, "ruamel", None)       # `import ruamel.yaml` -> ImportError
+    cfg = tmp_path / ".blog-craft.yaml"
+    cfg.write_text(V6)
+    assert migrate_config._main([str(cfg)]) == 2
+    assert "ruamel.yaml" in capsys.readouterr().err
+    assert cfg.read_text() == V6
+    assert not (tmp_path / ".blog-craft.yaml.bak").exists()
 
 
 # --- #83: .gitignore is merged, so operator rules survive /update -------------
@@ -115,15 +136,29 @@ def _mk(root: Path, files: dict):
         p.write_text(content)
 
 
+SHIPPED_OLD = "public/\nresources/\n.env\n__pycache__/\n\n# Image curation\n.regen-archive/\n"
+
+
 def test_update_keeps_operator_gitignore_rules_and_ships_new_ones(tmp_path):
-    shipped_old = "public/\nresources/\n"
-    shipped_new = "public/\nresources/\n.hugo_build.lock\n"
-    _mk(tmp_path / "base", {".gitignore": shipped_old})
+    shipped_new = SHIPPED_OLD.replace("resources/\n", "resources/\n.hugo_build.lock\n")
+    _mk(tmp_path / "base", {".gitignore": SHIPPED_OLD})
     _mk(tmp_path / "stg", {".gitignore": shipped_new})
-    _mk(tmp_path / "blog", {".gitignore": shipped_old + "*.bak\n.DS_Store\n"})
+    _mk(tmp_path / "blog", {".gitignore": SHIPPED_OLD + "\n*.bak\n.DS_Store\n"})
     plan = plan_update(tmp_path / "blog", tmp_path / "stg", tmp_path / "base", M)
     assert [(e["path"], e["action"]) for e in plan] == [(".gitignore", "merge")]
     assert apply_plan(tmp_path / "blog", tmp_path / "stg", plan) == []
     out = (tmp_path / "blog" / ".gitignore").read_text()
     assert "*.bak" in out and ".DS_Store" in out          # operator rules kept
     assert ".hugo_build.lock" in out                       # shipped rule delivered
+
+
+def test_gitignore_clash_is_a_conflict_that_keeps_the_operator_file(tmp_path):
+    """Shipped and operator lines touching the same spot: surfaced, never dropped."""
+    blog = SHIPPED_OLD + "*.bak\n"
+    _mk(tmp_path / "base", {".gitignore": SHIPPED_OLD})
+    _mk(tmp_path / "stg", {".gitignore": SHIPPED_OLD + "node_modules/\n"})
+    _mk(tmp_path / "blog", {".gitignore": blog})
+    plan = plan_update(tmp_path / "blog", tmp_path / "stg", tmp_path / "base", M)
+    assert [(e["path"], e["action"]) for e in plan] == [(".gitignore", "conflict")]
+    assert apply_plan(tmp_path / "blog", tmp_path / "stg", plan) == [".gitignore"]
+    assert (tmp_path / "blog" / ".gitignore").read_text() == blog
