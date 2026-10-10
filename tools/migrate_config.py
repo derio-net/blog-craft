@@ -167,8 +167,18 @@ def _rewrite(text: str, old: dict, upgraded: dict) -> str:
     r_doc = rt.load(rendered)
     r_lines = rendered.splitlines(keepends=True)
     head = lines[:o_doc.lc.key(next(iter(o_doc)))[0]]    # comments above the first key
-    return "".join(head + _splice(lines, o_doc, len(lines), r_lines, r_doc,
-                                  len(r_lines), old, upgraded))
+    spliced = "".join(head + _splice(lines, o_doc, len(lines), r_lines, r_doc,
+                                     len(r_lines), old, upgraded))
+    # Parity guard: the splice works on lines, so a YAML corner it does not model
+    # (e.g. a trailing `|+` block scalar) could shift a value. Never ship that —
+    # fall back to ruamel's whole render, which still keeps comments and order.
+    import yaml
+    try:
+        if yaml.safe_load(spliced) == upgraded:
+            return spliced
+    except yaml.YAMLError:
+        pass
+    return rendered
 
 
 def _main(argv):

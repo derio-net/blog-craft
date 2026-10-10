@@ -108,6 +108,20 @@ def test_migration_leaves_a_backup_of_the_exact_original(tmp_path):
     assert (tmp_path / ".blog-craft.yaml.bak").read_text() == V6
 
 
+def test_keep_chomped_block_scalar_value_survives(tmp_path):
+    """A `|+` scalar's trailing blank lines are CONTENT, not section spacing.
+
+    The splice moves a mapping's trailing blank lines after appended keys; for a
+    keep-chomped last value that would change the value. The parity guard must
+    catch it, so the written config always parses to what the ladder computed.
+    """
+    text = "version: 6\nfeatures:\n  mermaid_view: true\n  note: |+\n    keep me\n\n\nvoice: x\n"
+    cfg = tmp_path / ".blog-craft.yaml"
+    cfg.write_text(text)
+    assert _migrate(cfg).returncode == 0
+    assert yaml.safe_load(cfg.read_text()) == upgrade(yaml.safe_load(text))
+
+
 def test_missing_ruamel_writes_nothing(tmp_path, monkeypatch, capsys):
     """Without ruamel the tool refuses loudly — it never falls back to the lossy dump."""
     import migrate_config
