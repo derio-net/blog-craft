@@ -24,3 +24,8 @@ ruamel rt preserves comments and key order, but on the frank fixture it still re
 ### 0b821d29c1ce · finding [fixed] · Fixed #73 and #83
 
 #73: tools/migrate_config.py renders with ruamel.yaml and splices original lines back for every unchanged key (recursing into changed block mappings; new keys drop the trailing comment ruamel relocates onto them). #83: templates/manifest.yaml moves `.gitignore` framework -> merged. Pinned by tests/unit/test_operator_content_preserved.py (red at fceacd7): frank fixture v2->v7 removes exactly the two migrated lines, adds no comment/blank lines; .gitignore operator rules survive a 3-way merge, a clash is a conflict leaving the file untouched; missing ruamel writes nothing.
+
+<!-- fr:journal kind=review scope=debug id=e26ea8a59802 created=2026-10-10T19:13:01+00:00 -->
+### e26ea8a59802 · review · Self-review of the fix: three findings, all fixed
+
+1) Plain ruamel round-trip still reformatted untouched blocks on frank (indent guess, flow padding, alignment) — fixed by key-level splicing; test tightened to an exact removed-lines set. 2) ruamel relocates a mapping trailing comment onto an appended key, duplicating it — fixed (new keys drop trailing comment/blank lines); test asserts no added comment/blank lines. 3) A trailing `|+` block scalar would have its content blank lines moved by tail relocation — fixed with a parse-parity guard falling back to the whole ruamel render; red/green verified. Also: a missing ruamel now refuses before writing .bak or config. No out-of-scope findings.
