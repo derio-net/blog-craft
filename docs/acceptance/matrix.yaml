@@ -1404,3 +1404,15 @@ rows:
       and the original lines are spliced back for every unchanged key. Pinned on frank''s
       real-shape fixture (v2 -> latest): the only removed lines are the two the ladder
       rewrites, no comment is duplicated, and the parse equals upgrade().'
+  - id: OPC-2
+    capability: operator-content-preservation
+    acceptance: /update keeps operator-added .gitignore rules while still delivering
+      new shipped ones; a clash surfaces as a conflict, never a silent deletion
+    origin:
+    - blog-craft:templates/manifest.yaml
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_operator_content_preserved.py
+    status: ci
+    notes: '#83. .gitignore reclassified framework -> merged (git merge-file 3-way).
+      A conflict leaves the operator''s file untouched and named.'
