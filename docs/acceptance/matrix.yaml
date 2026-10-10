@@ -1389,3 +1389,18 @@ rows:
       - blog-craft:tests/unit/test_hugo_toml.py
     status: ci
     notes: Hugo publication-boundary integration runs with the pinned Hugo installed in CI. Unknown verification and command-state metadata are explicit, and Markdown digests cover the emitted bytes.
+  - id: OPC-1
+    capability: operator-content-preservation
+    acceptance: A config migration rewrites only the keys it migrates; every comment,
+      key order, quoting, flow style and alignment elsewhere in .blog-craft.yaml survives
+      verbatim
+    origin:
+    - blog-craft:tools/migrate_config.py
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_operator_content_preserved.py
+    status: ci
+    notes: '#73. Migrations still run on a plain dict; ruamel.yaml renders the result
+      and the original lines are spliced back for every unchanged key. Pinned on frank''s
+      real-shape fixture (v2 -> latest): the only removed lines are the two the ladder
+      rewrites, no comment is duplicated, and the parse equals upgrade().'
