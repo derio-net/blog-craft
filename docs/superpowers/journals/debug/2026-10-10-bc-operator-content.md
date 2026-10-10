@@ -14,3 +14,8 @@ templates/manifest.yaml:18 lists `.gitignore` under `framework`; tools/update.py
 ### fbc726d2456c · root-cause · Two independent root causes, not one
 
 (1) migrate_config.py persists through a lossy PyYAML dict round-trip — comments/order/quoting are not representable in a dict, so any rewrite destroys them. (2) the manifest misclassifies `.gitignore` as framework (overwrite) though blogs are expected to extend it, like `assets/css/**` (merged). Shared theme only: /update rewrites operator-edited files wholesale. No single change fixes both; per batch rule, stopped to ask before fixing.
+
+<!-- fr:journal kind=ruled-out scope=debug id=04e399808849 created=2026-10-10T19:00:06+00:00 -->
+### 04e399808849 · ruled-out · Plain ruamel round-trip is not enough for #73
+
+ruamel rt preserves comments and key order, but on the frank fixture it still re-indented (load_yaml_guess_indent guessed 4, frank uses 2), normalised flow-collection whitespace (`{ a: 1 }` -> `{a: 1}`), joined a multi-line flow map, and dropped column alignment — on blocks the migration never touched. Tests passed only because the V6 fixture had no flow style and the frank test checked full-line comments. Next: keep ruamel for rendering, but splice the ORIGINAL text for every key whose value the migration left unchanged (recursing into changed block mappings), so only migrated keys are re-rendered; tighten the frank test to an exact removed-lines set.
