@@ -4,3 +4,8 @@
 ### 6c7e591973f7 · repro · scaffold-paper.sh writes the bundle beside a site_dir Hugo site
 
 With `site_dir: blog` and .blog-craft.yaml at the repo root, `scaffold-paper.sh --config .blog-craft.yaml 21 x` writes `content/docs/papers/21-x/index.md` at the repo root instead of `blog/content/docs/papers/21-x/index.md`. The dossier lands correctly at `docs/papers-dossiers/21-x/` (repo-relative dossier_dir). blog-craft#79.
+
+<!-- fr:journal kind=root-cause scope=debug id=ba7fe51b567a created=2026-10-11T22:59:01+00:00 -->
+### ba7fe51b567a · root-cause · BUNDLE is rooted at the config's directory; site_dir is never read
+
+scaffold-paper.sh:35 sets ROOT to dirname(--config) and :39 builds BUNDLE=$ROOT/content/docs/<key>/<dir>. The python config read (:26-33) extracts weight_offset, dossier_dir and the papers key but not site_dir. Per templates/manifest.yaml, content/** is a site-placed path (lands under site_dir) while dossier_dir is a config-root-relative path, so only the bundle needs the site_dir prefix. glossary_scan.py:323 shows the convention: (site_dir or '.').rstrip('/').
