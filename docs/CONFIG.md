@@ -310,7 +310,7 @@ that legitimately needs no diagram waives *just* that one check with
 | `gate.min_command_blocks` | `1` | Minimum fenced command/output code blocks (mermaid fences don't count). |
 | `gate.require_actionable_section` | `true` | At least one heading a reader under pressure can follow (Reproduce / Runbook / Steps / Verify / Recover / …). |
 | `gate.require_diagram` | `true` | A post whose `diataxis` includes `how-to` or `tutorial` must carry ≥ 1 ` ```mermaid ` block — for visual learners a topology/flow diagram is the difference between understanding and guessing. Waive one post with `diagram_exempt: <reason>`. |
-| `mermaid_max_width` | `1400` (px) | **Blocks.** Maximum rendered width of any mermaid diagram in the built site. Not a per-post gate: it runs after `hugo` against `public/**/*.html` and **fails CI** for every diagram over budget, naming page, block index, measured width and overage. `1400` is ~2× the 672px content column — a diagram needing more than two column-widths of scrolling can't be held in the reader's head. Waive one diagram with a `%% blog-craft: wide-ok — <reason>` comment in its own source; set `0` to disable the gate (still loud: it lists what it did not measure). See §12. |
+| `mermaid_max_width` | `1400` (px) | **Blocks.** Maximum rendered width of any mermaid diagram in the built site. Not a per-post gate: it runs after `hugo` against `public/**/*.html` and **fails CI** for every diagram over budget, naming page, block index, measured width and overage. Every verdict names the browser and platform that measured it: widths are text metrics, so another host (CI included) can measure a few percent differently, and a diagram within 3% under the budget gets a non-blocking **NEAR BUDGET** warning instead of a silent pass. `1400` is ~2× the 672px content column — a diagram needing more than two column-widths of scrolling can't be held in the reader's head. Waive one diagram with a `%% blog-craft: wide-ok — <reason>` comment in its own source; set `0` to disable the gate (still loud: it lists what it did not measure). See §12. |
 
 Run it directly:
 
@@ -369,9 +369,8 @@ fenced code blocks, inline code spans, and frontmatter never trip the lint.
 ### Mermaid syntax gate (`quality.mermaid_syntax`)
 
 Separate from the post-quality gate above, and content-type-agnostic: a
-build-time linter that catches common ` ```mermaid ` syntax errors —
-subgraph-targeting edges, bare `<br>` (use `<br/>`), unbalanced brackets — with
-`file:line`, across posts, explainers, and papers, so a broken diagram fails CI
+build-time linter that catches common ` ```mermaid ` syntax errors — bare
+`<br>` (use `<br/>`) and unbalanced brackets — with `file:line`, across posts, explainers, and papers, so a broken diagram fails CI
 instead of shipping dead. **On by default.** Opt out per blog:
 
 ```yaml
@@ -388,6 +387,11 @@ python <blog-craft>/tools/validate_mermaid.py --config .blog-craft.yaml \
 
 Ships at `scripts/validate_mermaid.py` (byte-identical mirror) and runs as a CI
 step before the Hugo build.
+
+Edges with a subgraph endpoint (`Git --> Root` where `Git` is a subgraph) are
+**valid** mermaid and are not flagged. Releases before 0.22.5 flagged them as
+"dead on render" (#74); that rule was wrong and has been removed, so findings of
+that kind from an older version need no action.
 
 ### Frontmatter added by the methodology
 
@@ -795,6 +799,15 @@ are deliberately separate knobs: turning the scroller off does not turn the gate
 off, and vice versa. The gate measures a real render of the **built** site with
 the site's **own** mermaid bundle — reading width from the same inline
 `max-width` the CSS keys off, so gate and renderer cannot disagree.
+
+That agreement holds on **one host**. Text metrics depend on the browser build
+and the installed fonts: frank measured the same diagram at 1395px on macOS
+Chrome and 1414px on ubuntu-latest. So the gate names its host
+(`measured on Chrome/<version> (<platform> <arch>)`) on every verdict and warns
+**NEAR BUDGET** for any diagram within `--margin` percent under the budget
+(default 3; `--margin 0` silences it). A local pass with no warning predicts a
+CI pass; a near-budget pass does not, so give such a diagram real margin. CI is
+the host whose verdict counts.
 
 ## §13 Die-cut sticker sheets (`features.stickers`)
 

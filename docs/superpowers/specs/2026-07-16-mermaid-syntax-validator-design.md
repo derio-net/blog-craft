@@ -32,9 +32,10 @@ Follows the `validate_explainers.py`/`validate_papers.py` library+CLI shape:
 - `lint_mermaid_block(src: str) -> list[tuple[int, str]]` — returns
   `(line_offset_within_block, message)` for each issue. Rules (v1, high
   confidence, low false-positive):
-  - **R1 subgraph-targeting edge** — collect `subgraph <id>` ids; flag any edge
-    (`-->`, `---`, `-.->`, `==>`, `--o`, `--x`, …) whose endpoint token is a
-    subgraph id (invalid in Mermaid).
+  - ~~**R1 subgraph-targeting edge**~~ — **dropped (#74).** It flagged any edge
+    whose endpoint is a subgraph id as invalid. That premise was wrong: mermaid
+    flowcharts accept subgraph endpoints and render them (every form was
+    rendered in headless Chrome against mermaid 11.16.1).
   - **R2 bare `<br>`** — `<br>` not written `<br/>` / `<br />` (Hextra's bundled
     Mermaid wants the self-closed form); suggest `<br/>`.
   - **R3 unbalanced brackets** — per block, after stripping quoted spans, the
@@ -82,8 +83,8 @@ Plan. Verification is the unit suite (`tests/unit/test_mermaid_validator.py`).
 ### Unit tests
 
 - clean diagram (subgraphs, edge labels, `%%{init}%%`, `<br/>`) → no findings.
-- R1: `subgraph db ... end` then `A --> db` → flagged; edge between real nodes
-  inside/around a subgraph (not the id) → clean.
+- Subgraph edges (`A --> db`, subgraph → subgraph, member → own parent) →
+  clean (#74: valid mermaid; R1 dropped).
 - R2: `A["x<br>y"]` → flagged; `<br/>` and `<br />` → clean.
 - R3: `A[label with ] extra` → flagged; `A["text with ] in quotes"]` → clean;
   `%%{init: {"flowchart": {"defaultRenderer": "elk"}}}%%` → clean.
@@ -97,6 +98,7 @@ Plan. Verification is the unit suite (`tests/unit/test_mermaid_validator.py`).
 
 - **MERM-1** — "validate_mermaid flags a subgraph-targeting edge with file:line
   and fails CI" — `unit=blog-craft:tests/unit/test_mermaid_validator.py`, ci.
+  *Superseded by #74:* the row is now `mermaid-syntax-flags-dead-forms`.
 - **MERM-2** — "quality.mermaid_syntax: false disables the mermaid syntax
   gate" — `unit=blog-craft:tests/unit/test_mermaid_validator.py`, ci.
 

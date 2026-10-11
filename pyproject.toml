@@ -1,6 +1,6 @@
 [project]
 name = "blog-craft"
-version = "0.22.4"
+version = "0.22.5"
 description = "Portable teaching-blog scaffolding and authoring skills for Claude Code and OpenCode"
 requires-python = ">=3.11"
 dependencies = ["pyyaml>=6.0", "ruamel.yaml>=0.18"]

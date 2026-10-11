@@ -224,18 +224,24 @@ rows:
     status: ci
     notes: bundled Fraunces+Newsreader (OFL); reproducible via fetch_broadsheet_fonts.py
       (#22)
-  - id: mermaid-syntax-flags-subgraph-edge
+  - id: mermaid-syntax-flags-dead-forms
     capability: mermaid syntax gate
-    acceptance: validate_mermaid flags a subgraph-targeting edge with file:line and
-      fails CI
+    acceptance: validate_mermaid flags dead-on-render forms (bare <br>, unbalanced
+      brackets) with file:line and fails CI, and does not flag edges with a subgraph
+      endpoint, which are valid mermaid
     origin:
     - blog-craft:docs/superpowers/specs/2026-07-16-mermaid-syntax-validator-design.md
     levels:
       unit:
       - blog-craft:tests/unit/test_mermaid_validator.py
+      - blog-craft:tests/unit/test_mermaid_layout_gate.py
     status: ci
-    notes: standalone tools/validate_mermaid.py, all content types, blocking, on by
-      default (#27)
+    notes: 'standalone tools/validate_mermaid.py, all content types, blocking, on by
+      default (#27). Was mermaid-syntax-flags-subgraph-edge: rule R1 rejected subgraph
+      edges as dead on render, but real mermaid renders them, so R1 was dropped (#74).
+      test_subgraph_edges_render_in_real_mermaid renders every former-R1 form next to
+      a real syntax error in headless Chrome; it skips in CI, which has no built
+      mermaid bundle (set BLOG_CRAFT_MERMAID_BUNDLE to run it).'
   - id: mermaid-syntax-opt-out
     capability: mermaid syntax gate
     acceptance: quality.mermaid_syntax false disables the mermaid syntax gate
@@ -1155,6 +1161,22 @@ rows:
       built site: 35 of 203 diagrams blocked at 1400px, widest 2394px, 0 render errors.
       203 not 182 because built-HTML extraction also catches shortcode-emitted
       quadrantCharts that no markdown scan sees.'
+  - id: mmd-3-host-honest
+    capability: Mermaid diagram gates
+    acceptance: Every width-gate verdict names the browser build and platform that
+      measured it, and a pass within the margin below the budget warns that another
+      host can fail it
+    origin:
+    - blog-craft:docs/superpowers/implemented/specs/2026-07-28-mermaid-readability-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_mermaid_layout_gate.py
+    status: ci
+    notes: '#75: frank measured one diagram at 1395px on macOS Chrome (OK) and 1414px
+      on ubuntu-latest (FAILED). Widths are text metrics, so they are host-dependent;
+      the gate now says so instead of hiding it. --margin (default 3%) warns, non-blocking,
+      for diagrams in [budget*(1-margin), budget]; the blocking budget is unchanged.
+      Pinning the measurement fonts is the longer-term fix and is not attempted here.'
   - id: mmd-4
     capability: Mermaid diagram gates
     acceptance: A disabled diagram gate reports that it is disabled and how many findings

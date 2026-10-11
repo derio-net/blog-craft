@@ -6,7 +6,7 @@
 // natural width, and fails the build when one exceeds the budget.
 //
 // Usage:
-//   node scripts/validate_mermaid_layout.mjs --public <site>/public [--max-width 1400]
+//   node scripts/validate_mermaid_layout.mjs --public <site>/public [--max-width 1400] [--margin 3]
 //
 //   --public      Hugo's output directory; walked for **/*.html.
 //   --max-width   px budget (default 1400 — ~2x Hextra's 672px content column:
@@ -14,6 +14,8 @@
 //                 cannot be held in the reader's head). 0 DISABLES the gate:
 //                 diagrams are still counted and listed, loudly, but no
 //                 browser is invoked and the exit code is 0.
+//   --margin      percent of the budget BELOW it that warns, non-blocking
+//                 (default 3: 1358..1400px for a 1400 budget). 0 silences it.
 //
 // Exit codes: 0 pass/disabled · 1 over budget or render failure · 2 environment/usage.
 //
@@ -55,6 +57,15 @@
 //  - Width is read from the rendered SVG's inline `style="max-width: <n>px"`
 //    — the exact value mermaid writes and mermaid-view.css keys off, so the
 //    gate and the renderer cannot disagree (viewBox width is the fallback).
+//
+//  - Host-honest verdicts (#75). That agreement holds on ONE host. Widths
+//    come from text metrics, which depend on the browser build and fonts:
+//    frank measured one diagram at 1395px on macOS Chrome (OK) and 1414px on
+//    ubuntu-latest (FAILED). The gate cannot make hosts agree, so it does not
+//    pretend to: every verdict names the browser and platform it measured on,
+//    and a pass within --margin of the budget warns instead of reading as
+//    evidence. The blocking budget itself is unchanged, so a clean local OK
+//    predicts a CI pass whenever the cross-host delta is under the margin.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -63,7 +74,8 @@ import { spawn } from "node:child_process";
 import { pathToFileURL } from "node:url";
 
 const USAGE =
-  "usage: validate_mermaid_layout.mjs --public <dir> [--max-width <px>]  (0 disables the gate)";
+  "usage: validate_mermaid_layout.mjs --public <dir> [--max-width <px>] [--margin <pct>]\n" +
+  "  --max-width 0 disables the gate; --margin 0 silences near-budget warnings (default 3)";
 
 function fail(code, msg) {
   console.error(msg);
@@ -114,7 +126,7 @@ function discoverBrowser(env) {
 // ------------------------------------------------------------------------ main
 
 function parseArgs(argv) {
-  const opts = { public: null, maxWidth: 1400 };
+  const opts = { public: null, maxWidth: 1400, margin: 3 };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--public") opts.public = argv[++i];
@@ -122,6 +134,10 @@ function parseArgs(argv) {
       const v = Number(argv[++i]);
       if (!Number.isFinite(v) || v < 0) fail(2, `mermaid layout gate: --max-width must be a non-negative number, got ${argv[i]}\n${USAGE}`);
       opts.maxWidth = v;
+    } else if (a === "--margin") {
+      const v = Number(argv[++i]);
+      if (!Number.isFinite(v) || v < 0 || v >= 100) fail(2, `mermaid layout gate: --margin must be a percentage in [0, 100), got ${argv[i]}\n${USAGE}`);
+      opts.margin = v;
     } else if (a === "--help" || a === "-h") {
       console.log(USAGE);
       process.exit(0);
@@ -301,7 +317,9 @@ function renderExpression(id, source) {
 }
 
 // Render every diagram in one page that has the site's bundle loaded, and
-// return [{width} | {error}] in input order. One browser, one page, N renders.
+// return { host, results: [{width} | {error}] } in input order. One browser,
+// one page, N renders. `host` names what measured them — the browser build
+// and the platform — because the widths are only true for that host (#75).
 async function measureAll(browserBin, bundlePath, diagrams) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "mermaid-layout-gate-"));
   const harness = path.join(tmp, "harness.html");
@@ -313,6 +331,8 @@ async function measureAll(browserBin, bundlePath, diagrams) {
     ({ proc, wsUrl } = await launchBrowser(browserBin, path.join(tmp, "profile")));
     cdp = new Cdp(wsUrl);
     await cdp.connect();
+    const { product } = await cdp.send("Browser.getVersion");
+    const host = `${product} (${process.platform} ${process.arch})`;
     const { targetId } = await cdp.send("Target.createTarget", { url: pathToFileURL(harness).href });
     const { sessionId } = await cdp.send("Target.attachToTarget", { targetId, flatten: true });
 
@@ -347,7 +367,7 @@ async function measureAll(browserBin, bundlePath, diagrams) {
         results.push(r.result?.value ?? { error: "render evaluation returned nothing" });
       }
     }
-    return results;
+    return { host, results };
   } finally {
     cdp?.close();
     if (proc && proc.exitCode === null) {
@@ -402,14 +422,16 @@ async function main() {
 
   const toMeasure = diagrams.filter((d) => !d.waived);
   const waived = diagrams.length - toMeasure.length;
-  let results;
+  let host, results;
   try {
-    results = await measureAll(browser, bundle, toMeasure);
+    ({ host, results } = await measureAll(browser, bundle, toMeasure));
   } catch (e) {
     fail(2, `mermaid layout gate: could not measure: ${e.message}`);
   }
 
   const findings = [];
+  const near = [];
+  const nearFloor = opts.maxWidth * (1 - opts.margin / 100);
   let widest = 0;
   results.forEach((res, i) => {
     const d = toMeasure[i];
@@ -422,16 +444,30 @@ async function main() {
       widest = Math.max(widest, w);
       if (w > opts.maxWidth) {
         findings.push(`  ${d.page} #${d.index}: ${w}px > ${opts.maxWidth}px (${w - opts.maxWidth}px over)`);
+      } else if (opts.margin > 0 && w >= nearFloor) {
+        near.push(`  ${d.page} #${d.index}: ${w}px (${opts.maxWidth - w}px under)`);
       }
     }
   });
+
+  if (near.length > 0) {
+    console.error(
+      `NEAR BUDGET — ${near.length} diagram(s) within ${opts.margin}% of ${opts.maxWidth}px pass ` +
+      "on this host but can fail on another\n  (text metrics differ by browser build and fonts; " +
+      "CI is the host whose verdict counts):");
+    for (const n of near) console.error(n);
+  }
 
   if (findings.length > 0) {
     console.error(
       `MERMAID LAYOUT CHECK FAILED — ${findings.length} of ${diagrams.length} diagram(s) ` +
       `(budget quality.mermaid_max_width: ${opts.maxWidth}px${waived ? `, ${waived} waived` : ""})`);
     for (const f of findings) console.error(f);
+    console.error(`  measured on ${host}`);
     console.error(
+      "\n  Widths are measured with this host's browser and fonts; another host (CI\n" +
+      "  included) can differ by a few percent, so give a diagram real margin rather\n" +
+      "  than shaving it to just under the budget.\n" +
       "\n  A diagram wider than the budget cannot be followed by scrolling. Restructure it\n" +
       "  (flowchart TD is usually far narrower than LR), waive this one with a\n" +
       "  `%% blog-craft: wide-ok — <reason>` comment in the diagram source, or set\n" +
@@ -440,7 +476,8 @@ async function main() {
   }
   console.log(
     `MERMAID LAYOUT OK: ${toMeasure.length} diagram(s) across ${pageCount} page(s) ` +
-    `within ${opts.maxWidth}px (widest ${widest}px${waived ? `, ${waived} waived` : ""})`);
+    `within ${opts.maxWidth}px (widest ${widest}px${waived ? `, ${waived} waived` : ""})\n` +
+    `  measured on ${host}`);
   process.exit(0);
 }
 
