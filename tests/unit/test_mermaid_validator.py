@@ -5,6 +5,7 @@ import sys
 
 import yaml
 
+from _mermaid_fixtures import SUBGRAPH_EDGES
 from validate_mermaid import find_mermaid_blocks, lint_mermaid_block, validate_file
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -29,9 +30,10 @@ def test_init_directive_clean():
     assert lint_mermaid_block(src) == []
 
 
-def test_subgraph_targeting_edge_flagged():
-    src = "flowchart TD\n subgraph db\n  pg[x]\n end\n A --> db\n"
-    assert any("subgraph" in m.lower() for _, m in lint_mermaid_block(src))
+def test_subgraph_edges_are_not_flagged():
+    # Valid mermaid (#74) — see _mermaid_fixtures.SUBGRAPH_EDGES.
+    for name, src in SUBGRAPH_EDGES.items():
+        assert lint_mermaid_block(src) == [], name
 
 
 def test_edge_to_real_node_in_subgraph_clean():
@@ -71,7 +73,7 @@ def test_find_blocks_line_numbers():
 
 
 def test_validate_file_reports_path_and_line():
-    md = "---\nt: 1\n---\n\n```mermaid\nflowchart TD\n subgraph db\n end\n A --> db\n```\n"
+    md = "---\nt: 1\n---\n\n```mermaid\nflowchart TD\n A[\"x<br>y\"] --> B\n```\n"
     fails = validate_file("post.md", md)
     assert fails and fails[0].startswith("post.md:")
     assert ": " in fails[0]
@@ -79,7 +81,7 @@ def test_validate_file_reports_path_and_line():
 
 # --- CLI + flag ------------------------------------------------------------
 
-BAD = "```mermaid\nflowchart TD\n subgraph db\n  x[y]\n end\n A --> db\n```\n"
+BAD = "```mermaid\nflowchart TD\n A[\"x<br>y\"] --> B\n```\n"
 
 
 def _cfg(tmp_path, mermaid_syntax=None):

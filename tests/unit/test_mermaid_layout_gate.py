@@ -20,8 +20,11 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 
 import pytest
+
+from _mermaid_fixtures import SUBGRAPH_EDGES
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 TOOL = os.path.join(ROOT, "tools", "validate_mermaid_layout.mjs")
@@ -388,3 +391,93 @@ def test_real_mermaid_bundle_yields_real_plausible_widths(tmp_path):
     assert got[1] > got[2], "the 4-node LR chart must measure wider than the 2-node TD chart"
     for w in got.values():
         assert 50 < w < 6000, f"implausible measured width {w}px"
+
+
+@needs_browser
+@pytest.mark.skipif(REAL_BUNDLE is None, reason=(
+    "no real mermaid bundle found — set BLOG_CRAFT_MERMAID_BUNDLE to a built "
+    "site's public/js/mermaid.min.*.js, or keep a built consumer blog as a sibling checkout"))
+def test_subgraph_edges_render_in_real_mermaid(tmp_path):
+    """#74: the syntax linter once rejected every edge with a subgraph endpoint
+    as "dead on render". Real mermaid renders each form to a sized svg, so a
+    rule rejecting them is a false positive. A real syntax error, rendered
+    alongside, must still come back as a RENDER ERROR — proof this test can
+    tell the difference."""
+    sources = list(SUBGRAPH_EDGES.values()) + ["flowchart TD\n  A[unclosed --> B\n"]
+    pub = _public(tmp_path, {"/docs/sg/": sources}, bundle=None)
+    (pub / "js").mkdir(parents=True, exist_ok=True)
+    shutil.copy(REAL_BUNDLE, pub / "js" / "mermaid.min.real0000.js")
+    r = _run(pub, "--max-width", "1", browser=BROWSER)
+    out = r.stdout + r.stderr
+    measured = {int(i) for i in re.findall(r"/docs/sg/ #(\d+): \d+px > 1px", out)}
+    broken = len(sources)
+    for i, name in enumerate(SUBGRAPH_EDGES, start=1):
+        assert i in measured, f"{name} must render to a sized svg; got:\n{out}"
+    assert re.search(rf"/docs/sg/ #{broken}: RENDER ERROR", out), out
+
+
+# --- host-honest verdicts (#75) ---------------------------------------------
+# Widths come from text metrics, which depend on the host's browser build and
+# fonts: frank measured one diagram at 1395px on macOS Chrome (OK) and 1414px
+# on ubuntu-latest (FAILED). The gate cannot make hosts agree, but it must not
+# hide that it is a host-dependent measurement: every verdict names the host,
+# and a pass close to the budget warns instead of reading as evidence.
+
+HOST_RE = re.compile(r"measured on .*Chrome/\d+.* \((\w+) (\w+)\)")
+
+
+@needs_browser
+def test_pass_names_the_measuring_host(tmp_path):
+    pub = _public(tmp_path, {"/docs/a/": ["graph w<300>"]})
+    r = _run(pub, "--max-width", "1400", browser=BROWSER)
+    out = r.stdout + r.stderr
+    assert r.returncode == 0, out
+    m = HOST_RE.search(out)
+    assert m, f"an OK must name the browser build and platform; got:\n{out}"
+    assert m.group(1) == sys.platform, out
+
+
+@needs_browser
+def test_failure_names_the_host_and_says_other_hosts_differ(tmp_path):
+    pub = _public(tmp_path, {"/docs/a/": ["graph w<2000>"]})
+    r = _run(pub, "--max-width", "1400", browser=BROWSER)
+    out = r.stdout + r.stderr
+    assert r.returncode == 1, out
+    assert HOST_RE.search(out), out
+    assert "another host" in out, out
+
+
+@needs_browser
+def test_near_budget_pass_warns_and_still_exits_zero(tmp_path):
+    """Within the margin BELOW the budget (default 3%: 1358..1400 for 1400) a
+    diagram passes, but loudly: a pass that close is a coin flip on another
+    host. Diagrams clear of the margin raise no warning."""
+    pub = _public(tmp_path, {
+        "/docs/near/": ["graph w<1395>"],
+        "/docs/clear/": ["graph w<1300>"],
+    })
+    r = _run(pub, "--max-width", "1400", browser=BROWSER)
+    out = r.stdout + r.stderr
+    assert r.returncode == 0, out
+    assert "NEAR BUDGET" in out, out
+    assert "/docs/near/ #1: 1395px" in out, out
+    assert "/docs/clear/" not in out.split("NEAR BUDGET", 1)[1], out
+
+
+@needs_browser
+def test_margin_flag_sets_the_band_and_zero_silences_it(tmp_path):
+    pub = _public(tmp_path, {"/docs/near/": ["graph w<1300>"]})
+    wide = _run(pub, "--max-width", "1400", "--margin", "10", browser=BROWSER)
+    assert "NEAR BUDGET" in wide.stdout + wide.stderr, wide.stdout + wide.stderr
+    pub2 = _public(tmp_path / "b", {"/docs/near/": ["graph w<1399>"]})
+    off = _run(pub2, "--max-width", "1400", "--margin", "0", browser=BROWSER)
+    assert off.returncode == 0
+    assert "NEAR BUDGET" not in off.stdout + off.stderr
+
+
+def test_bad_margin_is_a_usage_error(tmp_path):
+    pub = _public(tmp_path, {"/docs/a/": ["graph"]})
+    for bad in ("x", "-1", "100"):
+        r = _run(pub, "--margin", bad, path=_empty_path(tmp_path))
+        assert r.returncode == 2, (bad, r.stdout + r.stderr)
+        assert "--margin" in r.stderr
