@@ -1,3 +1,4 @@
+schema_version: 2
 profiles:
   dev:
     purpose: 'blog-craft dev: render-template (go>=1.22), image-gen+validators (python3
@@ -8,3 +9,9 @@ profiles:
     notes:
     - "tool 'hugo' has no known devcontainer feature \u2014 wire it via postCreateCommand"
 default: dev
+forge:
+  type: github
+ci:
+  type: github-actions
+tracking:
+  type: github
