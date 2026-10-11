@@ -19,9 +19,10 @@ All thresholds, paths, and the weight offset come from
    ```bash
    bash <blog-craft>/tools/scaffold-paper.sh --config .blog-craft.yaml <NN> <slug>
    ```
-   Writes `content/docs/<papers-series>/<NN>-<slug>/index.md` (weight =
+   Writes `<site_dir>/content/docs/<papers-series>/<NN>-<slug>/index.md`
+   (inside the Hugo site; no prefix when the site is the config root; weight =
    `paper_number + weight_offset`) and `<dossier_dir>/<NN>-<slug>/dossier.md`
-   (YAML-frontmatter dossier).
+   (YAML-frontmatter dossier, relative to the config root).
 
 2. **Fill the dossier** — edit the dossier frontmatter until the gate passes:
    `vendors`, `primary_sources` (each with a `type`), `artefacts` (each with a
@@ -53,7 +54,7 @@ All thresholds, paths, and the weight offset come from
 7. **Validate + publish** — frontmatter + weight invariant, then flip drafts:
    ```bash
    python <blog-craft>/tools/validate_papers.py --config .blog-craft.yaml \
-       content/docs/<papers-series>/<NN>-<slug>/index.md
+       <site_dir>/content/docs/<papers-series>/<NN>-<slug>/index.md
    python <blog-craft>/tools/sync_dossier_to_data.py --config .blog-craft.yaml
    ```
    Set `draft: false` and `status: published` when ready.
