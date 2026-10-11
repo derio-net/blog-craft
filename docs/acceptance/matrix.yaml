@@ -1416,3 +1416,22 @@ rows:
     status: ci
     notes: '#83. .gitignore reclassified framework -> merged (git merge-file 3-way).
       A conflict leaves the operator''s file untouched and named.'
+  - id: CFG-KEY-1
+    capability: config-validation
+    acceptance: A series key that cannot be a path segment and a shell word, a duplicate
+      key, or a second papers series is rejected by validate_config, and the shipped
+      CI never renders a degenerate papers glob
+    origin:
+    - blog-craft:CHANGELOG.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_config_schema.py
+      - blog-craft:tests/unit/test_ci_template.py
+    status: ci
+    notes: 'blog-craft#68 item 1 — validate_config checked only that key was present,
+      but the key is content/docs/<key>/ and an unquoted word in the CI papers glob:
+      key '''' rendered content/docs//*/index.md, a missing key rendered ''<no value>''
+      (bash redirection), a space split the word. Slug rule [A-Za-z0-9][A-Za-z0-9_-]*
+      accepts every key in fixtures and frank. Two papers series were silent: scaffold-paper.sh/validate_papers
+      took the FIRST, the template the LAST; now rejected, and the template takes the
+      first non-empty key as a fallback for unvalidated configs.'
