@@ -15,7 +15,6 @@ framework:
                          # artifacts, never blog-edited; see each dir's PROVENANCE.md.
                          # Deliberately NOT under assets/css/**, which is `merged`:
                          # 3-way-merging a minified upstream bundle is meaningless.
-  - ".gitignore"
   - "MEDIA-GUIDE.md"
   - ".claude/hookify.*.local.md"   # the weight-zero guard, at the ONLY shape hookify
                                    # globs. Deliberately NOT `.claude/**`: blog-craft
@@ -34,6 +33,9 @@ merged:
   - "README.md"
   - "assets/css/**"
   - ".github/**"
+  - ".gitignore"   # shipped baseline + per-blog rules (*.bak, .DS_Store), like
+                   # assets/css/**. Repo-wide patterns have nowhere else to live,
+                   # so a framework REPLACE silently dropped them (#83).
 
 content:
   - ".blog-craft.yaml"

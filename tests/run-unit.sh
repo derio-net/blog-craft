@@ -85,7 +85,7 @@ _acquire_lock() {
 
 _release_lock() { rm -rf "$LOCK" 2>/dev/null || :; HELD_LOCK=0; }
 
-if [ ! -x "$VENV/bin/pytest" ] || ! "$VENV/bin/python" -c "import PIL" >/dev/null 2>&1; then
+if [ ! -x "$VENV/bin/pytest" ] || ! "$VENV/bin/python" -c "import PIL, ruamel.yaml" >/dev/null 2>&1; then
   _acquire_lock
   if [ ! -x "$VENV/bin/pytest" ]; then      # re-check: a waiter may have built it
     if command -v uv >/dev/null 2>&1; then
@@ -93,10 +93,12 @@ if [ ! -x "$VENV/bin/pytest" ] || ! "$VENV/bin/python" -c "import PIL" >/dev/nul
     else
       "$PYBIN" -m venv "$VENV" >/dev/null 2>&1
     fi
-    _pip_install pytest pyyaml pillow markdown
+    _pip_install pytest pyyaml ruamel.yaml pillow markdown
   fi
   # ensure pillow even on a pre-existing venv (contact sheet / post-process need it)
   "$VENV/bin/python" -c "import PIL" >/dev/null 2>&1 || _pip_install pillow
+  # ...and ruamel.yaml (migrate_config's comment-preserving rewrite, #73)
+  "$VENV/bin/python" -c "import ruamel.yaml" >/dev/null 2>&1 || _pip_install ruamel.yaml
   _release_lock
 fi
 

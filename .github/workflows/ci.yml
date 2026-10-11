@@ -30,7 +30,7 @@ jobs:
           extended: true
       - name: Install python deps + tools
         run: |
-          python3 -m pip install --quiet pyyaml pillow pytest markdown
+          python3 -m pip install --quiet pyyaml ruamel.yaml pillow pytest markdown
           sudo apt-get update -qq && sudo apt-get install -y -qq pngquant optipng
       - name: Version lockstep (pyproject.toml == both manifests)
         run: python3 tools/bump_version.py --check
