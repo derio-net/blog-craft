@@ -16,3 +16,8 @@ The rule encodes a belief (edges must connect nodes) that mermaid's flowchart gr
 ### 78fdc112ae94 · root-cause · #75: the gate presents a host-dependent measurement as a host-independent verdict, with zero margin
 
 Widths come from text metrics, which depend on the host's browser build and fonts (~1.4% observed macOS vs ubuntu). The gate's verdict is a bare 'width > budget' with no band, and neither OK nor FAILED output names the host, so a local OK just under the budget is a coin flip for CI and nothing says so. Fix: name the host (browser product/version + os platform/arch) on every verdict; add a near-budget band (default 3%, --margin) that warns, non-blocking, for diagrams within margin BELOW the budget ('may fail on another host'), keeping the blocking budget unchanged so a clean local OK predicts a CI pass for cross-host deltas under the margin. Pinning fonts/containerised Chrome is out of scope (follow-up).
+
+<!-- fr:journal kind=decision scope=debug id=0b5a00f261a9 created=2026-10-11T22:12:26+00:00 -->
+### 0b5a00f261a9 · decision · Two root causes, one batch: proceeding without a stop
+
+The batch rule says stop if investigation finds more than one root cause. Investigation found two mechanisms (#74 lint premise, #75 measurement provenance/margin), but these are exactly the two the batch itself names ('Both mermaid gates mislead', one Closes line per member, ONE PR). Nothing beyond the batcher's own framing was discovered, so the rule's purpose (no surprise scope) is not triggered; proceeding overnight per the operator's 'stop only at a genuine human checkpoint', and flagging this in the PR body.
