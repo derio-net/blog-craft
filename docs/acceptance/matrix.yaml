@@ -23,6 +23,7 @@
 # Add rows with `fr acceptance add` (schema-validated append). Keep `rows:`
 # as the LAST top-level key — `add` appends to the end of this file.
 
+schema_version: 4
 org: derio-net
 repo: blog-craft
 rows:
