@@ -11,3 +11,8 @@
 ### 797b1e1c8fc8 · root-cause · #74: R1's premise is false — mermaid flowcharts accept subgraph ids as edge endpoints
 
 The rule encodes a belief (edges must connect nodes) that mermaid's flowchart grammar does not hold: subgraph ids are valid edge endpoints in every form tested. No narrower failing form was found, so there is nothing for a narrowed rule to match. Fix: drop R1; pin with a test that the former R1 fixtures lint clean, and a browser test that they render.
+
+<!-- fr:journal kind=root-cause scope=debug id=78fdc112ae94 created=2026-10-11T22:12:23+00:00 -->
+### 78fdc112ae94 · root-cause · #75: the gate presents a host-dependent measurement as a host-independent verdict, with zero margin
+
+Widths come from text metrics, which depend on the host's browser build and fonts (~1.4% observed macOS vs ubuntu). The gate's verdict is a bare 'width > budget' with no band, and neither OK nor FAILED output names the host, so a local OK just under the budget is a coin flip for CI and nothing says so. Fix: name the host (browser product/version + os platform/arch) on every verdict; add a near-budget band (default 3%, --margin) that warns, non-blocking, for diagrams within margin BELOW the budget ('may fail on another host'), keeping the blocking budget unchanged so a clean local OK predicts a CI pass for cross-host deltas under the margin. Pinning fonts/containerised Chrome is out of scope (follow-up).
