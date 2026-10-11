@@ -1099,6 +1099,22 @@ rows:
       carrying the WRONG series is still in the papers directory, so it is still validated
       and the series check catches it. The pre-#61 byte-identity guard normalises this
       one line rather than editing the historical fixture.'
+  - id: UPD-R7
+    capability: update-path-roots
+    acceptance: On a site_dir blog, scaffold-paper.sh writes the paper bundle inside
+      the Hugo site while the dossier stays config-root-relative
+    origin:
+    - blog-craft:CHANGELOG.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_scaffold_paper.py
+    status: ci
+    notes: 'blog-craft#79 — the script rooted the bundle at dirname(--config) and never
+      read site_dir, so on frank (config at repo root, site_dir: blog) the bundle landed
+      in a top-level content/ Hugo never sees, while the dossier (dossier_dir, config-root-relative
+      by contract) landed correctly. content/** is site-placed per templates/manifest.yaml,
+      so only the bundle takes the site prefix; the printed bundle path now matches
+      the one written.'
   - id: mmd-1
     capability: Mermaid readability
     acceptance: Every mermaid diagram renders at its authored size regardless of the
