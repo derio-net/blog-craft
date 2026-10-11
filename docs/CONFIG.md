@@ -803,7 +803,7 @@ the site's **own** mermaid bundle — reading width from the same inline
 That agreement holds on **one host**. Text metrics depend on the browser build
 and the installed fonts: frank measured the same diagram at 1395px on macOS
 Chrome and 1414px on ubuntu-latest. So the gate names its host
-(`measured on Chrome/<version> (<platform> <arch>)`) on every verdict and warns
+(`measured on Chrome/<version> (<os>)`) on every verdict and warns
 **NEAR BUDGET** for any diagram within `--margin` percent under the budget
 (default 3; `--margin 0` silences it). A local pass with no warning predicts a
 CI pass; a near-budget pass does not, so give such a diagram real margin. CI is

@@ -423,7 +423,7 @@ def test_subgraph_edges_render_in_real_mermaid(tmp_path):
 # hide that it is a host-dependent measurement: every verdict names the host,
 # and a pass close to the budget warns instead of reading as evidence.
 
-HOST_RE = re.compile(r"measured on .*Chrome/\d+.* \((\w+) (\w+)\)")
+HOST_RE = re.compile(r"measured on .*Chrome/\d+\S* \((\w+)\)")
 
 
 @needs_browser

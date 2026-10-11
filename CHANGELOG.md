@@ -24,7 +24,7 @@ matching `vX.Y.Z` tag on merge (#18).
 - **The mermaid width gate says which host measured it (#75).** Widths are text
   metrics, so the same diagram measured 1395px on macOS Chrome (OK) and 1414px
   on ubuntu-latest (FAILED). Every verdict now names the browser build and
-  platform it was measured on, and failures say that another host can differ.
+  OS it was measured on, and failures say that another host can differ.
   A diagram within `--margin` percent under the budget (default 3) passes with a
   non-blocking **NEAR BUDGET** warning, so a local pass with no warning predicts
   a CI pass. The blocking budget is unchanged.

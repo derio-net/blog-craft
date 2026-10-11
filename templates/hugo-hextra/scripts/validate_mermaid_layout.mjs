@@ -332,7 +332,9 @@ async function measureAll(browserBin, bundlePath, diagrams) {
     cdp = new Cdp(wsUrl);
     await cdp.connect();
     const { product } = await cdp.send("Browser.getVersion");
-    const host = `${product} (${process.platform} ${process.arch})`;
+    // OS, not arch: process.arch is NODE's (x64 under Rosetta on an arm64
+    // Mac), not the browser's — and the OS is what picks the font stack.
+    const host = `${product} (${process.platform})`;
     const { targetId } = await cdp.send("Target.createTarget", { url: pathToFileURL(harness).href });
     const { sessionId } = await cdp.send("Target.attachToTarget", { targetId, flatten: true });
 
