@@ -9,3 +9,8 @@ With `site_dir: blog` and .blog-craft.yaml at the repo root, `scaffold-paper.sh 
 ### ba7fe51b567a · root-cause · BUNDLE is rooted at the config's directory; site_dir is never read
 
 scaffold-paper.sh:35 sets ROOT to dirname(--config) and :39 builds BUNDLE=$ROOT/content/docs/<key>/<dir>. The python config read (:26-33) extracts weight_offset, dossier_dir and the papers key but not site_dir. Per templates/manifest.yaml, content/** is a site-placed path (lands under site_dir) while dossier_dir is a config-root-relative path, so only the bundle needs the site_dir prefix. glossary_scan.py:323 shows the convention: (site_dir or '.').rstrip('/').
+
+<!-- fr:journal kind=finding scope=debug id=13cf22f97eee created=2026-10-11T23:11:58+00:00 state=fixed -->
+### 13cf22f97eee · finding [fixed] · Bundle prefixed with site_dir; dossier unchanged
+
+scaffold-paper.sh (template + tools/ mirror) reads site_dir ((site_dir or '.').rstrip('/'), the glossary_scan.py convention) and builds BUNDLE_REL=<site_dir>/content/docs/<key>/<dir>; the printed path is BUNDLE_REL. Pinned by tests/unit/test_scaffold_paper.py::test_scaffold_honours_site_dir (committed failing first). papers SKILL.md (both mirrors) documents the site prefix; matrix row UPD-R7; 0.22.6.
