@@ -36,10 +36,30 @@ Renders to a staging tree and classifies every path via the manifest:
 | `framework` | **replace** (shipped; overwritten) |
 | `content`   | **leave** (your posts, images, config, data) |
 | `merged`    | **3-way merge** — the base (below) vs your on-disk copy vs the new render |
+| `divergence` | **3-way merge** — a framework path you explicitly declared as consumer-modified |
 
 The dry-run prints the per-path plan and a tally. On `--apply`, clean merges are
 written and **conflicts are surfaced for you to resolve** — never auto-resolved.
 After applying, bump `blog_craft_version` and verify with `hugo --buildDrafts`.
+
+### Preserve an intentional framework edit
+
+Framework paths are replaced by default. To preserve a deliberate local change,
+create `.blog-craft.overrides.yaml` next to `.blog-craft.yaml`, commit it, and
+declare each changed framework path:
+
+```yaml
+overrides:
+  - path: layouts/_default/home.html
+    reason: Keep the consumer's mobile navigation treatment.
+    upstream_ref: v0.22.1
+```
+
+All three fields are required. The path must be framework-class and may be
+declared once. `/update` labels it `[divergence]` and applies its normal
+three-way merge behavior instead of replacing it; a conflict is left untouched
+for manual resolution. Undeclared framework paths retain the existing replace
+behavior.
 
 | Outcome | Means |
 |---|---|

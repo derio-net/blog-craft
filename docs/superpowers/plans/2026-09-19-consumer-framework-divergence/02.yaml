@@ -1,0 +1,41 @@
+schema_version: 2
+phase:
+  number: 2
+  title: Apply declared divergence semantics
+  tag: agentic
+  depends_on:
+  - 1
+  tracking_issue: null
+  acceptance:
+  - consumer-framework-divergence
+tasks:
+- number: 1
+  title: Reclassify declared framework paths for update planning
+  steps:
+  - id: P2.T1.S1
+    text: |-
+      Add failing updater tests showing a declared framework edit merges and labels the dry run divergence while an undeclared edit still replaces.
+  - id: P2.T1.S2
+    text: |-
+      Thread the consumer override declarations into update planning and use the existing three-way merge branch for divergence entries; run focused tests green.
+  - id: P2.T1.S3
+    text: |-
+      Simplify duplicated merge conditionals if introduced and run the full updater unit suite.
+state:
+  steps:
+    P2.T1.S1:
+      state: x
+      ticked_at: '2026-09-18T23:18:22+00:00'
+      note: null
+    P2.T1.S2:
+      state: x
+      ticked_at: '2026-09-18T23:18:23+00:00'
+      note: null
+    P2.T1.S3:
+      state: x
+      ticked_at: '2026-09-18T23:18:23+00:00'
+      note: null
+  completion:
+    at: '2026-09-18T23:18:23+00:00'
+    note: null
+    observed_prs: []

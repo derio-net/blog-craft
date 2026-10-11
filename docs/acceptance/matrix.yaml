@@ -23,6 +23,7 @@
 # Add rows with `fr acceptance add` (schema-validated append). Keep `rows:`
 # as the LAST top-level key — `add` appends to the end of this file.
 
+schema_version: 4
 org: derio-net
 repo: blog-craft
 rows:
@@ -1388,3 +1389,15 @@ rows:
       - blog-craft:tests/unit/test_hugo_toml.py
     status: ci
     notes: Hugo publication-boundary integration runs with the pinned Hugo installed in CI. Unknown verification and command-state metadata are explicit, and Markdown digests cover the emitted bytes.
+  - id: consumer-framework-divergence
+    capability: consumer-framework-divergence
+    acceptance: A consumer can declare an intentional framework-file divergence and
+      /update preserves it through a three-way merge
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-09-19-consumer-framework-divergence-design.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_update_flow.py
+    status: ci
+    notes: Automated unit coverage validates declarations before planning; phase 2 adds
+      end-to-end merge behavior coverage in the same test module.

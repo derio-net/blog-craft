@@ -10,6 +10,14 @@ matching `vX.Y.Z` tag on merge (#18).
 
 ## [Unreleased]
 
+## [0.22.3] - 2026-09-19
+
+### Added
+- Consumers can declare intentional edits to framework-owned files in a
+  `.blog-craft.overrides.yaml` manifest. `/update` validates each declaration
+  and three-way merges a declared path as a visible `divergence` instead of
+  silently replacing it; conflicts remain for manual resolution. Undeclared
+  framework paths retain the existing replacement behavior (#88).
 ## [0.22.3] - 2026-09-23
 
 ### Fixed
