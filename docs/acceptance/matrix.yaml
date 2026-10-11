@@ -1078,6 +1078,23 @@ rows:
       is idempotent and never removes what it would no longer add — excluded_spans stops
       new markers, a validate_glossary PLACEMENT error reports existing ones (the key
       can be valid and the marker still fatal).'
+  - id: GL-13
+    capability: abbreviation-glossary
+    acceptance: A sweep never marks inside a hand-written <pre class="mermaid"> block
+      or a blog's own declared renderer shortcode, and CI names any marker already there
+    origin:
+    - blog-craft:CHANGELOG.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_glossary_opaque_bodies.py
+    status: ci
+    notes: blog-craft#68 items 2+3 — GL-10 closed 'shortcode bodies handed to a renderer'
+      for the one shipped shortcode; the category above it is 'content another parser
+      consumes'. Raw <pre class="mermaid"> (whole class token, any attr order, case-insensitive
+      closer) is now an opaque region in the same _opaque_bodies seam, so excluded_spans
+      and misplaced_markers both cover it; a plain <pre> stays markable. features.glossary.opaque_body_shortcodes
+      is merged OVER OPAQUE_BODY_SHORTCODES (floor, not ceiling) and read by the scan,
+      apply and validate CLIs alike.
   - id: UPD-R6
     capability: update-path-roots
     acceptance: The shipped CI validates papers against the papers section only, so
