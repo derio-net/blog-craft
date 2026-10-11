@@ -120,6 +120,31 @@ def test_papers_step_defaults_to_papers_without_a_series_list(tmp_path):
     assert "content/docs/papers/*/index.md" in papers_step
 
 
+@pytest.mark.parametrize("entry", [{"key": "", "content_type": "papers"},
+                                   {"content_type": "papers"}])
+def test_a_degenerate_papers_key_degrades_to_the_default(tmp_path, entry):
+    # blog-craft#68: `key: ""` rendered content/docs//*/index.md (exit 1 on a
+    # literal path) and a missing key rendered `<no value>` — a bash syntax
+    # error, since `<` is a redirection. validate_config now rejects both; the
+    # template must still never emit them for a config that skipped validation.
+    y = _render({"content_types": {"papers": {"dossier_dir": "docs/papers-dossiers"}},
+                 "series": [entry], "ci": {"deploy": {"kind": "none"}}}, tmp_path)
+    papers_step = next(l for l in y.splitlines() if "validate_papers.py" in l)
+    assert "content/docs/papers/*/index.md" in papers_step
+    assert "<no value>" not in y
+
+
+def test_two_papers_series_take_the_first_like_scaffold_and_validator(tmp_path):
+    # scaffold-paper.sh and validate_papers.py both take the FIRST papers entry;
+    # the template's range used to let the LAST one win.
+    y = _render({"content_types": {"papers": {"dossier_dir": "docs/papers-dossiers"}},
+                 "series": [{"key": "essays", "content_type": "papers"},
+                            {"key": "notes", "content_type": "papers"}],
+                 "ci": {"deploy": {"kind": "none"}}}, tmp_path)
+    papers_step = next(l for l in y.splitlines() if "validate_papers.py" in l)
+    assert "content/docs/essays/*/index.md" in papers_step
+
+
 def test_non_papers_none_deploy_prunes_steps(tmp_path):
     cfg = {"ci": {"deploy": {"kind": "none"}}}
     y = _render(cfg, tmp_path)
