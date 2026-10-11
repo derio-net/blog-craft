@@ -21,3 +21,8 @@ Widths come from text metrics, which depend on the host's browser build and font
 ### 0b5a00f261a9 · decision · Two root causes, one batch: proceeding without a stop
 
 The batch rule says stop if investigation finds more than one root cause. Investigation found two mechanisms (#74 lint premise, #75 measurement provenance/margin), but these are exactly the two the batch itself names ('Both mermaid gates mislead', one Closes line per member, ONE PR). Nothing beyond the batcher's own framing was discovered, so the rule's purpose (no surprise scope) is not triggered; proceeding overnight per the operator's 'stop only at a genuine human checkpoint', and flagging this in the PR body.
+
+<!-- fr:journal kind=finding scope=debug id=0ea3c0b750dc created=2026-10-11T22:18:17+00:00 state=fixed -->
+### 0ea3c0b750dc · finding [fixed] · R1 dropped; width gate names its host and warns near budget
+
+Fix commit on fix/batch-bc-tooling (0.22.5). Failing-tests-first commit 2dbd0cf: test_subgraph_edges_are_not_flagged (red: R1 flagged all four forms), test_pass_names_the_measuring_host / test_failure_names_the_host_and_says_other_hosts_differ / test_near_budget_pass_warns_and_still_exits_zero / test_margin_flag_sets_the_band_and_zero_silences_it (red: no host line, unknown --margin). test_subgraph_edges_render_in_real_mermaid was green before the fix — it characterises mermaid itself and is the evidence R1 was false. After the fix: 99 targeted tests pass on the host (real Chrome 154 + mermaid 11.16.1 bundle); full suite deferred to CI per the overnight rule.
