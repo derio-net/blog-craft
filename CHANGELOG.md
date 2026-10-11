@@ -10,6 +10,31 @@ matching `vX.Y.Z` tag on merge (#18).
 
 ## [Unreleased]
 
+## [0.22.7] - 2026-10-12
+
+### Fixed
+- **`series[].key` must be a slug, unique, with at most one papers series
+  (#68).** `validate_config` only checked that `key` was present, but the key is
+  `content/docs/<key>/` and an unquoted word in the shipped CI's papers glob:
+  `key: ""` rendered `content/docs//*/index.md`, a key with a space split into
+  two shell words. Two `content_type: papers` entries were silent —
+  `scaffold-paper.sh` and `validate_papers` took the first, the CI template the
+  last. All three are now config errors, and the template takes the first
+  non-empty papers key, so an unvalidated config degrades to the default
+  instead of to `<no value>` (a bash redirection).
+- **The glossary never marks inside a hand-written `<pre class="mermaid">`
+  (#68).** The scanner excluded the `<pre>` tag but not its content, so diagram
+  source read as prose and a marker there broke the diagram exactly as one in a
+  `papers/landscape` body did. It is now an opaque region in the same seam, so
+  `validate_glossary` also names a marker already inside one. A plain `<pre>`
+  stays markable.
+
+### Added
+- **`features.glossary.opaque_body_shortcodes` (#68).** A blog that ships its
+  own renderer-source shortcode (Vega, PlantUML, a mermaid wrapper) lists it
+  here; its body is never marked and an existing marker in it fails CI. Merged
+  over the shipped list, which stays the floor. Optional; no schema bump.
+
 ## [0.22.4] - 2026-10-10
 
 ### Fixed

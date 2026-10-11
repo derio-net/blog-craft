@@ -54,6 +54,9 @@ image:
 
 series:
   - { key, title, description, content_type: posts | papers | explainers }
+                          # key: a slug — letters, digits, '-', '_' (it is
+                          #   content/docs/<key>/ and a CI shell word); unique;
+                          #   at most one series may be content_type: papers
 
 series_index:             # optional; controls the {{< series-index >}} layout
   style: cards            #   cards (default) | table | none
@@ -443,12 +446,14 @@ features:
   glossary:
     enabled: true
     first_occurrence_only: true   # optional, default true
+    opaque_body_shortcodes: []    # optional; your own renderer-source shortcodes
 ```
 
 | Key | Default | Meaning |
 |-----|---------|---------|
 | `enabled` | *(absent → false)* | Master switch. When true, bootstrap/`/update` materialize the two shortcodes and `assets/css/glossary.css`, and the shipped CI wires the validator step. |
 | `first_occurrence_only` | `true` | An **authoring** knob, not a rendering one: it governs where `/glossary` inserts markers. `false` marks every occurrence in a post rather than just the first. |
+| `opaque_body_shortcodes` | `[]` | Names of **your blog's own** paired shortcodes whose body is source for a renderer (a Vega spec, PlantUML, a mermaid wrapper) rather than prose — e.g. `["vega", "diagrams/plantuml"]`. Their bodies are never marked, and a marker already inside one fails the validator. Merged over the shipped list (`papers/landscape`), which cannot be removed. A hand-written `<pre class="mermaid">` block is always treated this way and needs no entry. |
 
 No schema version bump is involved — `features` passes through untouched, so
 turning this on is a two-line edit to an existing v5 config followed by

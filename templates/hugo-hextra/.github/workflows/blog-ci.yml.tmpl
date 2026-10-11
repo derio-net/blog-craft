@@ -27,8 +27,13 @@
   Selecting by path rather than skipping by frontmatter also keeps the gate
   honest: a paper carrying the WRONG series still sits in the papers directory,
   so it is still validated, and the series check is exactly what catches it.
+
+  The FIRST papers entry with a non-empty key wins, as in scaffold-paper.sh and
+  validate_papers. validate_config rejects an empty key and a second papers
+  series; this guard is for a config that skipped validation, where `.key`
+  missing would render `<no value>` — a bash redirection (blog-craft#68).
 */ -}}
-{{- $papers := "papers" }}{{- with .series }}{{- range . }}{{- $ct := "" }}{{- with .content_type }}{{- $ct = . }}{{- end }}{{- if eq $ct "papers" }}{{- $papers = .key }}{{- end }}{{- end }}{{- end -}}
+{{- $papers := "papers" }}{{- $found := false }}{{- with .series }}{{- range . }}{{- $ct := "" }}{{- with .content_type }}{{- $ct = . }}{{- end }}{{- if and (eq $ct "papers") (not $found) }}{{- with .key }}{{- $papers = . }}{{- $found = true }}{{- end }}{{- end }}{{- end }}{{- end -}}
 {{- /*
   quality.mermaid_max_width — the width gate's px budget. Absent means the
   contract default of 1400 (docs/superpowers/specs/2026-07-28-mermaid-
