@@ -4,9 +4,12 @@
 A regex linter (no node/mmdc toolchain) that catches high-confidence, dead-on-
 render mistakes with file:line:
 
-  - subgraph-targeting edge   an edge endpoint is a declared subgraph id
   - bare <br>                 Hextra's bundled Mermaid wants <br/> (self-closed)
   - unbalanced brackets       [] () {} outside quotes must balance per block
+
+(An edge whose endpoint is a subgraph id is NOT on this list: mermaid
+flowcharts accept it and render it — #74 dropped a rule that claimed otherwise.
+A rule earns its place here only for a form that demonstrably fails to render.)
 
 Opt-out with `quality.mermaid_syntax: false` (absent => on). Blocking when on.
 
@@ -22,9 +25,6 @@ from __future__ import annotations
 import re
 import sys
 
-_EDGE_OPS = re.compile(r"-{2,3}>|-\.->|-\.-|={2,3}>|={3}|-{3}|--[ox]|<-->|o--o|x--x")
-_SUBGRAPH = re.compile(r"^\s*subgraph\s+([A-Za-z0-9_-]+)")
-_EDGE_LABEL = re.compile(r"\|[^|]*\|")
 _BARE_BR = re.compile(r"<br\s*>")   # <br> / <br > — NOT <br/> or <br />
 
 
@@ -54,33 +54,9 @@ def _strip_quoted(s: str) -> str:
     return re.sub(r'"[^"]*"', "", s)
 
 
-def _endpoint_ids(line: str) -> list[str]:
-    """Node ids referenced as edge endpoints on this line (quotes/labels removed)."""
-    cleaned = _EDGE_LABEL.sub(" ", _strip_quoted(line))
-    if not _EDGE_OPS.search(cleaned):
-        return []
-    ids = []
-    for part in _EDGE_OPS.split(cleaned):
-        m = re.match(r"\s*([A-Za-z0-9_-]+)", part)
-        if m:
-            ids.append(m.group(1))
-    return ids
-
-
 def lint_mermaid_block(src: str) -> list[tuple[int, str]]:
     issues: list[tuple[int, str]] = []
-    lines = src.splitlines()
-
-    subgraph_ids = {m.group(1) for ln in lines if (m := _SUBGRAPH.match(ln))}
-
-    for idx, line in enumerate(lines):
-        # R1 — edge whose endpoint is a subgraph id
-        if subgraph_ids:
-            for eid in _endpoint_ids(line):
-                if eid in subgraph_ids:
-                    issues.append((idx, f"edge targets subgraph id '{eid}' — edges "
-                                        f"must connect nodes, not subgraphs"))
-                    break
+    for idx, line in enumerate(src.splitlines()):
         # R2 — bare <br>
         if _BARE_BR.search(line):
             issues.append((idx, "bare <br> — use <br/> (self-closed) for the bundled Mermaid"))

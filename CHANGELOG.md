@@ -10,6 +10,25 @@ matching `vX.Y.Z` tag on merge (#18).
 
 ## [Unreleased]
 
+## [0.22.5] - 2026-10-12
+
+### Fixed
+- **The mermaid syntax gate no longer flags edges to subgraphs (#74).** Rule R1
+  rejected any edge whose endpoint is a subgraph id as "dead on render". Mermaid
+  flowcharts accept those edges, and every form R1 rejected renders a sized
+  diagram in real mermaid 11.16.1. R1 is removed. On frank it was the source of
+  all 50 findings across 84 files, so a `GATE DISABLED … would report N
+  finding(s)` count from an older version may have been entirely R1; it is not
+  a backlog to clear. A browser test now renders each former-R1 form next to a
+  real syntax error.
+- **The mermaid width gate says which host measured it (#75).** Widths are text
+  metrics, so the same diagram measured 1395px on macOS Chrome (OK) and 1414px
+  on ubuntu-latest (FAILED). Every verdict now names the browser build and
+  OS it was measured on, and failures say that another host can differ.
+  A diagram within `--margin` percent under the budget (default 3) passes with a
+  non-blocking **NEAR BUDGET** warning, so a local pass with no warning predicts
+  a CI pass. The blocking budget is unchanged.
+
 ## [0.22.4] - 2026-10-10
 
 ### Fixed
