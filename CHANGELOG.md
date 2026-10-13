@@ -10,6 +10,18 @@ matching `vX.Y.Z` tag on merge (#18).
 
 ## [Unreleased]
 
+## [0.22.6] - 2026-10-12
+
+### Fixed
+- **`scaffold-paper.sh` honours `site_dir` (#79).** It rooted the paper bundle
+  at the config's directory and never read `site_dir`, so on a blog whose Hugo
+  site is a subdirectory (config at the repo root, `site_dir: blog`) the bundle
+  landed in a top-level `content/` that Hugo never sees — reported as success,
+  with a path that looked right. The bundle now lands at
+  `<site_dir>/content/docs/<papers-key>/NN-slug/`; the dossier is unchanged,
+  since `dossier_dir` is config-root-relative by contract. The printed bundle
+  path is the one actually written.
+
 ## [0.22.5] - 2026-10-12
 
 ### Fixed

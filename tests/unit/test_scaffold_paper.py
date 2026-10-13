@@ -36,6 +36,27 @@ def test_scaffold_paper(tmp_path):
     assert section(data, "primary_sources", "sources") and section(data, "artefacts")
 
 
+def test_scaffold_honours_site_dir(tmp_path):
+    """blog-craft#79: on a site_dir blog the bundle lands INSIDE the Hugo site.
+
+    content/** is site-placed (under site_dir); dossier_dir stays relative to
+    the config root, so the dossier does not move.
+    """
+    cfg = tmp_path / ".blog-craft.yaml"
+    cfg.write_text(open(os.path.join(FIX, "answers-papers-v2.yaml")).read()
+                   + "\nsite_dir: blog/\n")
+    r = subprocess.run(["bash", TOOL, "--config", str(cfg), "21", "example-paper"],
+                       capture_output=True, text=True, env=ENV)
+    assert r.returncode == 0, r.stderr
+
+    bundle = tmp_path / "blog" / "content" / "docs" / "papers" / "21-example-paper"
+    assert (bundle / "index.md").exists()
+    assert not (tmp_path / "content").exists()
+    assert (tmp_path / "docs" / "papers-dossiers" / "21-example-paper" / "dossier.md").exists()
+    # the reported path is the one actually written
+    assert "blog/content/docs/papers/21-example-paper/" in r.stdout
+
+
 def test_scaffold_refuses_duplicate(tmp_path):
     cfg = tmp_path / ".blog-craft.yaml"
     cfg.write_text(open(os.path.join(FIX, "answers-papers-v2.yaml")).read())
