@@ -37,7 +37,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from glossary_scan import load_registry, markers_in, misplaced_markers  # noqa: E402
+from glossary_scan import (load_opaque_shortcodes, load_registry,  # noqa: E402
+                           markers_in, misplaced_markers)
 
 _REQUIRED = ("name", "description")
 
@@ -133,13 +134,14 @@ def _main(argv: list[str]) -> int:
     a = ap.parse_args(argv)
 
     registry = load_registry(a.config)
+    opaque = load_opaque_shortcodes(a.config)
     marked: list[tuple[str, str, int]] = []
     misplaced: list[tuple[str, str, int]] = []
     for p in a.paths:
         with open(p) as f:
             text = f.read()
         marked.extend((term, p, line) for term, line in markers_in(text))
-        misplaced.extend((name, p, line) for name, line in misplaced_markers(text))
+        misplaced.extend((name, p, line) for name, line in misplaced_markers(text, opaque))
 
     errors, warnings = validate_glossary(registry, marked, misplaced)
     for w in warnings:

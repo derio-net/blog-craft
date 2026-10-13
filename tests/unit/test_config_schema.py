@@ -9,6 +9,7 @@ Invariants under test (spec §4 / §4.1):
 import copy
 import os
 
+import pytest
 import yaml
 
 from validate_config import validate_config  # tools/ on sys.path via conftest
@@ -704,3 +705,61 @@ def test_reader_config_preserves_old_schema_compatibility():
     assert validate_config(cfg) == []
     cfg['features']['reader_experience']['author']['url'] = '//example.org/'
     assert any('author.url' in e for e in validate_config(cfg))
+
+
+# --- series[].key is a path segment and a shell word (blog-craft#68) ----------
+# The key becomes content/docs/<key>/ and is interpolated unquoted into the
+# shipped CI's papers glob. Presence alone let `key: ""` render
+# content/docs//*/index.md and a key with a space split into two shell words.
+
+def test_series_key_must_be_non_empty():
+    cfg = _valid()
+    cfg["series"][0]["key"] = ""
+    assert any("series[0].key" in e for e in validate_config(cfg))
+
+
+@pytest.mark.parametrize("key", ["my papers", "a/b", "<no value>", "-lead", 7])
+def test_series_key_must_be_a_slug(key):
+    cfg = _valid()
+    cfg["series"][0]["key"] = key
+    assert any("series[0].key" in e for e in validate_config(cfg))
+
+
+@pytest.mark.parametrize("key", ["papers", "content-factory", "papers-07", "Essays", "a_b"])
+def test_real_series_keys_stay_valid(key):
+    cfg = _valid()
+    cfg["series"][0]["key"] = key
+    assert validate_config(cfg) == []
+
+
+def test_series_keys_must_be_unique():
+    cfg = _valid()
+    cfg["series"][1]["key"] = cfg["series"][0]["key"]
+    assert any("duplicate series key" in e for e in validate_config(cfg))
+
+
+def test_at_most_one_papers_series():
+    # Silent before: scaffold-paper.sh and validate_papers took the FIRST papers
+    # entry while the CI template took the LAST, so bundles and the gate could
+    # point at different sections with no signal.
+    cfg = _valid()
+    for s in cfg["series"]:
+        s["content_type"] = "papers"
+    assert any("content_type: papers" in e for e in validate_config(cfg))
+
+
+# --- features.glossary.opaque_body_shortcodes (blog-craft#68) ----------------
+
+def test_glossary_opaque_body_shortcodes_list_passes():
+    cfg = _valid()
+    cfg["features"] = {"glossary": {"enabled": True,
+                                    "opaque_body_shortcodes": ["vega", "diagrams/plantuml"]}}
+    assert validate_config(cfg) == []
+
+
+@pytest.mark.parametrize("value", ["vega", [""], [3], ["has space"]])
+def test_glossary_opaque_body_shortcodes_must_be_a_list_of_names(value):
+    cfg = _valid()
+    cfg["features"] = {"glossary": {"opaque_body_shortcodes": value}}
+    assert any("features.glossary.opaque_body_shortcodes" in e
+               for e in validate_config(cfg))

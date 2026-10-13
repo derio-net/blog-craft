@@ -159,3 +159,113 @@ def test_validator_fails_on_a_marker_inside_a_landscape_body(tmp_path):
 
     assert r.returncode == 1
     assert "papers/landscape" in r.stderr and "renderer source" in r.stderr
+
+
+# --- the same hazard without a shortcode (blog-craft#68) ---------------------
+# A hand-written `<pre class="mermaid">` is handed to mermaid exactly as a
+# landscape body is. `_INLINE_PATTERNS` excluded the <pre> TAG, not its content.
+
+RAW_PRE = '<pre class="mermaid">\ngraph LR\n  A[OSS] --> B\n</pre>\n'
+
+
+def test_a_raw_mermaid_pre_body_is_not_a_candidate():
+    terms = [c["term"] for c in candidates("Prose SLO here.\n\n" + RAW_PRE + "\nAfter, NUT.\n")]
+    assert terms == ["SLO", "NUT"], "diagram source is not prose; prose around it still is"
+
+
+def test_a_raw_mermaid_pre_with_extra_classes_and_attrs_is_excluded():
+    text = "<pre id=\"d1\" class='diagram mermaid'>\n  A[OSS] --> B\n</PRE>\n"
+    assert [c["term"] for c in candidates(text)] == []
+
+
+def test_a_plain_pre_is_not_widened_into_the_exclusion():
+    # Only renderer source is opaque. Narrowing the fix to mermaid keeps a
+    # `<pre>` of ordinary text markable, as it was before.
+    assert "OSS" in [c["term"] for c in candidates("<pre>\nOSS output\n</pre>\n")]
+
+
+def test_an_unclosed_raw_pre_excludes_nothing():
+    text = '<pre class="mermaid">\n  A[OSS] --> B\n\nLater SLO prose.\n'
+    assert {"OSS", "SLO"} <= {c["term"] for c in candidates(text)}
+
+
+def test_misplaced_markers_reports_a_marker_in_a_raw_mermaid_pre():
+    text = RAW_PRE.replace("A[OSS]", 'A[{{< abbr "OSS" >}}]')
+    found = misplaced_markers(text)
+    assert len(found) == 1 and "mermaid" in found[0][0]
+    assert found[0][1] == 3
+
+
+def test_a_raw_pre_shown_in_a_fence_is_documentation():
+    text = '```html\n' + RAW_PRE.replace("A[OSS]", 'A[{{< abbr "OSS" >}}]') + '```\n'
+    assert misplaced_markers(text) == []
+
+
+# --- a blog's own renderer shortcodes (blog-craft#68) ------------------------
+# OPAQUE_BODY_SHORTCODES is audited complete for blog-craft's shortcodes; a blog
+# that ships its own (Vega, PlantUML, a mermaid wrapper) declares it via
+# features.glossary.opaque_body_shortcodes, merged OVER the shipped floor.
+
+VEGA = '{{< vega >}}\n{"title": "OSS share"}\n{{< /vega >}}\n'
+
+
+def test_an_undeclared_blog_shortcode_body_is_prose():
+    assert "OSS" in [c["term"] for c in candidates(VEGA)]
+
+
+def test_a_declared_blog_shortcode_body_is_opaque():
+    assert [c["term"] for c in candidates(VEGA, opaque_shortcodes=("vega",))] == []
+
+
+def test_declaring_extras_never_drops_the_shipped_floor():
+    terms = [c["term"] for c in candidates(LANDSCAPE, opaque_shortcodes=("vega",))]
+    assert "OSS" not in terms
+
+
+def test_misplaced_markers_honours_declared_shortcodes():
+    text = VEGA.replace("OSS share", '{{< abbr "OSS" >}} share')
+    assert misplaced_markers(text) == []
+    assert [n for n, _ in misplaced_markers(text, opaque_shortcodes=("vega",))] == ["vega"]
+
+
+def _blog(tmp_path, extra):
+    cfg = tmp_path / ".blog-craft.yaml"
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / "glossary.yaml").write_text(
+        "OSS:\n  name: Open Source Software\n  description: d\n")
+    cfg.write_text("version: 5\nsite_dir: .\nfeatures:\n  glossary:\n"
+                   f"    enabled: true\n    opaque_body_shortcodes: {extra}\n")
+    return cfg
+
+
+def test_validator_cli_reads_declared_shortcodes_from_config(tmp_path):
+    cfg = _blog(tmp_path, '["vega"]')
+    post = _post(tmp_path, VEGA.replace("OSS share", '{{< abbr "OSS" >}} share'))
+    r = subprocess.run(
+        [sys.executable, os.path.join(ROOT, "tools", "validate_glossary.py"),
+         "--config", str(cfg), str(post)],
+        capture_output=True, text=True, cwd=tmp_path)
+    assert r.returncode == 1 and "vega" in r.stderr
+
+
+def test_apply_cli_reads_declared_shortcodes_from_config(tmp_path):
+    cfg = _blog(tmp_path, '["vega"]')
+    post = _post(tmp_path, VEGA)
+    r = subprocess.run(
+        [sys.executable, os.path.join(ROOT, "tools", "glossary_apply.py"),
+         "--config", str(cfg), str(post)],
+        capture_output=True, text=True, cwd=tmp_path)
+    assert r.returncode == 0, r.stderr
+    assert post.read_text() == VEGA, "a declared renderer body must not be marked"
+
+
+def test_scan_cli_reads_declared_shortcodes_from_config(tmp_path):
+    import json
+    cfg = _blog(tmp_path, '["vega"]')
+    post = _post(tmp_path, VEGA)
+    r = subprocess.run(
+        [sys.executable, os.path.join(ROOT, "tools", "glossary_scan.py"),
+         "--config", str(cfg), str(post)],
+        capture_output=True, text=True, cwd=tmp_path)
+    assert r.returncode == 0, r.stderr
+    assert json.loads(r.stdout) == []

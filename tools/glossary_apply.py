@@ -22,7 +22,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from glossary_scan import MARKER_RE, candidates, load_registry  # noqa: E402
+from glossary_scan import (MARKER_RE, candidates, load_opaque_shortcodes,  # noqa: E402
+                           load_registry)
 
 
 def _marker(term: str, display: str) -> str:
@@ -32,7 +33,8 @@ def _marker(term: str, display: str) -> str:
 
 
 def apply_file(path: str, registry: dict,
-               first_occurrence_only: bool = True) -> list[dict]:
+               first_occurrence_only: bool = True,
+               opaque_shortcodes=()) -> list[dict]:
     """Mark defined terms in one file. Returns the edits made (empty == untouched).
 
     The file is written only when something actually changed, so a no-op run
@@ -41,7 +43,7 @@ def apply_file(path: str, registry: dict,
     with open(path) as f:
         text = f.read()
 
-    hits = [c for c in candidates(text) if c["term"] in registry]
+    hits = [c for c in candidates(text, opaque_shortcodes) if c["term"] in registry]
     if first_occurrence_only:
         # Seed from the markers already in the file. candidates() skips tokens
         # INSIDE a marker (it sits in an excluded span), but a later bare
@@ -85,13 +87,15 @@ def _main(argv: list[str]) -> int:
     first_only = False if a.all else gl.get("first_occurrence_only", True)
 
     registry = load_registry(a.config)
+    opaque = load_opaque_shortcodes(a.config)
     if not registry:
         print("no data/glossary.yaml entries — nothing to mark", file=sys.stderr)
         return 0
 
     total = 0
     for p in a.paths:
-        for e in apply_file(p, registry, first_occurrence_only=first_only):
+        for e in apply_file(p, registry, first_occurrence_only=first_only,
+                            opaque_shortcodes=opaque):
             print(f"{e['file']}:{e['line']}  {e['term']}")
             total += 1
     print(f"{total} marker(s) inserted")

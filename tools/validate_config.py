@@ -19,6 +19,7 @@ CLI:     `validate_config.py --check <path>` (exit 0 valid, 1 invalid).
 """
 from __future__ import annotations
 
+import re
 import sys
 
 RESERVED_SCENE = "scene"
@@ -27,6 +28,10 @@ IMAGE_OPTIMIZE_FORMATS = frozenset({"webp"})
 REQUIRED_TOP = ("project", "image", "series", "voice")
 ACCEPTED_VERSIONS = (2, 3, 4, 5, 6, 7)
 STICKER_PATH_KEYS = ("prompts_file", "images_dir", "sheets_dir")
+SERIES_KEY_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]*\Z")
+# A Hugo shortcode name as written in `{{< name >}}`: path segments of word
+# characters and hyphens, no whitespace (it would end the name).
+SHORTCODE_NAME_RE = re.compile(r"[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+)*\Z")
 
 
 def _validate_select(name: str, select, errors: list[str]) -> None:
@@ -298,9 +303,33 @@ def validate_config(cfg: dict) -> list[str]:
         if not isinstance(series, list):
             errors.append("series must be a list")
         else:
+            seen_keys: set[str] = set()
+            papers_at: list[int] = []
             for i, s in enumerate(series):
                 if not isinstance(s, dict) or "key" not in s or "title" not in s:
                     errors.append(f"series[{i}] must have at least key + title")
+                    continue
+                # The key is a path segment (content/docs/<key>/) and is
+                # interpolated unquoted into the shipped CI's papers glob, so
+                # presence is not enough: "" renders content/docs//, a space
+                # splits the shell word (blog-craft#68).
+                key = s["key"]
+                if not isinstance(key, str) or not SERIES_KEY_RE.match(key):
+                    errors.append(
+                        f"series[{i}].key must be a slug — letters, digits, '-' "
+                        f"and '_', starting with a letter or digit (got {key!r})")
+                elif key in seen_keys:
+                    errors.append(f"series[{i}]: duplicate series key {key!r}")
+                else:
+                    seen_keys.add(key)
+                if s.get("content_type") == "papers":
+                    papers_at.append(i)
+            # scaffold-paper.sh and validate_papers take the first papers entry;
+            # more than one means the section they agree on is an accident.
+            if len(papers_at) > 1:
+                errors.append(
+                    f"at most one series may have content_type: papers "
+                    f"(series {papers_at})")
 
     # optional quality block: mermaid_syntax opt-out (default on) must be a bool.
     quality = cfg.get("quality")
@@ -385,6 +414,15 @@ def validate_config(cfg: dict) -> list[str]:
             for key in ("enabled", "first_occurrence_only"):
                 if key in gl and not isinstance(gl[key], bool):
                     errors.append(f"features.glossary.{key} must be a boolean")
+            # Extra renderer-source shortcodes, merged over glossary_scan's
+            # shipped floor (blog-craft#68).
+            if "opaque_body_shortcodes" in gl:
+                names = gl["opaque_body_shortcodes"]
+                if not isinstance(names, list) or not all(
+                        isinstance(n, str) and SHORTCODE_NAME_RE.match(n) for n in names):
+                    errors.append(
+                        "features.glossary.opaque_body_shortcodes must be a list of "
+                        f"shortcode names, e.g. [\"vega\"] (got {names!r})")
 
     # v6: features.mermaid_view — diagrams render at natural size in a framed
     # scroller. Only checked when PRESENT; absent is legal and means true,

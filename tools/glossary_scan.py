@@ -14,14 +14,20 @@ that question would eventually disagree and the failure mode of disagreement is
 a corrupted post.
 
 Library:
-  excluded_spans(text) -> [(start, end), ...]      regions that are not prose
-  candidates(text) -> [{term, display, start, end}, ...]
+  excluded_spans(text, opaque_shortcodes=()) -> [(start, end), ...]   not prose
+  candidates(text, opaque_shortcodes=()) -> [{term, display, start, end}, ...]
+  load_opaque_shortcodes(config_path) -> (name, ...)   a blog's declared extras
+
+`opaque_shortcodes` names a blog's own renderer-source shortcodes
+(`features.glossary.opaque_body_shortcodes`); they are merged OVER the shipped
+OPAQUE_BODY_SHORTCODES, never in place of them.
 
 CLI:
   glossary_scan.py --config <.blog-craft.yaml> <path…>   # JSON to stdout
 """
 from __future__ import annotations
 
+import functools
 import re
 
 # Capitalized tokens that are never a technical abbreviation worth defining.
@@ -59,7 +65,29 @@ _INDENTED = re.compile(r"^(?: {4}|\t)")
 # silently drop legitimate markers. Audited against every shipped shortcode —
 # landscape is the only one that qualifies; capability-matrix, dossier-link and
 # references-index take no body at all.
+#
+# This is the FLOOR, not the ceiling: a blog that ships its own renderer-source
+# shortcode (Vega, PlantUML, a mermaid wrapper) declares it in
+# `features.glossary.opaque_body_shortcodes`, and every caller merges those over
+# this set (blog-craft#68).
 OPAQUE_BODY_SHORTCODES = frozenset({"papers/landscape"})
+
+# The same hazard without a shortcode: a post that writes the mermaid block as
+# raw HTML. `_INLINE_PATTERNS` excludes the <pre> TAG, not the element's
+# content, so diagram source read as prose (blog-craft#68). Scoped to a `mermaid`
+# class — a plain `<pre>` of program output is not handed to a renderer and
+# stays markable, as it always was. `mermaid` must be a whole class token, so
+# `class="mermaid-legend"` does not qualify. The body is tempered against another
+# `<pre` opener for the same reason the shortcode body is: an unclosed opener
+# must exclude nothing rather than reach the next block's `</pre>`.
+RAW_MERMAID_PRE = '<pre class="mermaid">'
+_RAW_MERMAID_PRE_RE = re.compile(
+    r"<pre\b[^<>]*?\bclass\s*=\s*([\"'])(?:(?!\1)[^<>])*?(?<![\w-])mermaid(?![\w-])"
+    r"(?:(?!\1)[^<>])*\1[^<>]*>"
+    r"(?P<body>(?:(?!<pre\b).)*?)"
+    r"(?=</pre\s*>)",
+    re.S | re.I,
+)
 
 def _opaque_pattern(name: str, lo: str, hi: str) -> re.Pattern:
     """opening tag … body … (closing tag), for one shortcode and one delimiter pair.
@@ -87,14 +115,19 @@ def _opaque_pattern(name: str, lo: str, hi: str) -> re.Pattern:
     )
 
 
-# Both Hugo delimiter pairs. `{{%` renders its body as markdown, which breaks a
-# diagram just as thoroughly — and an asymmetry here would be a trap rather than
-# a saving.
-_OPAQUE_BODY = tuple(
-    (name, _opaque_pattern(name, lo, hi))
-    for name in sorted(OPAQUE_BODY_SHORTCODES)
-    for lo, hi in (("{{<", ">}}"), ("{{%", "%}}"))
-)
+@functools.lru_cache(maxsize=None)
+def _opaque_body_patterns(extra: frozenset[str]) -> tuple:
+    """(name, pattern) for the shipped floor plus a blog's declared extras.
+
+    Both Hugo delimiter pairs. `{{%` renders its body as markdown, which breaks a
+    diagram just as thoroughly — and an asymmetry here would be a trap rather
+    than a saving. Cached per name set: a series-wide sweep calls this per file.
+    """
+    return tuple(
+        (name, _opaque_pattern(name, lo, hi))
+        for name in sorted(OPAQUE_BODY_SHORTCODES | extra)
+        for lo, hi in (("{{<", ">}}"), ("{{%", "%}}"))
+    ) + ((RAW_MERMAID_PRE, _RAW_MERMAID_PRE_RE),)
 
 # Inline constructs. Each requires a closing delimiter, so an unmatched opener in
 # prose can never swallow the rest of the document.
@@ -165,7 +198,8 @@ def _block_spans(text: str, code_only: bool = False) -> list[tuple[int, int]]:
     return spans
 
 
-def excluded_spans(text: str) -> list[tuple[int, int]]:
+def excluded_spans(text: str,
+                   opaque_shortcodes=()) -> list[tuple[int, int]]:
     """Character spans that are NOT prose, and so must never be marked.
 
     Public because glossary_apply.py and validate_glossary.py consume it — one
@@ -174,12 +208,13 @@ def excluded_spans(text: str) -> list[tuple[int, int]]:
     spans = _block_spans(text)
     for pat in _INLINE_PATTERNS:
         spans.extend((m.start(), m.end()) for m in pat.finditer(text))
-    spans.extend(opaque_body_spans(text))
+    spans.extend(opaque_body_spans(text, opaque_shortcodes))
     return sorted(spans)
 
 
-def _opaque_bodies(text: str) -> list[tuple[str, int, int]]:
-    """(shortcode, body_start, body_end) for each renderer-source body.
+def _opaque_bodies(text: str, opaque_shortcodes=()) -> list[tuple[str, int, int]]:
+    """(name, body_start, body_end) for each renderer-source body — the shipped
+    shortcodes, a blog's declared extras, and raw `<pre class="mermaid">`.
 
     Separate from `_block_spans` because this is a construct question, not a
     line one: the body is delimited by the shortcode's own tags and can hold
@@ -193,7 +228,7 @@ def _opaque_bodies(text: str) -> list[tuple[str, int, int]]:
     """
     skip = code_spans(text)
     out: list[tuple[str, int, int]] = []
-    for name, pat in _OPAQUE_BODY:
+    for name, pat in _opaque_body_patterns(frozenset(opaque_shortcodes)):
         for m in pat.finditer(text):
             if _in_any(m.start(), m.start("body"), skip):
                 continue
@@ -201,12 +236,12 @@ def _opaque_bodies(text: str) -> list[tuple[str, int, int]]:
     return out
 
 
-def opaque_body_spans(text: str) -> list[tuple[int, int]]:
-    """Bodies of shortcodes that hand their `.Inner` to a renderer, not to prose."""
-    return [(s, e) for _, s, e in _opaque_bodies(text)]
+def opaque_body_spans(text: str, opaque_shortcodes=()) -> list[tuple[int, int]]:
+    """Bodies handed to a renderer, not to prose (see `_opaque_bodies`)."""
+    return [(s, e) for _, s, e in _opaque_bodies(text, opaque_shortcodes)]
 
 
-def misplaced_markers(text: str) -> list[tuple[str, int]]:
+def misplaced_markers(text: str, opaque_shortcodes=()) -> list[tuple[str, int]]:
     """Executed {{< abbr >}} markers sitting in an opaque body, as (shortcode, line).
 
     `excluded_spans` stops NEW ones being proposed or inserted; this reports the
@@ -224,7 +259,7 @@ def misplaced_markers(text: str) -> list[tuple[str, int]]:
     """
     skip = code_spans(text)
     out: list[tuple[str, int]] = []
-    for name, start, end in _opaque_bodies(text):
+    for name, start, end in _opaque_bodies(text, opaque_shortcodes):
         for mark in MARKER_RE.finditer(text[start:end]):
             pos = start + mark.start()
             if _in_any(pos, pos + len(mark.group(0)), skip):
@@ -255,9 +290,9 @@ def markers_in(text: str) -> list[tuple[str, int]]:
             if not _in_any(m.start(), m.end(), skip)]
 
 
-def candidates(text: str) -> list[dict]:
+def candidates(text: str, opaque_shortcodes=()) -> list[dict]:
     """Every prose occurrence of a candidate token, in document order."""
-    spans = excluded_spans(text)
+    spans = excluded_spans(text, opaque_shortcodes)
     out: list[dict] = []
     for m in TOKEN_RE.finditer(text):
         term = m.group(1)
@@ -280,7 +315,8 @@ def _sentence_at(text: str, start: int, end: int) -> str:
     return " ".join(text[left:right].split())
 
 
-def scan_file(path: str, registry: dict | None = None) -> list[dict]:
+def scan_file(path: str, registry: dict | None = None,
+              opaque_shortcodes=()) -> list[dict]:
     """Candidates in one file, deduped by term, richest-first metadata.
 
     A term already marked with {{< abbr >}} anywhere in the file is not proposed —
@@ -295,7 +331,7 @@ def scan_file(path: str, registry: dict | None = None) -> list[dict]:
         text = f.read()
 
     found: dict[str, dict] = {}
-    for c in candidates(text):
+    for c in candidates(text, opaque_shortcodes):
         term = c["term"]
         if term in found:
             found[term]["occurrences"] += 1
@@ -310,6 +346,23 @@ def scan_file(path: str, registry: dict | None = None) -> list[dict]:
             "known": term in registry,
         }
     return list(found.values())
+
+
+def load_opaque_shortcodes(config_path: str) -> tuple[str, ...]:
+    """`features.glossary.opaque_body_shortcodes` — a blog's renderer shortcodes.
+
+    Merged over OPAQUE_BODY_SHORTCODES by every caller, so declaring one can
+    only widen the exclusion. A malformed value is validate_config's to report;
+    here it reads as "none declared" rather than crashing a sweep.
+    """
+    import yaml
+    with open(config_path) as f:
+        cfg = yaml.safe_load(f) or {}
+    gl = ((cfg.get("features") or {}).get("glossary") or {})
+    names = gl.get("opaque_body_shortcodes") if isinstance(gl, dict) else None
+    if not isinstance(names, list):
+        return ()
+    return tuple(n for n in names if isinstance(n, str) and n.strip())
 
 
 def load_registry(config_path: str) -> dict:
@@ -336,9 +389,10 @@ def _main(argv: list[str]) -> int:
     ap.add_argument("paths", nargs="+")
     a = ap.parse_args(argv)
     registry = load_registry(a.config)
+    opaque = load_opaque_shortcodes(a.config)
     out: list[dict] = []
     for p in a.paths:
-        out.extend(scan_file(p, registry))
+        out.extend(scan_file(p, registry, opaque))
     print(json.dumps(out, indent=2))
     return 0
 
