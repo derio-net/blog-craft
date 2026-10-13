@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # scaffold-paper.sh — create a paper page-bundle + research dossier in a
 # blog-craft blog. Config-driven: reads content_types.papers (dossier_dir,
-# weight_offset) and the papers series key from .blog-craft.yaml.
+# weight_offset), the papers series key and site_dir from .blog-craft.yaml.
+# The bundle is site-placed (<site_dir>/content/…); the dossier stays relative
+# to the config root, like every config-declared path.
 #
 # Usage: scaffold-paper.sh --config <.blog-craft.yaml> <NN> <slug>
 set -euo pipefail
@@ -22,13 +24,14 @@ NN="${ARGS[0]:?Usage: scaffold-paper.sh --config <cfg> <NN> <slug>}"
 SLUG="${ARGS[1]:?Usage: scaffold-paper.sh --config <cfg> <NN> <slug>}"
 CONFIG="${CONFIG:?--config <.blog-craft.yaml> required}"
 
-# Extract config values (weight_offset, dossier_dir, papers series key).
-read -r WEIGHT_OFFSET DOSSIER_DIR PAPERS_KEY < <("$PYTHON" - "$CONFIG" <<'PY'
+# Extract config values (weight_offset, dossier_dir, papers series key, site_dir).
+read -r WEIGHT_OFFSET DOSSIER_DIR PAPERS_KEY SITE_DIR < <("$PYTHON" - "$CONFIG" <<'PY'
 import sys, yaml
 c = yaml.safe_load(open(sys.argv[1])) or {}
 p = (c.get("content_types") or {}).get("papers") or {}
 pk = next((s["key"] for s in (c.get("series") or []) if s.get("content_type") == "papers"), "papers")
-print(p.get("weight_offset", 1), p.get("dossier_dir", "docs/papers-dossiers"), pk)
+site = (c.get("site_dir") or ".").rstrip("/") or "."
+print(p.get("weight_offset", 1), p.get("dossier_dir", "docs/papers-dossiers"), pk, site)
 PY
 )
 
@@ -36,7 +39,9 @@ ROOT="$(cd "$(dirname "$CONFIG")" && pwd)"
 TODAY="$(date +%Y-%m-%d)"
 PADDED="$(printf '%02d' "$((10#$NN))")"
 DIR="${PADDED}-${SLUG}"
-BUNDLE="$ROOT/content/docs/${PAPERS_KEY}/${DIR}"
+BUNDLE_REL="content/docs/${PAPERS_KEY}/${DIR}"
+[[ "$SITE_DIR" != "." ]] && BUNDLE_REL="${SITE_DIR}/${BUNDLE_REL}"
+BUNDLE="$ROOT/${BUNDLE_REL}"
 DOSSIER="$ROOT/${DOSSIER_DIR}/${DIR}"
 WEIGHT="$(( 10#$NN + WEIGHT_OFFSET ))"
 
@@ -124,5 +129,5 @@ Fill the sections below until \`validate_dossier.py --config <cfg> ${DOSSIER_DIR
 DOSS
 
 echo "Scaffolded paper ${NN}:"
-echo "  bundle:  content/docs/${PAPERS_KEY}/${DIR}/"
+echo "  bundle:  ${BUNDLE_REL}/"
 echo "  dossier: ${DOSSIER_DIR}/${DIR}/dossier.md"
