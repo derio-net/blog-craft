@@ -1,3 +1,4 @@
+<!-- fr:journal-schema=3 -->
 # Journal: 2026-07-26-csp-inline-script
 
 <!-- fr:journal kind=root-cause scope=debug id=rc-1 created=2026-07-26T20:30:00 -->
@@ -47,8 +48,8 @@ Inline `style=` is deliberately out of scope. `abbr.html` needs a unique
 permissive where `script-src` is not. Widening the guard to `style=` would force
 those two into a suppression list and teach readers the guard is negotiable.
 
-<!-- fr:journal kind=note scope=debug id=n-1 created=2026-07-26T20:40:00 -->
-### n-1 · note · The player library is still off-origin and unpinned
+<!-- fr:journal kind=discovery scope=debug id=n-1 created=2026-07-26T20:40:00 -->
+### n-1 · discovery · The player library is still off-origin and unpinned
 
 `head-end.html` loads asciinema-player from `unpkg.com`. The same
 `script-src 'self'` CSP blocks it, and it carries no Subresource Integrity, so a

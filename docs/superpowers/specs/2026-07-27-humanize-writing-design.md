@@ -148,9 +148,7 @@ block in `.blog-craft.yaml`, seeded via the existing `seed_config.py` pattern
 (defaults + explanatory comment) so consumer blogs adopt it without manual
 edits.
 
-## Testing
-
-### Test Plan
+## Test Plan
 
 - **Unit (lint):** each lint check exercised against two new fixtures — one
   clean post, one deliberately tell-laden — through the existing `tests/`

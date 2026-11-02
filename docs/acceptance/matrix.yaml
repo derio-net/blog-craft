@@ -9,12 +9,15 @@
 #   origin:     list of "repo:path[#anchor]" refs (spec §, design doc)
 #   levels:     unit/api/int/ui → list of "repo:path[#Lline]" test refs
 #               ([] = level does not verify this row)
-#   status:     ci | scheduled | skipped | not-implemented | failing
+#   status:     ci | scheduled | unwired | walk-owed | walked | manual
+#               | not-implemented | failing
 #     ci               automated on every PR — cannot drift silently
 #     scheduled        automated on cron/path triggers
-#     skipped          verification exists but does not run in CI (proven
-#                      live once / manual walk) → CI warning, backfill owed
-#     not-implemented  no test or surface exists yet → CI warning
+#     unwired          a test exists but does not run in CI → debt, CI warning
+#     walk-owed        a live or post-merge walk is owed → debt, CI warning
+#     walked           proven live, dated by its latest passing walk
+#     manual           a process that is never automatable
+#     not-implemented  no test or surface exists yet → debt, CI warning
 #     failing          known red → `fr acceptance check` exits 2, CI FAILS
 #   notes:      evidence detail, drift context
 #
@@ -23,7 +26,7 @@
 # Add rows with `fr acceptance add` (schema-validated append). Keep `rows:`
 # as the LAST top-level key — `add` appends to the end of this file.
 
-schema_version: 4
+schema_version: 5
 org: derio-net
 repo: blog-craft
 rows:
@@ -496,7 +499,7 @@ rows:
     levels:
       ui:
       - blog-craft:docs/superpowers/implemented/plans/2026-07-26-abbreviation-glossary/08.yaml
-    status: skipped
+    status: unwired
     notes: 'Proven live once (2026-07-26) via browser-harness against Brave: click
       opens the panel with name + description, Esc closes, click-away closes, the
       trigger is keyboard-focusable and activates from the keyboard, readable and
@@ -589,7 +592,7 @@ rows:
       unit:
       - blog-craft:tests/unit/test_glossary_hugo.py
       - blog-craft:tests/unit/test_glossary_css.py
-    status: skipped
+    status: unwired
     notes: 'Verified live 2026-07-26 post-merge (Test Plan step 3a, blog-craft#51 on
       main): panel 6px below its own trigger with dx=0 at 1280x850, inline flip at
       500px, block-start flip with the term 30px from the viewport foot, and the
@@ -1165,7 +1168,7 @@ rows:
     levels:
       unit:
       - blog-craft:tests/unit/test_mermaid_view.py
-    status: skipped
+    status: unwired
     notes: |-
       Verified live post-merge 2026-07-29 (Test Plan step 2, blog-craft#69 on main). With the
       feature materialized into a real Hextra build, the scroller reserves 9px of layout for a
@@ -1259,7 +1262,7 @@ rows:
     levels:
       unit:
       - blog-craft:tests/unit/test_mermaid_view.py
-    status: skipped
+    status: unwired
     notes: |-
       Verified live post-merge 2026-07-29 (Test Plan step 4, blog-craft#69 on main). The
       mermaid pre element carries tabindex=0, takes focus (document.activeElement matches) and
@@ -1325,7 +1328,7 @@ rows:
     levels:
       unit:
       - blog-craft:tests/unit/test_build_sheets.py
-    status: skipped
+    status: unwired
     notes: 'DELIBERATELY skipped rather than ci: the claim ends at a printed page, and
       only its machine-checkable half is in CI. WHAT IS PINNED (tests/unit/test_build_sheets.py):
       the page is exactly 2480x3508, DERIVED as round(mm / 25.4 * dpi) per axis rather

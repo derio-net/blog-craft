@@ -1,3 +1,4 @@
+<!-- fr:journal-schema=3 -->
 # Journal: 2026-07-23-opencode-skill-namespace
 
 <!-- fr:journal kind=root-cause scope=debug id=rc-1 created=2026-07-23T21:29:46 -->

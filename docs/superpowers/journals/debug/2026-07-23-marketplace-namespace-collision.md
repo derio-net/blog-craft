@@ -1,3 +1,4 @@
+<!-- fr:journal-schema=3 -->
 # Journal: 2026-07-23-marketplace-namespace-collision
 
 <!-- fr:journal kind=root-cause scope=debug id=rc-1 created=2026-07-23T18:19:04 -->

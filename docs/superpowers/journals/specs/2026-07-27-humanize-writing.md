@@ -1,3 +1,4 @@
+<!-- fr:journal-schema=3 -->
 # Journal: 2026-07-27-humanize-writing
 
 <!-- fr:journal kind=decision scope=spec id=dec-symptoms created=2026-07-27T21:39:54 -->
