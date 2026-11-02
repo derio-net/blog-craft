@@ -1,3 +1,4 @@
+<!-- fr:journal-schema=3 -->
 # Journal: 2026-07-26-csp-inline-script
 
 <!-- fr:journal kind=root-cause scope=debug id=rc-1 created=2026-07-26T20:30:00 -->
