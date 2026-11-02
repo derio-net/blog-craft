@@ -87,3 +87,16 @@ The spec's seeding contract ('the drafting skills seed quality.lint.enabled on t
 ### rev-line-numbers · decision · Lint warnings print counts only — the spec's 'line numbers' promise amended away
 
 The spec said warnings print 'with counts and line numbers'. The density checks (em-dash, negative parallelism, triads per 1000 words) are aggregates over the whole prose body — there is no single line to point at — and per-hit line numbers for the remaining checks would buy little (the messages carry the exact term/opener to grep for). Rather than bolt line tracking onto _prose_only (which reflows lines), the spec sentence in docs/superpowers/specs/2026-07-27-humanize-writing-design.md was amended to 'Warnings print with counts, exit 0.' Implementation and spec now agree.
+
+<!-- fr:journal kind=owed scope=plan id=manual-phase-6 created=2026-11-02T22:29:36+00:00 phase=6 -->
+### manual-phase-6 · owed · 2026-07-27-humanize-writing: manual phase 6 is not ticked (phase 6)
+
+what: do manual phase 6 of 2026-07-27-humanize-writing and tick its steps
+why: fr archive holds the plan until its manual phases are ticked
+how: tick phase 6 (fr plan edit --tick), then fr archive docs/superpowers/plans/2026-07-27-humanize-writing
+owed_key: plan:2026-07-27-humanize-writing#p6
+
+<!-- fr:journal kind=finding scope=plan id=manual-phase-6-resolved created=2026-11-02T22:29:40+00:00 phase=6 state=open resolves=manual-phase-6 filed_as=derio-net/blog-craft#102 -->
+### manual-phase-6-resolved · finding [filed → derio-net/blog-craft#102] · resolves manual-phase-6: 2026-07-27-humanize-writing: manual phase 6 is not ticked (phase 6)
+
+Filed at archive as derio-net/blog-craft#102; still owed until discharged.
