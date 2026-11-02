@@ -79,7 +79,7 @@ rows:
       flat global skill dir has no marketplace layer); canonical skills/ stay bare so
       Claude Code is unaffected; the sync mirror and installer both enforce the prefix
     origin:
-    - blog-craft:docs/superpowers/journals/debug/2026-07-23-opencode-skill-namespace.md
+    - blog-craft:docs/superpowers/implemented/journals/debug/2026-07-23-opencode-skill-namespace.md
     levels:
       unit:
       - blog-craft:tests/unit/test_opencode_namespace.py
@@ -143,7 +143,7 @@ rows:
     acceptance: A blog serving `script-src 'self'` keeps every shipped behaviour —
       no template relies on an inline <script>
     origin:
-    - blog-craft:docs/superpowers/journals/debug/2026-07-26-csp-inline-script.md
+    - blog-craft:docs/superpowers/implemented/journals/debug/2026-07-26-csp-inline-script.md
     levels:
       unit:
       - blog-craft:tests/unit/test_templates_csp_safe.py
