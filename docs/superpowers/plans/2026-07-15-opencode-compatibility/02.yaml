@@ -59,9 +59,10 @@ state:
       note: 'done: shipped in #24 (opencode.json, .opencode mirrors, install.sh, sync
         script); verified 2026-11-08, sweep'
     P2.T2.S1:
-      state: ' '
-      ticked_at: null
-      note: null
+      state: x
+      ticked_at: '2026-11-08T11:43:11+00:00'
+      note: 'done: shipped in #24 (opencode.json, .opencode mirrors, install.sh, sync
+        script); verified 2026-11-08, sweep'
     P2.T2.S2:
       state: ' '
       ticked_at: null
