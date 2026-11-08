@@ -14,3 +14,10 @@ Evidence: 2026-11-08: uv run python scripts/sync-opencode.py --check → '.openc
 Step: **install.sh:** Run `bash scripts/install.sh` — confirm marketplace registration, plugin enablement, and OpenCode skills/commands are installed globally.
 
 Evidence: 2026-11-08: ~/.claude/plugins/marketplaces/derio-net--blog-craft exists and known_marketplaces registers it to derio-net/blog-craft (install.sh in regular use)
+
+<!-- fr:journal kind=discovery scope=spec id=test-plan-step-6 created=2026-11-08T11:50:11+00:00 -->
+### test-plan-step-6 · discovery · Test Plan step 6: ran
+
+Step: **Claude Code plugin:** Restart Claude Code — confirm `/blog-post` etc. still work (the Claude plugin path is not regressed).
+
+Evidence: 2026-11-08: a Claude Code session loads the blog-craft:* skills, including blog-craft:blog-post (plugin path not regressed)
