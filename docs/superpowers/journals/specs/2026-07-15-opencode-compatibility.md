@@ -29,3 +29,11 @@ what: **OpenCode skill discovery:** Run `opencode` in blog-craft root — confir
 why: needs an OpenCode run in blog-craft (same check as rows OC-1/OC-2/OC-5); recorded owed in the 2026-11-08 sweep
 how: fr journal resolve --scope spec --slug 2026-07-15-opencode-compatibility --id test-plan-step-1 --state fixed --note "<evidence>"
 owed_key: spec:2026-07-15-opencode-compatibility#step1
+
+<!-- fr:journal kind=owed scope=spec id=test-plan-step-2 created=2026-11-08T11:50:38+00:00 -->
+### test-plan-step-2 · owed · Test Plan step 2 owed
+
+what: **Slash commands:** Run `/blog-post` — confirm the skill loads.
+why: needs an OpenCode run in blog-craft (same check as rows OC-1/OC-2/OC-5); recorded owed in the 2026-11-08 sweep
+how: fr journal resolve --scope spec --slug 2026-07-15-opencode-compatibility --id test-plan-step-2 --state fixed --note "<evidence>"
+owed_key: spec:2026-07-15-opencode-compatibility#step2
