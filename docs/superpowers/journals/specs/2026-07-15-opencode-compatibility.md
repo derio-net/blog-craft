@@ -21,3 +21,11 @@ Evidence: 2026-11-08: ~/.claude/plugins/marketplaces/derio-net--blog-craft exist
 Step: **Claude Code plugin:** Restart Claude Code — confirm `/blog-post` etc. still work (the Claude plugin path is not regressed).
 
 Evidence: 2026-11-08: a Claude Code session loads the blog-craft:* skills, including blog-craft:blog-post (plugin path not regressed)
+
+<!-- fr:journal kind=owed scope=spec id=test-plan-step-1 created=2026-11-08T11:50:26+00:00 -->
+### test-plan-step-1 · owed · Test Plan step 1 owed
+
+what: **OpenCode skill discovery:** Run `opencode` in blog-craft root — confirm skills appear in the skill list (open schema).
+why: needs an OpenCode run in blog-craft (same check as rows OC-1/OC-2/OC-5); recorded owed in the 2026-11-08 sweep
+how: fr journal resolve --scope spec --slug 2026-07-15-opencode-compatibility --id test-plan-step-1 --state fixed --note "<evidence>"
+owed_key: spec:2026-07-15-opencode-compatibility#step1
