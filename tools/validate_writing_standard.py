@@ -978,8 +978,13 @@ def _accept_anchor_moves(gone: Counter, added: Counter, page_path: Path, page_te
             added[target] -= 1
 
 
-def _first_line(text: str, needle: str) -> int:
-    at = text.find(needle)
+def _first_line(text: str, kind: str, item: str) -> int:
+    """The line where *item* first occurs in *text* (a numeral only as a whole number)."""
+    if kind == "numeral":
+        m = re.search(r"(?<![\w.])" + re.escape(item) + r"(?![\w%]|\.\d)", text)
+        at = m.start() if m else -1
+    else:
+        at = text.find(item)
     return text.count("\n", 0, at) + 1 if at >= 0 else 1
 
 
@@ -1000,10 +1005,10 @@ def preserve_hits(old: str, new: str, page_path: Path, ref: str) -> list[Hit]:
         for item, n in sorted(gone.items()):
             if n > 0:
                 hits.append(Hit("preserve", "fail", 1, f"{kind} {_show(item)} disappeared "
-                                f"({n}x, line {_first_line(old, item)} at {ref})"))
+                                f"({n}x, line {_first_line(old, kind, item)} at {ref})"))
         for item, n in sorted(added.items()):
             if n > 0:
-                hits.append(Hit("preserve", "fail", _first_line(new, item),
+                hits.append(Hit("preserve", "fail", _first_line(new, kind, item),
                                 f"{kind} {_show(item)} appeared ({n}x, not at {ref})"))
     return hits
 

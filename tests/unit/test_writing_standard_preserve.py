@@ -179,6 +179,9 @@ def test_a_changed_numeral_fails(tmp_path, capsys):
     assert code == 1
     assert any("numeral" in h and "'3'" in h and "disappeared" in h for h in hits)
     assert any("numeral" in h and "'5'" in h and "appeared" in h for h in hits)
+    # the hit names the line of the whole number, not of a digit inside another
+    assert any(":3: preserve: numeral '5' appeared" in h for h in hits)
+    assert any("'3' disappeared (1x, line 3 at HEAD)" in h for h in hits)
 
 
 def test_a_numeral_spelled_out_fails_because_the_numeral_is_lost(tmp_path, capsys):
