@@ -281,3 +281,6 @@ row_kinds:
 run_gate: none
 run_kind: none
 ```
+
+<!-- fr:journal kind=decision scope=spec id=phase-split-2026-11-13-writing-standards-p2 created=2026-11-13T13:40:24+00:00 -->
+### phase-split-2026-11-13-writing-standards-p2 · decision · ask: ship the elements-of-style and plain-language standards (R22-R25)
