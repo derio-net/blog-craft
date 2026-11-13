@@ -10,6 +10,13 @@ matching `vX.Y.Z` tag on merge (#18).
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-11-13
+
+### Added
+- **Writing standards (in progress).** `tools/validate_writing_standard.py` checks
+  Markdown against a writing standard; first standard: STE writing rules, based on
+  ASD-STE100.
+
 ## [0.22.7] - 2026-10-12
 
 ### Fixed
