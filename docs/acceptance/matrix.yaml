@@ -1590,9 +1590,15 @@ rows:
     - blog-craft:docs/superpowers/specs/2026-11-13-ste-writing-standard-design.md#R19
     - blog-craft:docs/superpowers/specs/2026-11-13-ste-writing-standard-design.md#R20
     - blog-craft:docs/superpowers/specs/2026-11-13-ste-writing-standard-design.md#R21
-    levels: {}
-    status: not-implemented
-    notes: ''
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_mirrors.py
+      - blog-craft:tests/unit/test_config_schema.py
+      - blog-craft:tests/unit/test_batch_gate.py
+      - blog-craft:tests/unit/test_ci_template.py
+      - blog-craft:tests/unit/test_writing_standard_wiring.py
+    status: ci
+    notes: unit tests in CI (test job), green on 5f9d1a7
     verify: none
   - id: writing-standard-elements-of-style
     capability: writing-standards
