@@ -763,3 +763,80 @@ def test_glossary_opaque_body_shortcodes_must_be_a_list_of_names(value):
     cfg["features"] = {"glossary": {"opaque_body_shortcodes": value}}
     assert any("features.glossary.opaque_body_shortcodes" in e
                for e in validate_config(cfg))
+
+
+# --- writing standards (R20): series[].writing_standard + quality.writing_standard
+
+def test_series_writing_standard_accepts_a_shipped_name_and_none():
+    cfg = _valid()
+    cfg["series"][0]["writing_standard"] = "ste"
+    cfg["series"][1]["writing_standard"] = "none"
+    assert validate_config(cfg) == []
+
+
+def test_series_writing_standard_unknown_name_refused():
+    cfg = _valid()
+    cfg["series"][0]["writing_standard"] = "klingon"
+    errs = validate_config(cfg)
+    assert any("series[0].writing_standard" in e and "klingon" in e for e in errs)
+
+
+def test_quality_writing_standard_valid_block_passes_at_v7():
+    from validate_config import ACCEPTED_VERSIONS
+    cfg = _valid()
+    cfg["version"] = 7
+    cfg["quality"] = {"writing_standard": {
+        "enabled": True,
+        "severities": {"sentence_length": "warn", "ste.paragraph_length": "off",
+                       "plain-language.abbreviations": "fail"},
+        "terms": ["Kubernetes", "kubectl"],
+    }}
+    assert validate_config(cfg) == []
+    assert max(ACCEPTED_VERSIONS) == 7  # no version bump for the new keys
+
+
+def test_quality_writing_standard_must_be_a_mapping():
+    cfg = _valid()
+    cfg["quality"] = {"writing_standard": True}
+    assert any("quality.writing_standard must be a mapping" in e for e in validate_config(cfg))
+
+
+def test_quality_writing_standard_enabled_must_be_bool():
+    cfg = _valid()
+    cfg["quality"] = {"writing_standard": {"enabled": "yes"}}
+    assert any("quality.writing_standard.enabled must be a boolean" in e
+               for e in validate_config(cfg))
+
+
+@pytest.mark.parametrize("key, needle", [
+    ("no_such_check", "no_such_check"),
+    ("klingon.sentence_length", "klingon"),
+    ("ste.no_such_check", "no_such_check"),
+])
+def test_quality_writing_standard_unknown_severity_key_refused(key, needle):
+    cfg = _valid()
+    cfg["quality"] = {"writing_standard": {"severities": {key: "warn"}}}
+    errs = validate_config(cfg)
+    assert any("quality.writing_standard.severities" in e and needle in e for e in errs)
+
+
+def test_quality_writing_standard_bad_severity_value_refused():
+    cfg = _valid()
+    cfg["quality"] = {"writing_standard": {"severities": {"sentence_length": "hard"}}}
+    assert any("quality.writing_standard.severities.sentence_length must be one of" in e
+               for e in validate_config(cfg))
+
+
+def test_quality_writing_standard_severities_must_be_a_mapping():
+    cfg = _valid()
+    cfg["quality"] = {"writing_standard": {"severities": ["sentence_length=warn"]}}
+    assert any("quality.writing_standard.severities must be a mapping" in e
+               for e in validate_config(cfg))
+
+
+@pytest.mark.parametrize("terms", ["kubectl", ["ok", 3]])
+def test_quality_writing_standard_terms_must_be_a_list_of_strings(terms):
+    cfg = _valid()
+    cfg["quality"] = {"writing_standard": {"terms": terms}}
+    assert any("quality.writing_standard.terms must be a list of strings" in e
+               for e in validate_config(cfg))
