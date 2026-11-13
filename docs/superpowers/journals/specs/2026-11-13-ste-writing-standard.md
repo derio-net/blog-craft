@@ -46,3 +46,8 @@ Unit tests for checker/registry/selection; one client-live walk of the skill on 
 ### d-three-standards · decision · Ship three standards: ste, elements-of-style, plain-language
 
 Operator: "let's extend this by shipping a second and third standard": The Elements of Style (Strunk & White) and Plain English / Plain Language, "We could try these for the explainers". Built on Strunk 1918 (public domain) and the US Federal Plain Language Guidelines (US government work); check data moves to named instances of a closed set of kinds.
+
+<!-- fr:journal kind=decision scope=spec id=d-verify-none created=2026-11-13T13:23:39+00:00 decided_by=operator -->
+### d-verify-none · decision · No live walk: verify none, unit and contract tests suffice
+
+Operator: "verify: none, the tests should suffice". Replaces the client-live walk of decision d-verification.
