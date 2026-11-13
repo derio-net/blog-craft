@@ -1594,3 +1594,17 @@ rows:
     status: not-implemented
     notes: unit tests owed (spec Test Plan 5)
     verify: none
+  - id: writing-standard-plain-language
+    capability: writing-standards
+    acceptance: Under plain-language, a page averaging over 20 words per sentence and
+      the word 'shall' fail; long sentences, passive voice, words with simpler replacements,
+      nominalizations, unexplained abbreviations and long paragraphs warn; the rules
+      cite the US Federal Plain Language Guidelines.
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-11-13-ste-writing-standard-design.md#R22
+    - blog-craft:docs/superpowers/specs/2026-11-13-ste-writing-standard-design.md#R24
+    - blog-craft:docs/superpowers/specs/2026-11-13-ste-writing-standard-design.md#R25
+    levels: {}
+    status: not-implemented
+    notes: unit tests owed (spec Test Plan 5)
+    verify: none
