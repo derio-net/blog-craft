@@ -1529,9 +1529,11 @@ rows:
       --default, else skipped; none opts out; an unknown name is an error.
     origin:
     - blog-craft:docs/superpowers/specs/2026-11-13-ste-writing-standard-design.md#R5
-    levels: {}
-    status: not-implemented
-    notes: ''
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_writing_standard_selection.py
+    status: ci
+    notes: unit tests in CI (test job), green on 5f9d1a7
     verify: none
   - id: writing-standard-ste-checks
     capability: writing-standards
