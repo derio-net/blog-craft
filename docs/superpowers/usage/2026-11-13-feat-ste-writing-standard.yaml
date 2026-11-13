@@ -1,0 +1,61 @@
+schema_version: 2
+run: 2026-11-13-feat-ste-writing-standard
+captures:
+- host: h-7880d633
+  harness: claude-code
+  mode: host-worktree
+  captured_at: '2026-11-13T12:00:28+00:00'
+  at:
+  - resolve:brainstorm
+  sessions:
+  - session: 2ae187b3-8892-590d-8ab7-d7c2dc9e646f
+    role: main
+    models:
+      claude-opus-5-5:
+        input: 93
+        cache_write: 347917
+        cache_read: 9274067
+        output: 61998
+        usd: 2.6270252
+        usd_source: exact
+    activity:
+      implementation:
+        usd: 0.4536561085146614
+        turns: 9
+      other:
+        usd: 1.58722272296164
+        turns: 28
+      paperwork:
+        usd: 0.5861463685236982
+        turns: 11
+    steps:
+      (outside run):
+        usd: 1.6937568934974516
+        turns: 27
+        input: 55
+        cache_write: 295776
+        cache_read: 4665605
+        output: 37666
+      brainstorm:
+        usd: 0.9332683065025479
+        turns: 19
+        input: 38
+        cache_write: 52141
+        cache_read: 4608462
+        output: 24332
+    steps_by_role:
+      main:
+        (outside run):
+          usd: 1.6937568934974518
+          turns: 27
+          input: 55
+          cache_write: 295776
+          cache_read: 4665605
+          output: 37666
+        brainstorm:
+          usd: 0.9332683065025479
+          turns: 19
+          input: 38
+          cache_write: 52141
+          cache_read: 4608462
+          output: 24332

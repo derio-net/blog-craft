@@ -1493,3 +1493,91 @@ rows:
       accepts every key in fixtures and frank. Two papers series were silent: scaffold-paper.sh/validate_papers
       took the FIRST, the template the LAST; now rejected, and the template takes the
       first non-empty key as a fallback for unvalidated configs.'
+  - id: writing-standard-registry
+    capability: writing-standards
+    acceptance: A writing standard is one reference file (rules prose + checker YAML);
+      blog-craft ships ste, and a new standard using existing checks needs no code change;
+      unknown check or standard names are errors.
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-11-13-ste-writing-standard-design.md#R1
+    - blog-craft:docs/superpowers/specs/2026-11-13-ste-writing-standard-design.md#R2
+    - blog-craft:docs/superpowers/specs/2026-11-13-ste-writing-standard-design.md#R3
+    - blog-craft:docs/superpowers/specs/2026-11-13-ste-writing-standard-design.md#R11
+    levels: {}
+    status: not-implemented
+    notes: ''
+    verify: none
+  - id: writing-standard-checker
+    capability: writing-standards
+    acceptance: The checker validates prose in any Markdown file, inside or outside
+      a blog, with Python and PyYAML only, reporting FAIL/WARN lines and exiting 0/1/2.
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-11-13-ste-writing-standard-design.md#R4
+    - blog-craft:docs/superpowers/specs/2026-11-13-ste-writing-standard-design.md#R6
+    - blog-craft:docs/superpowers/specs/2026-11-13-ste-writing-standard-design.md#R13
+    levels: {}
+    status: not-implemented
+    notes: ''
+    verify: none
+  - id: writing-standard-selection
+    capability: writing-standards
+    acceptance: Each page's standard resolves front matter, then series default, then
+      --default, else skipped; none opts out; an unknown name is an error.
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-11-13-ste-writing-standard-design.md#R5
+    levels: {}
+    status: not-implemented
+    notes: ''
+    verify: none
+  - id: writing-standard-ste-checks
+    capability: writing-standards
+    acceptance: Under ste, sentence length, contractions and multi-instruction steps
+      fail; passive in steps, -ing forms, replacement-list words and long paragraphs
+      warn; severities, reasoned waivers and exempt terms adjust them.
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-11-13-ste-writing-standard-design.md#R7
+    - blog-craft:docs/superpowers/specs/2026-11-13-ste-writing-standard-design.md#R8
+    - blog-craft:docs/superpowers/specs/2026-11-13-ste-writing-standard-design.md#R9
+    - blog-craft:docs/superpowers/specs/2026-11-13-ste-writing-standard-design.md#R10
+    levels: {}
+    status: not-implemented
+    notes: ''
+    verify: none
+  - id: writing-standard-preservation
+    capability: writing-standards
+    acceptance: Compared with a git ref, a page whose code blocks, inline code, link
+      targets or numbers changed fails.
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-11-13-ste-writing-standard-design.md#R12
+    levels: {}
+    status: not-implemented
+    notes: ''
+    verify: none
+  - id: writing-standard-apply-skill
+    capability: writing-standards
+    acceptance: apply-writing-standard rewrites pages in batches, language only, fixes
+      or lists broken heading links, runs the checker and a blind fact-keeper per page
+      in one session, and waits for approval between batches.
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-11-13-ste-writing-standard-design.md#R14
+    - blog-craft:docs/superpowers/specs/2026-11-13-ste-writing-standard-design.md#R15
+    - blog-craft:docs/superpowers/specs/2026-11-13-ste-writing-standard-design.md#R16
+    - blog-craft:docs/superpowers/specs/2026-11-13-ste-writing-standard-design.md#R17
+    - blog-craft:docs/superpowers/specs/2026-11-13-ste-writing-standard-design.md#R18
+    levels: {}
+    status: not-implemented
+    notes: ''
+    verify: client-live
+  - id: writing-standard-blog-integration
+    capability: writing-standards
+    acceptance: In a blog, a per-series writing_standard and quality.writing_standard
+      are validated and documented, blog-post/post-rewrite apply the standard, batch-gate
+      and CI run the checker, and materialized blogs get byte-identical copies.
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-11-13-ste-writing-standard-design.md#R19
+    - blog-craft:docs/superpowers/specs/2026-11-13-ste-writing-standard-design.md#R20
+    - blog-craft:docs/superpowers/specs/2026-11-13-ste-writing-standard-design.md#R21
+    levels: {}
+    status: not-implemented
+    notes: ''
+    verify: none
