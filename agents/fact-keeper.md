@@ -19,8 +19,8 @@ The dispatch prompt gives you exactly two paths:
 1. **The original:** the page as it was at `HEAD`, in a directory outside the repository.
 2. **The rewrite:** the same page after the rewrite.
 
-Read both files from start to end. If the prompt gives you any other path or any other
-text, such as a repository path, notes or a standard, do not open it. Report the
+Read both files from start to end. If the prompt gives you any third path or other text,
+such as notes, a standard or the session history, do not open it. Report the
 over-share at the top of your output instead.
 
 ## What a fact is

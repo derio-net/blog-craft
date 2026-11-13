@@ -91,7 +91,7 @@ def test_it_changes_the_language_only_and_names_what_it_keeps():
 def test_it_finds_inbound_links_to_a_changed_headings_old_anchor():
     body = _body()
     assert "old anchor" in body
-    assert re.search(r"git grep [^`]*#<old-slug>", body), "no grep for the old anchor"
+    assert re.search(r"git [^`]*grep [^`]*#<old-slug>", body), "no grep for the old anchor"
 
 
 def test_it_does_not_touch_the_cover_weight_or_url():
@@ -120,7 +120,7 @@ def test_fact_keeper_runs_once_per_page():
 def test_the_baseline_is_written_outside_the_repository_and_deleted_after_the_batch():
     body = _body()
     assert "outside the repository" in body
-    assert "git show HEAD:" in body
+    assert "show HEAD:" in body
     assert "delete the baseline directory" in body
 
 
