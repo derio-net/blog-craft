@@ -1,0 +1,44 @@
+schema_version: 10
+run: 2026-11-13-feat-ste-writing-standard
+step: implement-phase
+item: phase/3
+outcome: done
+ticks: [P3.T1.S1, P3.T1.S2, P3.T1.S3, P3.T2.S1, P3.T2.S2, P3.T2.S3]
+refactor: {}
+journal:
+  - kind: decision
+    id: p3-preserve-shape
+    phase: 3
+    title: "--preserve-from: one unwaivable FAIL per item that appeared or disappeared; a page outside git is exit 2"
+    body: |
+      preserved_items(text) is a pure function returning four Counters (fenced code incl. its
+      fence lines, inline code content, link targets incl. reference definitions, autolinks and
+      bare URLs, numerals by the spec's regex in prose with list markers, link targets, HTML tags
+      and inline code removed). Each difference is one `preserve` FAIL: a disappeared item at
+      line 1 naming its line at the ref, an appeared item at its line in the page. Preserve hits
+      are added after waivers, so an in-source waiver cannot hide one (the skill may not waive to
+      pass). A page with no git toplevel is a usage error (exit 2), distinct from a page with no
+      version at the ref (FAIL `preserve: no version at <ref>`). Anchor moves: an appeared
+      `path#a` pairs with a disappeared target of the same path when `a` is a heading slug of
+      the linked page (in-page for an empty path; `p`, `p.md`, `p/index.md`, `p/_index.md`
+      relative to the page); slugs are GitHub-style with -1/-2 repeats, or an explicit `{#id}`.
+  - kind: decision
+    id: p3-skill-stats-standard-guard
+    phase: 3
+    title: "apply-writing-standard stops when a STATS line names another standard than the one applied"
+    body: |
+      The checker resolves front matter `writing_standard` and the series default before
+      `--default`, so a page pinned to another standard would be gated against that one while
+      the skill rewrites to the requested one. The skill reads the standard on each STATS line
+      and asks the operator when it differs; not in the spec's procedure, added as a guard.
+  - kind: finding
+    id: p3-readme-skill-list
+    phase: 3
+    review_scope: out
+    title: "README's skill list does not mention /apply-writing-standard"
+    body: |
+      README.md lists every user-invocable skill; no phase of the plan adds the new skill there.
+      Left out of phase 3 (scope is P3.T1-P3.T2); a one-bullet README addition belongs to phase 4
+      or a follow-up.
+resolves: []
+evidence: {tests: ci}
