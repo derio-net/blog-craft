@@ -290,3 +290,8 @@ run_kind: none
 
 <!-- fr:journal kind=decision scope=spec id=phase-split-2026-11-13-writing-standards-p4 created=2026-11-13T13:40:26+00:00 -->
 ### phase-split-2026-11-13-writing-standards-p4 · decision · ask: blog integration, materialization and release (R19-R21)
+
+<!-- fr:journal kind=finding scope=spec id=s19-resolved-2 created=2026-11-13T15:45:30+00:00 state=open resolves=s19 tracked_by=https://github.com/derio-net/blog-craft/issues/106 -->
+### s19-resolved-2 · finding [deferred → https://github.com/derio-net/blog-craft/issues/106] · resolves s19: README skill list and USING-ON-A-HOST do not mention the new skill or agent
+
+Filed at deliver as https://github.com/derio-net/blog-craft/issues/106.
