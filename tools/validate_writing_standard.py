@@ -711,6 +711,13 @@ def parse_severity_overrides(items, source: str) -> dict[str, str]:
     pairs = items.items() if isinstance(items, dict) else (
         (i.partition("=")[0], i.partition("=")[2]) if "=" in i else (i, None) for i in items)
     for key, sev in pairs:
+        # YAML 1.1 (PyYAML) reads a bare `off`/`no` as False and `on`/`yes` as
+        # True: False can only have meant off; True names no severity.
+        if sev is True:
+            raise ConfigError(f"{source}: {key}: severity is the boolean true (YAML reads a "
+                              f"bare on/yes/true as one); write {'|'.join(SEVERITIES)}")
+        if sev is False:
+            sev = "off"
         if sev not in SEVERITIES:
             raise ConfigError(f"{source}: {key}={sev}: severity must be one of {'|'.join(SEVERITIES)}")
         out[str(key)] = str(sev)
@@ -1225,14 +1232,42 @@ def load_config(path: str) -> dict:
     quality = config.get("quality") or {}
     if not isinstance(quality, dict):
         raise ConfigError(f"{path}: quality is not a mapping")
-    ws = quality.get("writing_standard") or {}
-    if not isinstance(ws, dict):
-        raise ConfigError(f"{path}: quality.writing_standard is not a mapping")
-    if not isinstance(ws.get("severities") or {}, dict):
-        raise ConfigError(f"{path}: quality.writing_standard.severities is not a mapping")
-    if not isinstance(ws.get("terms") or [], list):
-        raise ConfigError(f"{path}: quality.writing_standard.terms is not a list")
+    if "writing_standard" in quality:
+        errors = writing_standard_block_errors(quality["writing_standard"])
+        if errors:
+            raise ConfigError(f"{path}: " + "; ".join(errors))
     return config
+
+
+WRITING_STANDARD_KEYS = ("enabled", "severities", "terms")
+
+
+def writing_standard_block_errors(ws) -> list[str]:
+    """Shape errors in a blog config's quality.writing_standard block. The one
+    definition, read by this checker's --config and by validate_config.py.
+    Severity keys are checked separately (validate_severity_keys)."""
+    where = "quality.writing_standard"
+    if not isinstance(ws, dict):
+        return [f"{where} must be a mapping (got {ws!r})"]
+    errors = [f"{where}: unknown key {k!r} (expected {', '.join(WRITING_STANDARD_KEYS)})"
+              for k in ws if k not in WRITING_STANDARD_KEYS]
+    if "enabled" in ws and not isinstance(ws["enabled"], bool):
+        errors.append(f"{where}.enabled must be a boolean")
+    sev = ws.get("severities")
+    if sev is not None:
+        if not isinstance(sev, dict):
+            errors.append(f"{where}.severities must be a mapping")
+        else:
+            for k, v in sev.items():
+                try:
+                    parse_severity_overrides({k: v}, f"{where}.severities")
+                except ConfigError as e:
+                    errors.append(str(e))
+    terms = ws.get("terms")
+    if terms is not None and (not isinstance(terms, list)
+                              or not all(isinstance(t, str) for t in terms)):
+        errors.append(f"{where}.terms must be a list of strings (got {terms!r})")
+    return errors
 
 
 @dataclass(frozen=True)

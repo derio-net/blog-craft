@@ -161,34 +161,19 @@ def _writing_standards() -> list[str]:
 
 
 def _validate_writing_standard(ws, errors: list[str]) -> None:
-    if not isinstance(ws, dict):
-        errors.append("quality.writing_standard must be a mapping")
-        return
-    if "enabled" in ws and not isinstance(ws["enabled"], bool):
-        errors.append("quality.writing_standard.enabled must be a boolean")
-    sev = ws.get("severities")
-    if sev is not None:
-        if not isinstance(sev, dict):
-            errors.append("quality.writing_standard.severities must be a mapping")
-        else:
-            vws = _checker()
-            for k, v in sev.items():
-                if v not in vws.SEVERITIES:
-                    errors.append(
-                        f"quality.writing_standard.severities.{k} must be one of "
-                        f"fail | warn | off (got {v!r})")
-            standards = {n: vws.load_standard(n) for n in vws.list_standards()}
-            for k in sev:
-                try:
-                    vws.validate_severity_keys([str(k)], standards,
-                                               "quality.writing_standard.severities")
-                except vws.ConfigError as e:
-                    errors.append(str(e))
-    terms = ws.get("terms")
-    if terms is not None and (not isinstance(terms, list)
-                              or not all(isinstance(t, str) for t in terms)):
-        errors.append(f"quality.writing_standard.terms must be a list of strings (got {terms!r})")
-
+    """The checker's own shape rules, then its own severity-key rules, so a
+    config this accepts is one the checker accepts (and vice versa)."""
+    vws = _checker()
+    errors.extend(vws.writing_standard_block_errors(ws))
+    sev = ws.get("severities") if isinstance(ws, dict) else None
+    if isinstance(sev, dict):
+        standards = {n: vws.load_standard(n) for n in vws.list_standards()}
+        for k in sev:
+            try:
+                vws.validate_severity_keys([str(k)], standards,
+                                           "quality.writing_standard.severities")
+            except vws.ConfigError as e:
+                errors.append(str(e))
 
 def validate_config(cfg: dict) -> list[str]:
     errors: list[str] = []

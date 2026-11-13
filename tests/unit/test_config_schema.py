@@ -823,7 +823,7 @@ def test_quality_writing_standard_unknown_severity_key_refused(key, needle):
 def test_quality_writing_standard_bad_severity_value_refused():
     cfg = _valid()
     cfg["quality"] = {"writing_standard": {"severities": {"sentence_length": "hard"}}}
-    assert any("quality.writing_standard.severities.sentence_length must be one of" in e
+    assert any("quality.writing_standard.severities: sentence_length=hard: severity must be one of" in e
                for e in validate_config(cfg))
 
 
