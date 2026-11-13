@@ -64,3 +64,15 @@ def test_it_defines_a_fact():
 def test_it_never_calls_a_page_conformant_or_compliant():
     text = _read(FACT_KEEPER).lower()
     assert "conformant" not in text and "compliant" not in text
+
+
+def test_it_ends_with_the_count_line():
+    """p3-r9: the skill's summary reads this line."""
+    assert "facts: kept <n>, changed <n>, lost <n>, added <n>" in _read(FACT_KEEPER)
+
+
+def test_the_over_share_rule_does_not_forbid_the_rewrite_itself():
+    """p3-r11: the rewrite IS a repository path, so the rule names a third path."""
+    text = _read(FACT_KEEPER)
+    assert "any third path or other text" in text
+    assert "a repository path" not in text

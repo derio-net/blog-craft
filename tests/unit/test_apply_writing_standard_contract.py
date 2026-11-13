@@ -159,3 +159,63 @@ def test_it_names_the_no_claude_p_batch_rule_and_one_session():
 def test_it_never_calls_its_output_conformant_or_compliant():
     text = _read(SKILL).lower()
     assert "conformant" not in text and "compliant" not in text
+
+
+# ---- review fixes (phase 3)
+
+def _step(n):
+    """The text of '## Step n' up to the next '## Step' heading (white space collapsed)."""
+    body = _body()
+    parts = body.split(f"## Step {n}:")
+    assert len(parts) > 1, f"no '## Step {n}:' heading"
+    return parts[1].split("## Step ")[0]
+
+
+def test_step_2_resolves_each_pages_standard_before_any_rewrite():
+    """p3-r5: a page that resolves to another standard, or to none, is found
+    before the rewrite, by the STATS lines of a first checker run."""
+    step2 = _step(2)
+    assert "--stats" in step2
+    assert "STATS" in step2
+    assert "`none`" in step2
+    assert "ask the operator" in step2
+
+
+def test_the_batch_stops_when_stats_lines_do_not_match_the_pages():
+    """p3-r5 / p3-r9: the standard-mismatch stop in the batch loop."""
+    step3 = _step(3)
+    assert "one `STATS` line for each page" in step3
+    assert "Stop and ask the operator" in step3
+
+
+def test_the_baseline_keeps_the_repository_relative_path():
+    """p3-r6: two index.md pages must not share one baseline file."""
+    body = _body()
+    assert "<baseline>/<path relative to the toplevel>" in body
+    assert "git -C <page directory> show HEAD:./<file name>" in body
+
+
+def test_an_anchor_the_checker_cannot_resolve_is_restored_and_listed():
+    """p3-r7: the way out of an unwaivable preserve FAIL."""
+    body = _body()
+    assert "restore the old link" in body
+    assert "inbound link" in body
+
+
+def test_the_inbound_link_search_catches_every_link_form():
+    """p3-r8."""
+    body = _body()
+    assert "git -C <page toplevel> grep -nE" in body
+    assert "#<old-slug>([)" in body
+    assert "GitHub" in body and "{#id}" in body
+    assert "resolves to the renamed page" in body
+
+
+def test_fact_keeper_gets_exactly_two_paths():
+    assert "exactly two paths" in _step(3)
+
+
+def test_the_summary_line_has_every_field():
+    step3 = _step(3)
+    for field in ("headings changed", "inbound links listed", "checker", "avg", "sentences"):
+        assert field in step3, f"summary misses {field!r}"
