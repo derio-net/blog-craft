@@ -1503,10 +1503,11 @@ rows:
     - blog-craft:docs/superpowers/specs/2026-11-13-ste-writing-standard-design.md#R2
     - blog-craft:docs/superpowers/specs/2026-11-13-ste-writing-standard-design.md#R3
     - blog-craft:docs/superpowers/specs/2026-11-13-ste-writing-standard-design.md#R11
-    levels: {}
-    status: not-implemented
-    notes: covers all three shipped standards (ste, elements-of-style, plain-language;
-      R22); the acceptance text predates them and fr 6.2 has no reword command
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_writing_standard_registry.py
+    status: ci
+    notes: unit tests in CI (test job), green on 5f9d1a7
     verify: none
   - id: writing-standard-checker
     capability: writing-standards
