@@ -41,3 +41,8 @@ Operator: 'new skill, apply-writing-standard with the standard passed as a param
 ### d-verification · decision · CI plus one pre-merge client-live rewrite, no post-merge gate
 
 Unit tests for checker/registry/selection; one client-live walk of the skill on two super-fr pages; super-fr adoption is a separate super-fr feature.
+
+<!-- fr:journal kind=decision scope=spec id=d-three-standards created=2026-11-13T12:17:55+00:00 decided_by=operator -->
+### d-three-standards · decision · Ship three standards: ste, elements-of-style, plain-language
+
+Operator: "let's extend this by shipping a second and third standard": The Elements of Style (Strunk & White) and Plain English / Plain Language, "We could try these for the explainers". Built on Strunk 1918 (public domain) and the US Federal Plain Language Guidelines (US government work); check data moves to named instances of a closed set of kinds.
