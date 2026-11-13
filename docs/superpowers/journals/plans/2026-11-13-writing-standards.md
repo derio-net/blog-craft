@@ -515,3 +515,8 @@ The reviewer tagged it out of scope as an old docstring; reclassified in scope b
 ### p4-r5-resolved · finding [fixed] · resolves p4-r5: test_mirrors docstring said validate_educational ships only with the quality gate on (phase 4)
 
 5f9d1a7; docstring only
+
+<!-- fr:journal kind=finding scope=plan id=p3-readme-skill-list-resolved-2 created=2026-11-13T15:45:38+00:00 phase=3 state=open resolves=p3-readme-skill-list tracked_by=https://github.com/derio-net/blog-craft/issues/107 -->
+### p3-readme-skill-list-resolved-2 · finding [deferred → https://github.com/derio-net/blog-craft/issues/107] · resolves p3-readme-skill-list: README's skill list does not mention /apply-writing-standard (phase 3)
+
+Filed at deliver as https://github.com/derio-net/blog-craft/issues/107.
