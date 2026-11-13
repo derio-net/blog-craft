@@ -65,6 +65,19 @@ Refuse a page with uncommitted changes (the first command prints a line). Refuse
 with no version at `HEAD` (the second command fails). List every refused page with its
 reason. Go on with the others only if the operator agrees.
 
+Then find the standard of each page before you rewrite it. The front matter key
+`writing_standard` or the series of a page can pick a standard other than `<standard>`.
+Run the checker once on all the pages:
+
+```bash
+python3 <plugin_root>/tools/validate_writing_standard.py --default <standard> --stats <pages>
+```
+
+The command can exit 1, because you have not rewritten the pages yet. Read only the `STATS`
+lines. Each line names the standard of one page. A page with no `STATS` line resolves to
+`none`, and the checker skips it. For each page with no `STATS` line or with another
+standard, ask the operator before you rewrite it.
+
 Split the remaining pages into batches of `batch_size` pages.
 
 ## Step 3: Rewrite one batch
@@ -87,15 +100,19 @@ gets new numbers, and the checker accepts that.
 
 ### 3b. Fix links to a changed heading
 
-When you change the text of a heading, its anchor changes too. Find each link to the old
-anchor in the repository:
+When you change the text of a heading, its anchor changes too. The anchor is the
+GitHub slug of the heading text: lowercase, punctuation removed, spaces changed to
+hyphens, and `-1`, `-2` added to a repeated slug. A heading that ends in `{#id}` keeps
+`id` as its anchor. Find each link to the old anchor in the repository of the page:
 
 ```bash
-git grep -n -e '#<old-slug>)' -e '#<old-slug>"'
+git -C <page toplevel> grep -nE '#<old-slug>([)"'"'"' >]|$)'
 ```
 
-Update the links inside the pages of this batch. List the other links in the batch
-summary. Do not edit a page outside the batch.
+This search finds inline links, links with a title, links in `<...>` and reference
+definitions. Keep only the matches whose path resolves to the renamed page. Update the
+links inside the pages of this batch. List the other links in the batch summary. Do not
+edit a page outside the batch.
 
 ### 3c. Run the checker
 
@@ -106,9 +123,14 @@ python3 <plugin_root>/tools/validate_writing_standard.py --default <standard> --
 Fix every `FAIL` and run the command again until it exits 0. You must never add a waiver
 to make a check pass. A `WARN` is advice: fix it when a better sentence exists.
 
-Each `STATS` line names the standard that the checker used. If it is not `<standard>`,
-the front matter or the series of that page picks another standard. Stop and ask the
-operator what to do.
+The output must have one `STATS` line for each page of the batch, and each line must name
+`<standard>`. If a line is missing or names another standard, the checker did not check
+that page against `<standard>`. Stop and ask the operator what to do.
+
+The checker can find no page for some link targets: a path from the site root, a target
+with encoded characters, or a shortcode it cannot read. It then fails an updated anchor in
+that link as `preserve`. In that case, restore the old link and list it in the summary as
+an inbound link that you did not update.
 
 ### 3d. Check the facts
 
@@ -118,8 +140,14 @@ Run the `fact-keeper` agent once per page. Give it exactly two paths:
 2. the rewritten page.
 
 To make the original, create a baseline directory outside the repository with
-`mktemp -d`. Write each page to it with `git show HEAD:./<path>`. This copy is a baseline
-for the agent, not a draft.
+`mktemp -d`. Write each page to `<baseline>/<path relative to the toplevel>`, so that two
+pages with the same file name (two `index.md` files) do not share one copy:
+
+```bash
+git -C <page directory> show HEAD:./<file name> > <baseline>/<path relative to the toplevel>
+```
+
+This copy is a baseline for the agent, not a draft.
 
 Fix each fact that the agent marks `changed` or `lost`. If only the operator can decide,
 explain the fact in the summary. After the batch, delete the baseline directory.
