@@ -19,24 +19,6 @@ from pathlib import Path
 
 SEVERITIES = ("fail", "warn", "off")
 
-# The closed set of check kinds: kind -> (required params, optional params),
-# each a mapping param -> accepted type. A standard may only use these.
-KINDS: dict[str, tuple[dict[str, type | tuple], dict[str, type | tuple]]] = {
-    "sentence_length": ({"procedural_max": int, "descriptive_max": int}, {}),
-    "average_sentence_length": ({"max": (int, float)}, {}),
-    "contractions": ({}, {}),
-    "one_instruction": ({"step_verbs": list}, {}),
-    "replacements": ({"words": dict}, {}),
-    "phrases": ({"phrases": dict}, {}),
-    "passive": ({"scope": str}, {}),
-    "ing_forms": ({}, {}),
-    "paragraph_length": ({"max_sentences": int}, {}),
-    "loose_sentences": ({"run": int}, {}),
-    "nominalizations": ({}, {}),
-    "abbreviations": ({}, {}),
-}
-
-
 class StandardError(Exception):
     """A standard that cannot be loaded or used: always an error, never a skip."""
 
@@ -317,6 +299,174 @@ def _sentence(unit: Unit, text: str, begin: int, end: int) -> Sentence:
     lead = len(text[begin:end]) - len(text[begin:end].lstrip())
     line = unit.line + text[:begin + lead].count("\n")
     return Sentence(text[begin:end].strip(), line, unit.in_step, unit.paragraph)
+
+
+# ------------------------------------------------------------------ checks
+
+@dataclass(frozen=True)
+class Hit:
+    check: str
+    severity: str
+    line: int
+    message: str
+
+
+@dataclass(frozen=True)
+class Page:
+    """What a matcher sees: the prose units, their sentences, and the terms."""
+    units: list[Unit]
+    sentences: list[Sentence]
+    terms: frozenset[str]
+
+
+Finding = tuple[int, str]          # (line, message), before a check id and severity
+
+_BE = r"\b(?:am|is|are|was|were|be|been|being)\s+(\w+(?:ed|en))\b"
+_CONTRACTION = re.compile(
+    r"\b\w+n't\b|\b\w+'(?:re|ll|ve|d)\b"
+    r"|\b(?:it|he|she|that|there|what|who|where|here|how|let)'s\b",
+    re.IGNORECASE,
+)
+ING_STOP_LIST = frozenset({
+    "during", "string", "thing", "nothing", "something", "anything", "everything",
+    "bring", "king", "ring", "sing", "spring", "swing", "wing", "morning",
+    "evening", "ceiling", "ping", "sting", "sling", "cling", "fling", "awning",
+})
+
+
+def _first_word(text: str) -> str:
+    m = re.match(r"[\s*_\"'(\[]*([A-Za-z]+)", text)
+    return m.group(1).lower() if m else ""
+
+
+def _word_pattern(word: str) -> re.Pattern:
+    body = r"\s+".join(re.escape(w) for w in word.split())
+    return re.compile(r"(?<![\w-])" + body + r"(?![\w-])", re.IGNORECASE)
+
+
+def match_sentence_length(page: Page, p: dict) -> list[Finding]:
+    out = []
+    for s in page.sentences:
+        limit = p["procedural_max"] if s.in_step else p["descriptive_max"]
+        n = count_words(s.text)
+        if n > limit:
+            kind = "step" if s.in_step else "sentence"
+            out.append((s.line, f"{kind} has {n} words (max {limit})"))
+    return out
+
+
+def match_contractions(page: Page, p: dict) -> list[Finding]:
+    return [(s.line, f"contraction {m.group(0)!r}: write the full words")
+            for s in page.sentences for m in _CONTRACTION.finditer(s.text)]
+
+
+def match_one_instruction(page: Page, p: dict) -> list[Finding]:
+    verbs = {str(v).lower() for v in p["step_verbs"]}
+    joined = re.compile(r"(?:\band|,?\s*\bthen)\s+([A-Za-z]+)\b", re.IGNORECASE)
+    by_unit: dict[int, list[Sentence]] = {}
+    for s in page.sentences:
+        if s.in_step:
+            by_unit.setdefault(s.paragraph, []).append(s)
+    out = []
+    for sents in by_unit.values():
+        starts = [s for s in sents if _first_word(s.text) in verbs]
+        if len(starts) > 1:
+            out.append((sents[0].line, "step holds more than one instruction: make one step for each"))
+            continue
+        for s in starts:
+            m = next((m for m in joined.finditer(s.text) if m.group(1).lower() in verbs), None)
+            if m:
+                out.append((s.line, f"step joins a second instruction ({m.group(1)!r}): "
+                                    "make one step for each"))
+    return out
+
+
+def match_passive(page: Page, p: dict) -> list[Finding]:
+    return [(s.line, f"passive voice {m.group(0)!r}: name who does the action")
+            for s in page.sentences if p["scope"] == "all" or s.in_step
+            for m in re.finditer(_BE, s.text, re.IGNORECASE)]
+
+
+def match_ing_forms(page: Page, p: dict) -> list[Finding]:
+    out = []
+    for s in page.sentences:
+        for m in re.finditer(r"\b[A-Za-z]+ing\b", s.text):
+            word = m.group(0).lower()
+            if word not in ING_STOP_LIST and word not in page.terms:
+                out.append((s.line, f"-ing form {m.group(0)!r}: use a verb or a noun"))
+    return out
+
+
+def match_replacements(page: Page, p: dict) -> list[Finding]:
+    out = []
+    for word, replacement in p["words"].items():
+        if str(word).lower() in page.terms:
+            continue
+        pattern = _word_pattern(str(word))
+        for s in page.sentences:
+            for m in pattern.finditer(s.text):
+                out.append((s.line, f"{m.group(0)!r}: use {replacement!r}"))
+    return out
+
+
+def match_paragraph_length(page: Page, p: dict) -> list[Finding]:
+    counts: dict[int, list[Sentence]] = {}
+    for s in page.sentences:
+        counts.setdefault(s.paragraph, []).append(s)
+    return [(sents[0].line, f"paragraph has {len(sents)} sentences (max {p['max_sentences']})")
+            for sents in counts.values() if len(sents) > p["max_sentences"]]
+
+
+# The closed set of check kinds: kind -> (required params, optional params),
+# each a mapping param -> accepted type. A standard may only use these.
+KINDS: dict[str, tuple[dict[str, type | tuple], dict[str, type | tuple]]] = {
+    "sentence_length": ({"procedural_max": int, "descriptive_max": int}, {}),
+    "average_sentence_length": ({"max": (int, float)}, {}),
+    "contractions": ({}, {}),
+    "one_instruction": ({"step_verbs": list}, {}),
+    "replacements": ({"words": dict}, {}),
+    "phrases": ({"phrases": dict}, {}),
+    "passive": ({"scope": str}, {}),
+    "ing_forms": ({}, {}),
+    "paragraph_length": ({"max_sentences": int}, {}),
+    "loose_sentences": ({"run": int}, {}),
+    "nominalizations": ({}, {}),
+    "abbreviations": ({}, {}),
+}
+
+# kind -> its matcher. A kind with no matcher yet is declared in KINDS so a
+# standard that names it loads; running it is an error, never a silent skip.
+MATCHERS = {
+    "sentence_length": match_sentence_length,
+    "contractions": match_contractions,
+    "one_instruction": match_one_instruction,
+    "passive": match_passive,
+    "ing_forms": match_ing_forms,
+    "replacements": match_replacements,
+    "paragraph_length": match_paragraph_length,
+}
+
+
+def build_page(text: str, terms=()) -> Page:
+    units = extract_prose(text)
+    sentences = [s for u in units for s in split_sentences(u)]
+    return Page(units, sentences, frozenset(str(t).lower() for t in terms))
+
+
+def run_checks(text: str, standard: Standard, terms=(), severities: dict | None = None) -> list[Hit]:
+    """Every hit of *standard* on page *text*. *severities* maps a check id to
+    its effective severity (default: the standard's); `off` skips the check."""
+    page = build_page(text, list(standard.terms) + list(terms))
+    hits: list[Hit] = []
+    for cid, spec in standard.checks.items():
+        severity = (severities or {}).get(cid, spec.severity)
+        if severity == "off":
+            continue
+        matcher = MATCHERS.get(spec.kind)
+        if matcher is None:
+            raise StandardError(f"{standard.path}: check {cid!r}: kind {spec.kind} is not implemented yet")
+        hits.extend(Hit(cid, severity, line, msg) for line, msg in matcher(page, spec.params))
+    return sorted(hits, key=lambda h: (h.line, h.check))
 
 
 def main(argv: list[str]) -> int:
