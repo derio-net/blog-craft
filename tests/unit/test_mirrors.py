@@ -3,7 +3,7 @@
 Some tools are both a blog-craft tool (canonical, tested here) AND shipped into a
 materialized blog so a plain-python CI / operator can run them without the plugin:
   - compose.py            -> templates/hugo-hextra/scripts/           (every blog)
-  - validate_educational  -> templates/hugo-hextra/scripts/           (quality gate on)
+  - validate_educational  -> templates/hugo-hextra/scripts/           (every blog; the writing-standard checker imports it)
   - the papers validators -> templates/content-type-papers/shared/scripts/ (papers on)
   - scaffold-explainer.sh -> templates/content-type-explainers/shared/scripts/ (explainers on)
   - render-explainer.py   -> templates/content-type-explainers/shared/scripts/ (explainers on)
