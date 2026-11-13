@@ -170,3 +170,23 @@ Waivers match by check id; the spec named the plain-language instance average_le
 ### p1-r13-resolved · finding [fixed] · resolves p1-r13: word count splits e.g./i.e./3.14 into two words (phase 1)
 
 7696e8a; test_r13_dotted_tokens_are_one_word
+
+<!-- fr:journal kind=decision scope=plan id=p2-nominalization-endings created=2026-11-13T14:24:54+00:00 phase=2 -->
+### p2-nominalization-endings · decision · nominalizations matches -ion and -sis, not only -tion (phase 2) (phase 2)
+
+The spec's kind table listed -tion/-ment/-ance/-ence/-al, which misses the plan's own examples "make a decision" (-sion) and "conduct an analysis" (-sis). The matcher uses -ion/-ment/-ance/-ence/-al/-sis with a stop-list of nouns that hide no verb (question, moment, document, total, ...); the spec's table row was amended to match.
+
+<!-- fr:journal kind=decision scope=plan id=p2-phrases-longest-wins created=2026-11-13T14:24:54+00:00 phase=2 -->
+### p2-phrases-longest-wins · decision · phrases reports a phrase inside a longer listed phrase once (phase 2) (phase 2)
+
+elements-of-style lists both "the fact that" and "owing to the fact that" (as the spec block does), so one phrase would fail twice. match_phrases drops a hit whose span lies inside a longer hit of the same check in the same sentence. Tested in test_writing_standard_kinds.py.
+
+<!-- fr:journal kind=decision scope=plan id=p2-heuristic-shapes created=2026-11-13T14:24:54+00:00 phase=2 -->
+### p2-heuristic-shapes · decision · loose_sentences and abbreviations heuristics (phase 2) (phase 2)
+
+loose_sentences counts a sentence as loose when a comma precedes and/but/so/which/who ("salt and pepper" is not a clause join), and a run never crosses a paragraph. abbreviations: a 2-6 capital token (optional plural s) is spelled out when written "full form (ABC)" or "ABC (full form with a lowercase letter)"; only its first use counts.
+
+<!-- fr:journal kind=discovery scope=plan id=p2-ste-after-example created=2026-11-13T14:24:54+00:00 phase=2 -->
+### p2-ste-after-example · discovery · ste's inline two-step "after" example read as one step (phase 2) (phase 2)
+
+"- After: 1. Open the file. 2. Run the tests." becomes one ordered item on a scratch page and fails one_instruction. ste.md now writes it as a two-line list. A registry test (test_each_standards_after_examples_pass_its_own_checker) checks every standard's "- After:" examples against its own checker, so P2.T2.S3 is enforced, not one-off.
