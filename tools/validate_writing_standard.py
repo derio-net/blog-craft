@@ -469,7 +469,303 @@ def run_checks(text: str, standard: Standard, terms=(), severities: dict | None 
     return sorted(hits, key=lambda h: (h.line, h.check))
 
 
+# ------------------------------------------------------------------ configuration
+
+class ConfigError(Exception):
+    """A usage or configuration error: exit 2."""
+
+
+# Kinds whose hits concern the whole page, waived in front matter.
+PAGE_LEVEL_KINDS = frozenset({"average_sentence_length"})
+
+_WAIVER = re.compile(
+    r"<!--\s*writing-standard:\s*ignore\s+([\w.-]+)(?:\s+(?:--|—)(.*?))?\s*-->"
+)
+
+
+def series_values(series) -> list[str]:
+    if isinstance(series, str):
+        return [s.strip() for s in series.split(",") if s.strip()]
+    if isinstance(series, list):
+        return [str(s) for s in series]
+    return []
+
+
+def resolve_standard(fm: dict, config: dict | None, default: str | None) -> str | None:
+    """The page's standard name, or None to skip (R5)."""
+    name = fm.get("writing_standard")
+    if name is None and config:
+        defaults = {}
+        named = set(series_values(fm.get("series")))
+        for s in config.get("series") or []:
+            if isinstance(s, dict) and s.get("key") in named and s.get("writing_standard"):
+                defaults[s["key"]] = str(s["writing_standard"])
+        if len(set(defaults.values())) > 1:
+            listed = ", ".join(f"{k}={v}" for k, v in sorted(defaults.items()))
+            raise ConfigError(f"its series name different writing standards ({listed})")
+        if defaults:
+            name = next(iter(defaults.values()))
+    if name is None:
+        name = default
+    if name is None or str(name) == "none":
+        return None
+    return str(name)
+
+
+def parse_severity_overrides(items, source: str) -> dict[str, str]:
+    """`key=severity` strings (or a mapping) -> {key: severity}, shape-checked."""
+    out: dict[str, str] = {}
+    pairs = items.items() if isinstance(items, dict) else (
+        (i.partition("=")[0], i.partition("=")[2]) if "=" in i else (i, None) for i in items)
+    for key, sev in pairs:
+        if sev not in SEVERITIES:
+            raise ConfigError(f"{source}: {key}={sev}: severity must be one of {'|'.join(SEVERITIES)}")
+        out[str(key)] = str(sev)
+    return out
+
+
+def validate_severity_keys(keys, standards: dict[str, Standard], source: str) -> None:
+    """Every key names an existing <standard>.<check>, or a bare check of some standard."""
+    all_checks = {cid for std in standards.values() for cid in std.checks}
+    for key in keys:
+        std_name, dot, cid = key.rpartition(".")
+        if dot:
+            if std_name not in standards:
+                raise ConfigError(f"{source}: {key}: no writing standard {std_name!r}")
+            if cid not in standards[std_name].checks:
+                raise ConfigError(f"{source}: {key}: standard {std_name} has no check {cid!r}")
+        elif key not in all_checks:
+            raise ConfigError(f"{source}: {key}: no writing standard has a check {key!r}")
+
+
+def effective_severity(standard: Standard, cid: str, layers: list[dict[str, str]]) -> str:
+    """Standard default, then each layer in order (config, then CLI); within
+    a layer the qualified key beats the bare one."""
+    severity = standard.checks[cid].severity
+    for layer in layers:
+        qualified = layer.get(f"{standard.name}.{cid}")
+        severity = qualified or layer.get(cid) or severity
+    return severity
+
+
+def parse_waivers(text: str) -> tuple[dict[int, list[str]], list[Hit]]:
+    """In-source waivers: {line the waiver covers: [check, ...]}, and a
+    `waiver_reason` failure for each waiver with no reason. A waiver covers
+    the next non-blank line after its comment."""
+    lines = text.splitlines()
+    covers: dict[int, list[str]] = {}
+    bad: list[Hit] = []
+    for i, line in enumerate(lines):
+        for m in _WAIVER.finditer(line):
+            if not (m.group(2) or "").strip():
+                bad.append(Hit("waiver_reason", "fail", i + 1,
+                               f"waiver for {m.group(1)} gives no reason"))
+                continue
+            target = next((j for j in range(i + 1, len(lines)) if lines[j].strip()), i + 1)
+            covers.setdefault(target + 1, []).append(m.group(1))
+    return covers, bad
+
+
+def front_matter_waivers(fm: dict, standard: Standard) -> tuple[set[str], list[Hit]]:
+    raw = fm.get("writing_standard_waive") or {}
+    if not isinstance(raw, dict):
+        return set(), [Hit("waiver_reason", "fail", 1, "writing_standard_waive is not a mapping")]
+    waived, bad = set(), []
+    for cid, reason in raw.items():
+        cid = str(cid)
+        spec = standard.checks.get(cid)
+        if not str(reason or "").strip():
+            bad.append(Hit("waiver_reason", "fail", 1, f"front matter waiver for {cid} gives no reason"))
+        elif spec is not None and spec.kind not in PAGE_LEVEL_KINDS:
+            bad.append(Hit("waiver_reason", "fail", 1,
+                           f"{cid} is not a page-level check: waive one hit in the source"))
+        else:
+            waived.add(cid)
+    return waived, bad
+
+
+def apply_waivers(hits: list[Hit], covers: dict[int, list[str]], page_waived: set[str]) -> list[Hit]:
+    remaining = {line: list(cids) for line, cids in covers.items()}
+    out = []
+    for h in hits:
+        if h.check in page_waived:
+            continue
+        if h.check in remaining.get(h.line, []):
+            remaining[h.line].remove(h.check)
+            continue
+        out.append(h)
+    return out
+
+
+def git_toplevel(path: str) -> str | None:
+    import subprocess
+    try:
+        r = subprocess.run(["git", "-C", str(Path(path).resolve().parent), "rev-parse", "--show-toplevel"],
+                           capture_output=True, text=True, check=False)
+    except OSError:
+        return None
+    return r.stdout.strip() if r.returncode == 0 and r.stdout.strip() else None
+
+
+def read_terms_file(path: str) -> list[str]:
+    out = []
+    for line in Path(path).read_text(encoding="utf-8").splitlines():
+        line = line.split("#", 1)[0].strip()
+        if line:
+            out.append(line)
+    return out
+
+
+def load_terms(page_path: str, config_terms, extra_terms) -> list[str]:
+    """Terms beyond the standard's own: config, the page's toplevel terms file,
+    and the CLI's (already read) --terms/--term."""
+    terms = [str(t) for t in config_terms or []]
+    top = git_toplevel(page_path)
+    if top and (Path(top) / ".writing-standard-terms").is_file():
+        terms += read_terms_file(str(Path(top) / ".writing-standard-terms"))
+    return terms + list(extra_terms)
+
+
+def split_page(text: str) -> dict:
+    """The page's front matter mapping ({} when it has none)."""
+    import yaml
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return {}
+    for end in range(1, len(lines)):
+        if lines[end].strip() == "---":
+            try:
+                data = yaml.safe_load("\n".join(lines[1:end]))
+            except yaml.YAMLError as e:
+                raise ConfigError(f"front matter does not parse: {e}") from e
+            return data if isinstance(data, dict) else {}
+    return {}
+
+
+def page_stats(text: str, standard: Standard) -> str:
+    sentences = build_page(text).sentences
+    lengths = [count_words(s.text) for s in sentences]
+    limit = next((c.params for c in standard.checks.values() if c.kind == "sentence_length"), None)
+    over = 0
+    if limit:
+        over = sum(1 for s, n in zip(sentences, lengths)
+                   if n > (limit["procedural_max"] if s.in_step else limit["descriptive_max"]))
+    avg = sum(lengths) / len(lengths) if lengths else 0.0
+    return (f"sentences={len(lengths)} avg={avg:.1f} max={max(lengths, default=0)} "
+            f"over_limit={over}")
+
+
+# ------------------------------------------------------------------ CLI
+
+def _expand(paths: list[str]) -> list[str]:
+    import glob
+    out = []
+    for p in paths:
+        if any(c in p for c in "*?["):
+            matches = sorted(glob.glob(p, recursive=True))
+            if not matches:
+                raise ConfigError(f"{p}: no files match")
+            out.extend(matches)
+        elif not Path(p).is_file():
+            raise ConfigError(f"{p}: no such file")
+        else:
+            out.append(p)
+    return out
+
+
+def _parser():
+    import argparse
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--config")
+    ap.add_argument("--default")
+    ap.add_argument("--severity", action="append", default=[])
+    ap.add_argument("--terms", action="append", default=[])
+    ap.add_argument("--term", action="append", default=[])
+    ap.add_argument("--preserve-from")
+    ap.add_argument("--stats", action="store_true")
+    ap.add_argument("paths", nargs="+")
+    return ap
+
+
+def _setup(args):
+    """Everything that is the same for every page: config, severities, extra terms."""
+    import yaml
+    if args.preserve_from:
+        raise ConfigError("--preserve-from: not implemented yet")
+    config = None
+    if args.config:
+        config = yaml.safe_load(Path(args.config).read_text(encoding="utf-8")) or {}
+    ws = ((config or {}).get("quality") or {}).get("writing_standard") or {}
+    standards = {n: load_standard(n) for n in list_standards()}
+    layers = []
+    for items, source in ((ws.get("severities") or {}, "quality.writing_standard.severities"),
+                          (args.severity, "--severity")):
+        layer = parse_severity_overrides(items, source)
+        validate_severity_keys(layer, standards, source)
+        layers.append(layer)
+    extra = [t for f in args.terms for t in read_terms_file(f)] + list(args.term)
+    return config, ws.get("terms") or [], layers, extra
+
+
+def _check_page(path, text, args, config, config_terms, layers, extra):
+    """Hits for one page, or None when it is skipped."""
+    fm = split_page(text)
+    try:
+        name = resolve_standard(fm, config, args.default)
+    except ConfigError as e:
+        raise ConfigError(f"{path}: {e}") from e
+    if name is None:
+        return None, None
+    try:
+        standard = load_standard(name)
+    except StandardError as e:
+        raise ConfigError(f"{path}: {e}") from e
+    severities = {cid: effective_severity(standard, cid, layers) for cid in standard.checks}
+    terms = load_terms(path, config_terms, extra)
+    hits = run_checks(text, standard, terms=terms, severities=severities)
+    covers, bad = parse_waivers(text)
+    page_waived, bad_fm = front_matter_waivers(fm, standard)
+    hits = apply_waivers(hits, covers, page_waived) + bad + bad_fm
+    return standard, sorted(hits, key=lambda h: (h.line, h.check))
+
+
 def main(argv: list[str]) -> int:
+    try:
+        args = _parser().parse_args(argv)
+    except SystemExit as e:
+        return 2 if e.code else 0
+    try:
+        config, config_terms, layers, extra = _setup(args)
+        paths = _expand(args.paths)
+    except (ConfigError, StandardError, OSError) as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        return 2
+    checked = skipped = 0
+    failed = errored = False
+    for path in paths:
+        text = Path(path).read_text(encoding="utf-8")
+        try:
+            standard, hits = _check_page(path, text, args, config, config_terms, layers, extra)
+        except (ConfigError, StandardError) as e:
+            print(f"ERROR: {e}", file=sys.stderr)
+            errored = True
+            continue
+        if standard is None:
+            skipped += 1
+            continue
+        checked += 1
+        for h in hits:
+            print(f"{h.severity.upper()}: {path}:{h.line}: {h.check}: {h.message}")
+            failed = failed or h.severity == "fail"
+        if args.stats:
+            print(f"STATS: {path}: {standard.name}: {page_stats(text, standard)}")
+    if errored:
+        return 2
+    if failed:
+        print(f"WRITING STANDARD FAILED: {checked} checked, {skipped} skipped")
+        return 1
+    print(f"WRITING STANDARD OK: {checked} checked, {skipped} skipped")
     return 0
 
 

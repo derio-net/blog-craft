@@ -4,8 +4,8 @@ import pytest
 import validate_writing_standard as vws
 
 
-def test_main_runs():
-    assert vws.main([]) == 0
+def test_main_is_the_entry_point():
+    assert callable(vws.main)
 
 
 # ------------------------------------------------------------------ extraction
@@ -129,3 +129,177 @@ def test_multi_line_sentence_reports_its_start_line():
     body2 = "Intro.\n\nOne sentence\nthat wraps. Second\nstarts on line four.\n"
     sents = [s for u in vws.extract_prose(body2) for s in vws.split_sentences(u)]
     assert [s.line for s in sents] == [1, 3, 4]
+
+
+# ------------------------------------------------------------------ CLI
+
+import os
+import subprocess
+
+
+def _page(dirpath, name, body, fm=None):
+    path = os.path.join(str(dirpath), name)
+    head = ""
+    if fm is not None:
+        head = "---\n" + "".join(f"{k}: {v}\n" for k, v in fm.items()) + "---\n"
+    with open(path, "w") as f:
+        f.write(head + body)
+    return path
+
+
+def _git_init(path):
+    subprocess.run(["git", "init", "-q", str(path)], check=True)
+
+
+def test_output_line_format_and_exit_1_on_fail(tmp_path, capsys):
+    page = _page(tmp_path, "p.md", "Intro.\n\nWe don't stop.\n")
+    assert vws.main(["--default", "ste", page]) == 1
+    out = capsys.readouterr().out
+    assert f"FAIL: {page}:3: contractions: " in out
+    assert "WRITING STANDARD FAILED" in out
+
+
+def test_exit_0_with_only_warnings(tmp_path, capsys):
+    page = _page(tmp_path, "p.md", "Ensure the cache is clean.\n")
+    assert vws.main(["--default", "ste", page]) == 0
+    out = capsys.readouterr().out
+    assert f"WARN: {page}:1: vocabulary: " in out
+    assert "WRITING STANDARD OK: 1 checked, 0 skipped" in out
+
+
+def test_exit_2_on_usage_errors(tmp_path, capsys):
+    assert vws.main([]) == 2
+    assert vws.main(["--default", "ste", str(tmp_path / "missing.md")]) == 2
+    page = _page(tmp_path, "p.md", "Fine.\n")
+    assert vws.main(["--default", "ste", "--severity", "nonsense", page]) == 2
+    assert vws.main(["--default", "ste", "--preserve-from", "HEAD", page]) == 2
+
+
+def test_globs_expand(tmp_path, capsys):
+    _page(tmp_path, "a.md", "Fine.\n")
+    _page(tmp_path, "b.md", "Fine too.\n")
+    assert vws.main(["--default", "ste", str(tmp_path / "*.md")]) == 0
+    assert "2 checked" in capsys.readouterr().out
+
+
+# ---- severities
+
+def test_cli_severity_qualified_and_bare(tmp_path, capsys):
+    page = _page(tmp_path, "p.md", "We don't stop.\n")
+    assert vws.main(["--default", "ste", "--severity", "ste.contractions=warn", page]) == 0
+    assert vws.main(["--default", "ste", "--severity", "contractions=off", page]) == 0
+    assert "contractions" not in capsys.readouterr().out.split("WRITING")[-2]
+
+
+def test_qualified_beats_bare(tmp_path, capsys):
+    page = _page(tmp_path, "p.md", "We don't stop.\n")
+    args = ["--default", "ste", "--severity", "ste.contractions=fail",
+            "--severity", "contractions=off", page]
+    assert vws.main(args) == 1
+
+
+def test_config_severities_and_cli_layering(tmp_path, capsys):
+    cfg = tmp_path / ".blog-craft.yaml"
+    cfg.write_text("quality:\n  writing_standard:\n    severities:\n      contractions: warn\n")
+    page = _page(tmp_path, "p.md", "We don't stop.\n")
+    assert vws.main(["--config", str(cfg), "--default", "ste", page]) == 0
+    assert vws.main(["--config", str(cfg), "--default", "ste",
+                     "--severity", "contractions=fail", page]) == 1
+
+
+def test_unknown_standard_or_check_in_an_override_exits_2(tmp_path, capsys):
+    page = _page(tmp_path, "p.md", "Fine.\n")
+    assert vws.main(["--default", "ste", "--severity", "klingon.contractions=warn", page]) == 2
+    assert vws.main(["--default", "ste", "--severity", "ste.telepathy=warn", page]) == 2
+    assert vws.main(["--default", "ste", "--severity", "telepathy=warn", page]) == 2
+    assert vws.main(["--default", "ste", "--severity", "contractions=loud", page]) == 2
+    cfg = tmp_path / ".blog-craft.yaml"
+    cfg.write_text("quality:\n  writing_standard:\n    severities:\n      ste.telepathy: warn\n")
+    assert vws.main(["--config", str(cfg), "--default", "ste", page]) == 2
+
+
+# ---- waivers
+
+def test_waiver_with_reason_suppresses_the_next_hit(tmp_path, capsys):
+    for delim in ("--", "—"):
+        page = _page(tmp_path, "p.md",
+                     f"<!-- writing-standard: ignore contractions {delim} quoted speech -->\n"
+                     "We don't stop.\n")
+        assert vws.main(["--default", "ste", page]) == 0
+        assert "contractions" not in capsys.readouterr().out
+
+
+def test_waiver_suppresses_only_one_hit(tmp_path, capsys):
+    page = _page(tmp_path, "p.md",
+                 "<!-- writing-standard: ignore contractions -- quoted -->\n"
+                 "We don't stop.\n\nWe can't stop.\n")
+    assert vws.main(["--default", "ste", page]) == 1
+    out = capsys.readouterr().out
+    assert f"{page}:4: contractions" in out and f"{page}:2:" not in out
+
+
+def test_waiver_without_reason_fails(tmp_path, capsys):
+    page = _page(tmp_path, "p.md",
+                 "<!-- writing-standard: ignore contractions -->\nWe don't stop.\n")
+    assert vws.main(["--default", "ste", page]) == 1
+    assert f"FAIL: {page}:1: waiver_reason: " in capsys.readouterr().out
+
+
+def test_front_matter_waiver_is_accepted(tmp_path, capsys):
+    page = _page(tmp_path, "p.md", "Fine.\n",
+                 fm={"writing_standard_waive": "{average_sentence_length: long quotes}"})
+    assert vws.main(["--default", "ste", page]) == 0
+    bad = _page(tmp_path, "q.md", "Fine.\n",
+                fm={"writing_standard_waive": "{average_sentence_length: ''}"})
+    assert vws.main(["--default", "ste", bad]) == 1
+    assert "waiver_reason" in capsys.readouterr().out
+
+
+# ---- terms
+
+def test_terms_from_every_source(tmp_path, capsys, monkeypatch):
+    _git_init(tmp_path)
+    (tmp_path / ".writing-standard-terms").write_text("# product terms\nstaging\n")
+    sub = tmp_path / "docs"
+    sub.mkdir()
+    page = _page(sub, "p.md", "Use staging. Ensure it. Create it. Allow it. Provide it.\n")
+    tf = tmp_path / "extra-terms.txt"
+    tf.write_text("create\n")
+    cfg = tmp_path / ".blog-craft.yaml"
+    cfg.write_text("quality:\n  writing_standard:\n    terms: [ensure]\n")
+    elsewhere = tmp_path.parent / (tmp_path.name + "-cwd")
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+    assert vws.main(["--config", str(cfg), "--default", "ste", "--terms", str(tf),
+                     "--term", "allow", page]) == 0
+    out = capsys.readouterr().out
+    assert "staging" not in out and "'Ensure'" not in out
+    assert "'Create'" not in out and "'Allow'" not in out
+    assert "'Provide'" in out
+
+
+# ---- stats and portability
+
+def test_stats_line(tmp_path, capsys):
+    page = _page(tmp_path, "p.md", "One two three. " + " ".join(["W"] * 30) + ".\n")
+    vws.main(["--default", "ste", "--stats", page])
+    out = capsys.readouterr().out
+    assert f"STATS: {page}: ste: sentences=2 avg=16.5 max=30 over_limit=1" in out
+
+
+def test_runs_with_no_config_against_a_page_in_another_repo(tmp_path, capsys, monkeypatch):
+    other = tmp_path / "other-repo"
+    other.mkdir()
+    _git_init(other)
+    page = _page(other, "p.md", "Fine.\n")
+    monkeypatch.chdir(tmp_path)
+    assert vws.main(["--default", "ste", page]) == 0
+
+
+def test_script_runs_as_a_subprocess(tmp_path):
+    import sys
+    page = _page(tmp_path, "p.md", "We don't stop.\n")
+    script = os.path.join(os.path.dirname(vws.__file__), "validate_writing_standard.py")
+    r = subprocess.run([sys.executable, script, "--default", "ste", page],
+                       capture_output=True, text=True, cwd=str(tmp_path))
+    assert r.returncode == 1 and "FAIL:" in r.stdout
