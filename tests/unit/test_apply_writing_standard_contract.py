@@ -25,7 +25,9 @@ def _frontmatter():
 
 
 def _body():
-    return _read(SKILL).split("\n---\n", 1)[1]
+    """The text after the front matter, with each run of white space as one
+    space, so a phrase that wraps across lines still matches."""
+    return " ".join(_read(SKILL).split("\n---\n", 1)[1].split())
 
 
 def _args():
@@ -72,7 +74,7 @@ def test_it_refuses_uncommitted_pages_and_pages_with_no_version_at_head():
     body = _body()
     assert "uncommitted changes" in body
     assert "no version at `HEAD`" in body
-    assert "git status --porcelain" in body
+    assert re.search(r"git [^`]*status --porcelain", body)
 
 
 # ---- the rewrite (R14, R15)
@@ -89,7 +91,7 @@ def test_it_changes_the_language_only_and_names_what_it_keeps():
 def test_it_finds_inbound_links_to_a_changed_headings_old_anchor():
     body = _body()
     assert "old anchor" in body
-    assert re.search(r"grep[^\n]*#<old-slug>", body), "no grep for the old anchor"
+    assert re.search(r"git grep [^`]*#<old-slug>", body), "no grep for the old anchor"
 
 
 def test_it_does_not_touch_the_cover_weight_or_url():
@@ -101,7 +103,7 @@ def test_it_does_not_touch_the_cover_weight_or_url():
 
 def test_each_batch_runs_the_checker_against_head_with_stats():
     body = _body()
-    assert re.search(r"validate_writing_standard\.py[^\n]*--preserve-from HEAD[^\n]*--stats", body)
+    assert re.search(r"validate_writing_standard\.py [^`]*--preserve-from HEAD [^`]*--stats", body)
 
 
 def test_it_may_not_waive_a_check_to_pass():

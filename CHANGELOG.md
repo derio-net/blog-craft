@@ -22,6 +22,12 @@ matching `vX.Y.Z` tag on merge (#18).
   Language Guidelines and fails on a page average over 20 words and on "shall".
   Five new check kinds (`phrases`, `average_sentence_length`, `loose_sentences`,
   `nominalizations`, `abbreviations`); `standards/README.md` documents the schema.
+- **`/apply-writing-standard` and the `fact-keeper` agent.** The skill rewrites
+  Markdown pages to a standard, language only, in batches of 3 to 5 in one session.
+  Each batch runs the checker with the new `--preserve-from HEAD`, which fails when
+  fenced code, inline code, link targets or prose numerals differ from the committed
+  page (an anchor updated to a renamed heading passes). `fact-keeper`, read-only, gets
+  only the original and the rewrite and marks each fact kept, changed, lost or added.
 
 ## [0.22.7] - 2026-10-12
 
