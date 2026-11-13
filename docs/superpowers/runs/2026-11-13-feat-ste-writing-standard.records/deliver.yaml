@@ -1,0 +1,12 @@
+schema_version: 10
+run: 2026-11-13-feat-ste-writing-standard
+step: deliver
+outcome: done
+journal: []
+resolves: []
+acceptance: []
+emitted:
+  pr: https://github.com/derio-net/blog-craft/pull/105
+evidence:
+  tests: ci
+  walk: none
