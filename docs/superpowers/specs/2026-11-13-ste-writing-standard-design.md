@@ -63,9 +63,12 @@ three standards: `ste` for procedures and reference, and `elements-of-style` and
    operator's words: "new skill, apply-writing-standard with the standard passed as a
    parameter. We can even ship multiple writing standards". So a standard is data in a
    registry, and STE is its first entry.
-6. **Verification: CI plus one live rewrite before merge.** Unit tests for the checker,
-   registry and selection; one `client-live` walk of the skill on two super-fr pages. No
-   post-merge gate. super-fr adopting it is a separate super-fr feature.
+6. **Verification: CI only.** Every row is verified by unit tests in CI. The operator
+   first chose one pre-merge `client-live` rewrite, then dropped it: "verify: none, the
+   tests should suffice". blog-craft has no `.fr/candidate-install` for a live strategy to
+   install from. The skill and agent are held by contract tests on their text, like the
+   existing `cold-reader` contract test. No post-merge gate. super-fr adopting it is a
+   separate super-fr feature.
 7. **Three standards, not one.** The operator asked for "a second and third standard":
    *The Elements of Style* (Strunk & White) for general prose ("brevity, rhythm, active
    verbs, omitting needless words") and Plain English / Plain Language ("active voice,
@@ -342,7 +345,7 @@ super-fr feature, not part of this one.
 
 ## Verification
 
-strategy: client-live
+strategy: none
 
 - writing-standard-registry: none — unit tests in CI (`test` job) prove the registry; no install step to walk
 - writing-standard-checker: none — unit tests in CI over fixture pages, inside and outside a blog
@@ -352,7 +355,7 @@ strategy: client-live
 - writing-standard-plain-language: none — unit tests in CI, one fixture per check of the standard
 - writing-standard-preservation: none — unit tests in CI against a temporary git repository
 - writing-standard-blog-integration: none — unit tests in CI (config validator, mirror test, batch-gate, CI template)
-- writing-standard-apply-skill: client-live — an agent runs the skill on super-fr pages in a scratch copy before merge: two guides under `ste`, one explainer under each of the other two standards
+- writing-standard-apply-skill: none — contract tests in CI on the skill and fact-keeper text (Test Plan 8), plus the checker and preservation tests the skill's gate runs; the operator chose no live walk
 
 ## Test Plan
 
@@ -385,23 +388,13 @@ Unit (CI, `tests/unit/`):
    test covers the new copies. `batch-gate.sh` runs the checker. The CI template adds the
    step only when enabled.
 
-Live (pre-merge, `client-live`):
-
-8. In scratch copies of super-fr at its current `main`, an agent runs three rewrites:
-   - `/apply-writing-standard ste docs/reference/install.md docs/merge-protection.md`;
-   - `/apply-writing-standard elements-of-style docs/explainers/fr-isolation.md`;
-   - `/apply-writing-standard plain-language docs/explainers/fr-isolation.md`, from a
-     fresh copy.
-
-   Pass when, for every run:
-   - the checker reports no `FAIL` on the rewritten pages, `preserve` included;
-   - `fact-keeper` reports no `lost` fact, and every `changed` fact was fixed or accepted
-     by the operator in the batch summary;
-   - the run used one session (no `claude -p` in the transcript).
-
-   Evidence: each run's batch summary and `--stats` output, recorded on the row. The two
-   explainer rewrites, with their stats beside the original's, are the comparison super-fr
-   uses to choose a standard for its explainers.
+8. `test_apply_writing_standard_contract.py` and `test_fact_keeper_contract.py` — like
+   `test_cold_reader_contract.py`: the skill takes `standard`, `paths` and `batch_size`
+   (3–5); it refuses an unknown standard and dirty paths; each batch runs the checker with
+   `--preserve-from HEAD`, dispatches `fact-keeper` per page and stops for approval; it
+   handles changed headings' inbound links; it names the no-`claude -p` rule. The agent is
+   read-only (Read, Grep, Glob), takes exactly two paths, and returns kept / changed / lost
+   / added.
 
 ## Implementation Plans
 
