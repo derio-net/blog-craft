@@ -1517,9 +1517,11 @@ rows:
     - blog-craft:docs/superpowers/specs/2026-11-13-ste-writing-standard-design.md#R4
     - blog-craft:docs/superpowers/specs/2026-11-13-ste-writing-standard-design.md#R6
     - blog-craft:docs/superpowers/specs/2026-11-13-ste-writing-standard-design.md#R13
-    levels: {}
-    status: not-implemented
-    notes: ''
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_writing_standard_checker.py
+    status: ci
+    notes: unit tests in CI (test job), green on 5f9d1a7
     verify: none
   - id: writing-standard-selection
     capability: writing-standards
