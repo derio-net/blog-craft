@@ -85,3 +85,14 @@ def test_r3_both_validators_refuse(tmp_path, capsys, block, needle):
     f.write_text("quality:\n  " + block + "\n")
     assert vws.main(["--config", str(f), "--default", "ste", _page(tmp_path, "Fine.\n")]) == 2
     assert needle in capsys.readouterr().err
+
+
+# p4-r2: the schema overview at the top of CONFIG.md names both keys ----------
+
+def test_r2_config_md_overview_names_the_writing_standard_keys():
+    text = open(os.path.join(ROOT, "docs", "CONFIG.md")).read()
+    overview = re.search(r"```yaml\n(.*?)```", text, re.S).group(1)
+    series = overview[overview.index("\nseries:"):overview.index("\nseries_index:")]
+    quality = overview[overview.index("\nquality:"):overview.index("\nfeatures:")]
+    assert "writing_standard" in series and "§15" in series
+    assert "writing_standard" in quality and "§15" in quality

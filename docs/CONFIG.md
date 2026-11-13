@@ -57,6 +57,8 @@ series:
                           # key: a slug — letters, digits, '-', '_' (it is
                           #   content/docs/<key>/ and a CI shell word); unique;
                           #   at most one series may be content_type: papers
+    writing_standard: ste # optional; the series' default writing standard
+                          #   (ste | elements-of-style | plain-language | none) — §15
 
 series_index:             # optional; controls the {{< series-index >}} layout
   style: cards            #   cards (default) | table | none
@@ -68,10 +70,12 @@ content_types:            # optional; opt-in modules (e.g. papers, explainers)
             artefact_kinds, shortcodes, crosslink_fields, weight_offset }
   explainers: { enabled, weight_offset }
 
-quality:                  # optional; educational-writing gate (see §7). Absent => no CI gate.
+quality:                  # optional; educational-writing gate (see §7) and the
+                          # writing-standard checker (§15). Absent => no CI gate.
   enabled: true
   gate: { require_reader_goal, require_diataxis_mode,
           min_command_blocks, require_actionable_section }
+  writing_standard: { enabled, severities, terms }   # optional; §15
 
 features:                 # series_overview_posts, read_tracker, banners,
                           # roadmap{enabled,data}, analytics, css{mermaid_palette},
