@@ -127,3 +127,78 @@ def test_ste_names_its_source_and_never_claims_conformance():
         text = f.read()
     assert "based on ASD-STE100" in text
     assert not re.search(r"conformant|compliant", text, re.IGNORECASE)
+
+
+# ------------------------------------------------------------------ phase 2: three standards
+
+def _read(name):
+    with open(os.path.join(STANDARDS, f"{name}.md")) as f:
+        return f.read()
+
+
+def test_three_standards_ship():
+    assert vws.list_standards() == ["elements-of-style", "plain-language", "ste"]
+
+
+def test_elements_of_style_names_strunk_1918():
+    text = _read("elements-of-style")
+    assert "Strunk" in text and "1918" in text
+    assert vws.load_standard("elements-of-style").title.startswith("Elements of Style rules")
+
+
+def test_plain_language_names_the_guidelines():
+    text = _read("plain-language")
+    assert "Plain Language Guidelines" in text
+    assert vws.load_standard("plain-language").title.startswith("Plain language rules")
+
+
+@pytest.mark.parametrize("name", ["elements-of-style", "plain-language", "ste", "README"])
+def test_no_standard_claims_conformance(name):
+    assert not re.search(r"conformant|compliant", _read(name), re.IGNORECASE)
+
+
+def test_readme_documents_every_kind():
+    text = _read("README")
+    for kind, (required, optional) in vws.KINDS.items():
+        assert f"`{kind}`" in text
+        for param in list(required) + list(optional):
+            assert f"`{param}`" in text
+
+
+def test_a_fourth_standard_of_existing_kinds_needs_no_code(tmp_path):
+    block = (
+        "name: house\ntitle: House rules\nchecks:\n"
+        "  avg: {kind: average_sentence_length, severity: fail, max: 15}\n"
+        "  filler: {kind: phrases, severity: warn, phrases: {basically: (omit)}}\n"
+        "  abbr: {kind: abbreviations, severity: warn}\n"
+        "  loose: {kind: loose_sentences, severity: warn, run: 2}\n"
+        "  nominal: {kind: nominalizations, severity: warn}\n"
+        "terms: []\n"
+    )
+    _write_standard(tmp_path, "house", block)
+    dirs = [STANDARDS, str(tmp_path)]
+    assert vws.list_standards(dirs=dirs) == ["elements-of-style", "house", "plain-language", "ste"]
+    hits = vws.run_checks("It is basically fine.\n", vws.load_standard("house", dirs=dirs)).hits
+    assert [h.check for h in hits] == ["filler"]
+
+
+def _after_examples(name):
+    """The text of every `- After:` example in a standard's prose, as a page."""
+    examples, current = [], None
+    for line in _read(name).split("```yaml", 1)[0].splitlines():
+        if line.startswith("- After:"):
+            current = [line[len("- After:"):].strip()]
+            examples.append(current)
+        elif current is not None and line.startswith("  ") and line.strip():
+            current.append(line.strip())
+        else:
+            current = None
+    return "\n\n".join("\n".join(x for x in e if x) for e in examples) + "\n"
+
+
+@pytest.mark.parametrize("name", ["elements-of-style", "plain-language", "ste"])
+def test_each_standards_after_examples_pass_its_own_checker(name):
+    page = _after_examples(name)
+    assert page.strip()
+    hits = vws.run_checks(page, vws.load_standard(name)).hits
+    assert hits == []

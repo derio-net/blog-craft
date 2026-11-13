@@ -210,3 +210,12 @@ def test_abbreviation_lengths_and_code(tmp_path):
 
 def test_every_declared_kind_has_a_matcher():
     assert set(vws.MATCHERS) == set(vws.KINDS)
+
+
+def test_a_phrase_inside_a_longer_listed_phrase_is_reported_once(tmp_path):
+    std = _standard(tmp_path, [
+        "needless: {kind: phrases, severity: fail, "
+        "phrases: {the fact that: '(omit)', owing to the fact that: since}}"])
+    hits = _hits("We stopped owing to the fact that it rained.\n", std)
+    assert len(hits) == 1 and "since" in hits[0].message
+    assert len(_hits("The fact that it rained stopped us.\n", std)) == 1

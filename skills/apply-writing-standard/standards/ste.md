@@ -32,7 +32,9 @@ A numbered step tells the reader to do one thing. If a step has two
 instructions, make two steps.
 
 - Before: 1. Open the file and run the tests.
-- After: 1. Open the file. 2. Run the tests.
+- After:
+  1. Open the file.
+  2. Run the tests.
 
 ### 3. Do not use contractions
 

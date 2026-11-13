@@ -16,6 +16,12 @@ matching `vX.Y.Z` tag on merge (#18).
 - **Writing standards (in progress).** `tools/validate_writing_standard.py` checks
   Markdown against a writing standard; first standard: STE writing rules, based on
   ASD-STE100.
+- **Two more writing standards: `elements-of-style` and `plain-language`.**
+  `elements-of-style` follows Strunk's 1918 edition (public domain) and fails only
+  on always-needless phrases; `plain-language` is based on the US Federal Plain
+  Language Guidelines and fails on a page average over 20 words and on "shall".
+  Five new check kinds (`phrases`, `average_sentence_length`, `loose_sentences`,
+  `nominalizations`, `abbreviations`); `standards/README.md` documents the schema.
 
 ## [0.22.7] - 2026-10-12
 

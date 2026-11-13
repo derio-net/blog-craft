@@ -465,8 +465,17 @@ def match_replacements(page: Page, p: dict) -> list[Finding]:
 
 
 def match_phrases(page: Page, p: dict) -> list[Finding]:
+    """A listed phrase inside a longer listed phrase it overlaps ("the fact
+    that" in "owing to the fact that") is reported once, as the longer one."""
+    found = list(_listed(page, p["phrases"], skip_terms=False))
+
+    def inside(a, b) -> bool:
+        (sa, ma, _), (sb, mb, _) = a, b
+        return (sa is sb and ma is not mb and mb.start() <= ma.start() and ma.end() <= mb.end()
+                and mb.end() - mb.start() > ma.end() - ma.start())
+
     return [(s.line, f"{m.group(0)!r}: {hint}")
-            for s, m, hint in _listed(page, p["phrases"], skip_terms=False)]
+            for s, m, hint in found if not any(inside((s, m, hint), g) for g in found)]
 
 
 def match_average_sentence_length(page: Page, p: dict) -> list[Finding]:
