@@ -30,3 +30,143 @@ KINDS declares all 12 kinds, so a standard naming one loads; run_checks raises S
 ### no-refactor-p1-t1 · discovery · no-refactor-because P1.T1 (phase 1)
 
 a skeleton main() returning 0 and one smoke test: nothing to clean
+
+<!-- fr:journal kind=review scope=plan id=review-p1 created=2026-11-13T14:11:59+00:00 phase=1 -->
+### review-p1 · review · phase 1 code review: 13 findings, all in scope, all fixed (phase 1)
+
+Independent reviewer (separate context, read-only) over spec + plan + diff faafc72..HEAD, weighted to tests and simplicity. Fixes in 7696e8a, tests in tests/unit/test_writing_standard_review_fixes.py; 118 writing-standard tests pass locally; CI test green on 7696e8a. Reviewer suggested a tests lens (every kind-table rule has positive and negative tests).
+
+<!-- fr:journal kind=finding scope=plan id=p1-r1 created=2026-11-13T14:11:59+00:00 phase=1 state=open review_scope=in -->
+### p1-r1 · finding [open] (reviewer: in scope) · one_instruction misses "and then <verb>" (phase 1)
+
+Raised by the phase 1 reviewer.
+
+<!-- fr:journal kind=finding scope=plan id=p1-r2 created=2026-11-13T14:11:59+00:00 phase=1 state=open review_scope=in -->
+### p1-r2 · finding [open] (reviewer: in scope) · waiver syntax inside fenced/inline code parsed as a real waiver (phase 1)
+
+Raised by the phase 1 reviewer.
+
+<!-- fr:journal kind=finding scope=plan id=p1-r3 created=2026-11-13T14:11:59+00:00 phase=1 state=open review_scope=in -->
+### p1-r3 · finding [open] (reviewer: in scope) · stacked waiver comments: the first targets the second comment's line (phase 1)
+
+Raised by the phase 1 reviewer.
+
+<!-- fr:journal kind=finding scope=plan id=p1-r4 created=2026-11-13T14:11:59+00:00 phase=1 state=open review_scope=in -->
+### p1-r4 · finding [open] (reviewer: in scope) · bad config, directory glob match or non-UTF-8 page crash instead of exit 2 (phase 1)
+
+Raised by the phase 1 reviewer.
+
+<!-- fr:journal kind=finding scope=plan id=p1-r5 created=2026-11-13T14:11:59+00:00 phase=1 state=open review_scope=in -->
+### p1-r5 · finding [open] (reviewer: in scope) · bare URL regex swallows the sentence-ending period (phase 1)
+
+Raised by the phase 1 reviewer.
+
+<!-- fr:journal kind=finding scope=plan id=p1-r6 created=2026-11-13T14:11:59+00:00 phase=1 state=open review_scope=in -->
+### p1-r6 · finding [open] (reviewer: in scope) · one_instruction misses a step's continuation paragraph (phase 1)
+
+Raised by the phase 1 reviewer.
+
+<!-- fr:journal kind=finding scope=plan id=p1-r7 created=2026-11-13T14:11:59+00:00 phase=1 state=open review_scope=in -->
+### p1-r7 · finding [open] (reviewer: in scope) · proper nouns after 'and' fail one_instruction; 'Then <verb>' second sentence passes (phase 1)
+
+Raised by the phase 1 reviewer.
+
+<!-- fr:journal kind=finding scope=plan id=p1-r8 created=2026-11-13T14:11:59+00:00 phase=1 state=open review_scope=in -->
+### p1-r8 · finding [open] (reviewer: in scope) · passive heuristic flags is open/often/even/then; no adverb handling (phase 1)
+
+Raised by the phase 1 reviewer.
+
+<!-- fr:journal kind=finding scope=plan id=p1-r9 created=2026-11-13T14:11:59+00:00 phase=1 state=open review_scope=in -->
+### p1-r9 · finding [open] (reviewer: in scope) · contraction I'm not detected (phase 1)
+
+Raised by the phase 1 reviewer.
+
+<!-- fr:journal kind=finding scope=plan id=p1-r10 created=2026-11-13T14:11:59+00:00 phase=1 state=open review_scope=in -->
+### p1-r10 · finding [open] (reviewer: in scope) · front-matter waiver naming no check silently accepted; waiver scope untested (phase 1)
+
+Raised by the phase 1 reviewer.
+
+<!-- fr:journal kind=finding scope=plan id=p1-r11 created=2026-11-13T14:11:59+00:00 phase=1 state=open review_scope=in -->
+### p1-r11 · finding [open] (reviewer: in scope) · no registry tests for wrong parameter types or bad passive scope (phase 1)
+
+Raised by the phase 1 reviewer.
+
+<!-- fr:journal kind=finding scope=plan id=p1-r12 created=2026-11-13T14:11:59+00:00 phase=1 state=open review_scope=in -->
+### p1-r12 · finding [open] (reviewer: in scope) · standards reloaded per page; page re-extracted for stats (phase 1)
+
+Raised by the phase 1 reviewer.
+
+<!-- fr:journal kind=finding scope=plan id=p1-r13 created=2026-11-13T14:11:59+00:00 phase=1 state=open review_scope=in -->
+### p1-r13 · finding [open] (reviewer: in scope) · word count splits e.g./i.e./3.14 into two words (phase 1)
+
+Raised by the phase 1 reviewer.
+
+<!-- fr:journal kind=decision scope=plan id=p1-check-id-average-sentence-length created=2026-11-13T14:11:59+00:00 phase=1 -->
+### p1-check-id-average-sentence-length · decision · plain-language's page-average check id is average_sentence_length (phase 1)
+
+Waivers match by check id; the spec named the plain-language instance average_length while its waiver example used average_sentence_length. Renamed the instance in the spec so the documented front-matter waiver works.
+
+<!-- fr:journal kind=finding scope=plan id=p1-r1-resolved created=2026-11-13T14:11:59+00:00 phase=1 state=fixed resolves=p1-r1 -->
+### p1-r1-resolved · finding [fixed] · resolves p1-r1: one_instruction misses "and then <verb>" (phase 1)
+
+7696e8a; test_r1_and_then_joins_a_second_instruction
+
+<!-- fr:journal kind=finding scope=plan id=p1-r2-resolved created=2026-11-13T14:11:59+00:00 phase=1 state=fixed resolves=p1-r2 -->
+### p1-r2-resolved · finding [fixed] · resolves p1-r2: waiver syntax inside fenced/inline code parsed as a real waiver (phase 1)
+
+7696e8a; test_r2_waiver_syntax_in_code_is_not_a_waiver
+
+<!-- fr:journal kind=finding scope=plan id=p1-r3-resolved created=2026-11-13T14:11:59+00:00 phase=1 state=fixed resolves=p1-r3 -->
+### p1-r3-resolved · finding [fixed] · resolves p1-r3: stacked waiver comments: the first targets the second comment's line (phase 1)
+
+7696e8a; test_r3_stacked_waivers_both_cover_the_sentence
+
+<!-- fr:journal kind=finding scope=plan id=p1-r4-resolved created=2026-11-13T14:11:59+00:00 phase=1 state=fixed resolves=p1-r4 -->
+### p1-r4-resolved · finding [fixed] · resolves p1-r4: bad config, directory glob match or non-UTF-8 page crash instead of exit 2 (phase 1)
+
+7696e8a; test_r4_bad_config_exits_2, test_r4_glob_matching_a_directory_keeps_files_only, test_r4_non_utf8_page_exits_2
+
+<!-- fr:journal kind=finding scope=plan id=p1-r5-resolved created=2026-11-13T14:11:59+00:00 phase=1 state=fixed resolves=p1-r5 -->
+### p1-r5-resolved · finding [fixed] · resolves p1-r5: bare URL regex swallows the sentence-ending period (phase 1)
+
+7696e8a; test_r5_bare_url_keeps_the_sentence_end
+
+<!-- fr:journal kind=finding scope=plan id=p1-r6-resolved created=2026-11-13T14:11:59+00:00 phase=1 state=fixed resolves=p1-r6 -->
+### p1-r6-resolved · finding [fixed] · resolves p1-r6: one_instruction misses a step's continuation paragraph (phase 1)
+
+7696e8a; test_r6_step_continuation_paragraph_is_the_same_step, test_r6_separate_steps_do_not_join
+
+<!-- fr:journal kind=finding scope=plan id=p1-r7-resolved created=2026-11-13T14:11:59+00:00 phase=1 state=fixed resolves=p1-r7 -->
+### p1-r7-resolved · finding [fixed] · resolves p1-r7: proper nouns after 'and' fail one_instruction; 'Then <verb>' second sentence passes (phase 1)
+
+7696e8a; test_r7_capitalised_word_mid_sentence_is_not_a_verb, test_r7_then_verb_sentence_is_a_second_instruction
+
+<!-- fr:journal kind=finding scope=plan id=p1-r8-resolved created=2026-11-13T14:11:59+00:00 phase=1 state=fixed resolves=p1-r8 -->
+### p1-r8-resolved · finding [fixed] · resolves p1-r8: passive heuristic flags is open/often/even/then; no adverb handling (phase 1)
+
+7696e8a; test_r8_passive_stop_list, test_r8_one_adverb_before_the_participle
+
+<!-- fr:journal kind=finding scope=plan id=p1-r9-resolved created=2026-11-13T14:11:59+00:00 phase=1 state=fixed resolves=p1-r9 -->
+### p1-r9-resolved · finding [fixed] · resolves p1-r9: contraction I'm not detected (phase 1)
+
+7696e8a; test_r9_i_am_contraction (spec kind table updated)
+
+<!-- fr:journal kind=finding scope=plan id=p1-r10-resolved created=2026-11-13T14:11:59+00:00 phase=1 state=fixed resolves=p1-r10 -->
+### p1-r10-resolved · finding [fixed] · resolves p1-r10: front-matter waiver naming no check silently accepted; waiver scope untested (phase 1)
+
+7696e8a; test_r10_front_matter_waiver_naming_no_check_exits_2, test_r10_front_matter_waiver_of_a_sentence_level_check_fails
+
+<!-- fr:journal kind=finding scope=plan id=p1-r11-resolved created=2026-11-13T14:11:59+00:00 phase=1 state=fixed resolves=p1-r11 -->
+### p1-r11-resolved · finding [fixed] · resolves p1-r11: no registry tests for wrong parameter types or bad passive scope (phase 1)
+
+7696e8a; test_r11_bad_parameter_values_are_refused (loader already correct)
+
+<!-- fr:journal kind=finding scope=plan id=p1-r12-resolved created=2026-11-13T14:11:59+00:00 phase=1 state=fixed resolves=p1-r12 -->
+### p1-r12-resolved · finding [fixed] · resolves p1-r12: standards reloaded per page; page re-extracted for stats (phase 1)
+
+7696e8a; test_r12_standards_load_once_per_run, test_r12_run_checks_returns_the_page
+
+<!-- fr:journal kind=finding scope=plan id=p1-r13-resolved created=2026-11-13T14:11:59+00:00 phase=1 state=fixed resolves=p1-r13 -->
+### p1-r13-resolved · finding [fixed] · resolves p1-r13: word count splits e.g./i.e./3.14 into two words (phase 1)
+
+7696e8a; test_r13_dotted_tokens_are_one_word
