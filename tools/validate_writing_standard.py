@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import re
 import sys
+from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -859,6 +860,174 @@ def page_stats(page: Page, standard: Standard) -> str:
             f"over_limit={over}")
 
 
+# ------------------------------------------------------------------ preservation (R12)
+
+PRESERVED_KINDS = ("fenced code", "inline code", "link target", "numeral")
+
+_NUMERAL = re.compile(r"\b\d+(?:\.\d+)?%?")
+_ORDERED_MARKER = re.compile(r"^(\s*(?:>\s*)*)\d{1,9}[.)](?=\s)")
+_LINK_TARGET = re.compile(r"!?\[[^\]]*\]\(\s*<?([^)\s>]*)>?(?:\s+[\"'(][^)]*)?\)")
+_REF_DEFINITION = re.compile(r"^\s{0,3}\[[^\]]+\]:\s*<?(\S+?)>?(?:\s+.*)?$")
+_AUTOLINK = re.compile(r"<(https?://[^>\s]+)>")
+_BARE_URL = re.compile(r"(?<![(<\w])https?://\S+?(?=[.,;:!?)\]]*(?:\s|$))")
+_HEADING = re.compile(r"^\s{0,3}#{1,6}\s+(.*?)\s*#*\s*$")
+_HEADING_ID = re.compile(r"\s*\{#([\w-]+)\}\s*$")
+
+
+def preserved_items(text: str) -> dict[str, Counter]:
+    """What a rewrite must keep, as multisets: fenced code blocks (content
+    with fences), inline code spans, link targets and numerals in prose.
+    Ordered-list markers are not numerals, so a renumbered list keeps all."""
+    lines = _blank_front_matter(text.splitlines())
+    prose = _prose_line_numbers(lines)
+    fences: list[str] = []
+    block: list[str] = []
+    for i, line in enumerate(lines):
+        if i in prose:
+            if block:
+                fences.append("\n".join(block))
+                block = []
+        else:
+            block.append(line)
+    if block:
+        fences.append("\n".join(block))
+
+    source = _blank_comments("\n".join(line if i in prose else "" for i, line in enumerate(lines)))
+    inline = [m.group(2) for m in _INLINE_CODE.finditer(source)]
+    targets: list[str] = []
+    rest: list[str] = []
+    for line in _mask_code(source).splitlines():
+        ref = _REF_DEFINITION.match(line)
+        if ref:
+            targets.append(ref.group(1))
+            continue
+        for pattern in (_LINK_TARGET, _AUTOLINK, _BARE_URL):
+            targets += pattern.findall(line)
+            line = pattern.sub(" ", line)
+        line = re.sub(r"</?[A-Za-z][^>]*>", " ", line)
+        rest.append(_ORDERED_MARKER.sub(r"\1", line))
+    return {
+        "fenced code": Counter(fences),
+        "inline code": Counter(inline),
+        "link target": Counter(targets),
+        "numeral": Counter(_NUMERAL.findall("\n".join(rest))),
+    }
+
+
+def _github_slug(heading: str) -> str:
+    text = _INLINE_CODE.sub(lambda m: m.group(2), heading)
+    text = re.sub(r"!?\[([^\]]*)\]\([^)]*\)", r"\1", text)
+    text = re.sub(r"</?[A-Za-z][^>]*>", "", text).strip().lower()
+    text = re.sub(r"[^\w\- ]", "", text)
+    return text.replace(" ", "-")
+
+
+def heading_slugs(text: str) -> set[str]:
+    """The anchors a page's ATX headings get: an explicit `{#id}`, else the
+    GitHub slug, with -1, -2 ... on repeats."""
+    seen: Counter = Counter()
+    out = set()
+    for line in _prose_source_lines(text):
+        m = _HEADING.match(line)
+        if not m:
+            continue
+        explicit = _HEADING_ID.search(m.group(1))
+        if explicit:
+            out.add(explicit.group(1))
+            continue
+        slug = _github_slug(m.group(1))
+        out.add(f"{slug}-{seen[slug]}" if seen[slug] else slug)
+        seen[slug] += 1
+    return out
+
+
+def _linked_page_text(page_path: Path, page_text: str, target_path: str) -> str | None:
+    """The text of the page a link points to (*page_text* for an in-page
+    anchor), or None when it is not a local Markdown page."""
+    if not target_path:
+        return page_text
+    if re.match(r"^[a-z][a-z0-9+.-]*:", target_path, re.IGNORECASE):
+        return None
+    base = page_path.parent / target_path.split("?", 1)[0]
+    candidates = [base, base / "index.md", base / "_index.md"]
+    if not base.suffix:
+        candidates.insert(1, base.with_suffix(".md"))
+    for cand in candidates:
+        if cand.is_file():
+            try:
+                return cand.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                return None
+    return None
+
+
+def _accept_anchor_moves(gone: Counter, added: Counter, page_path: Path, page_text: str) -> None:
+    """Drop from both sides each pair of link targets with the same path whose
+    new anchor names a heading of the page it points to (R15's update)."""
+    for target in list(added.elements()):
+        path, _, anchor = target.partition("#")
+        if "#" not in target:
+            continue
+        old = next((g for g, n in gone.items()
+                    if n > 0 and "#" in g and g.partition("#")[0] == path), None)
+        if old is None:
+            continue
+        linked = _linked_page_text(page_path, page_text, path)
+        if linked is not None and anchor in heading_slugs(linked):
+            gone[old] -= 1
+            added[target] -= 1
+
+
+def _first_line(text: str, needle: str) -> int:
+    at = text.find(needle)
+    return text.count("\n", 0, at) + 1 if at >= 0 else 1
+
+
+def _show(item: str) -> str:
+    return repr(item if len(item) <= 60 else item[:57] + "...")
+
+
+def preserve_hits(old: str, new: str, page_path: Path, ref: str) -> list[Hit]:
+    """One `preserve` failure per item that disappeared from or appeared in
+    *new* compared with *old* (the page at *ref*)."""
+    before, after = preserved_items(old), preserved_items(new)
+    hits: list[Hit] = []
+    for kind in PRESERVED_KINDS:
+        gone = before[kind] - after[kind]
+        added = after[kind] - before[kind]
+        if kind == "link target":
+            _accept_anchor_moves(gone, added, page_path, new)
+        for item, n in sorted(gone.items()):
+            if n > 0:
+                hits.append(Hit("preserve", "fail", 1, f"{kind} {_show(item)} disappeared "
+                                f"({n}x, line {_first_line(old, item)} at {ref})"))
+        for item, n in sorted(added.items()):
+            if n > 0:
+                hits.append(Hit("preserve", "fail", _first_line(new, item),
+                                f"{kind} {_show(item)} appeared ({n}x, not at {ref})"))
+    return hits
+
+
+def text_at_ref(path: str, ref: str) -> str | None:
+    """The page as it is at *ref*, read at its own git toplevel, or None when
+    it has no version there. ConfigError when it is in no git repository."""
+    import subprocess
+    top = git_toplevel(path)
+    if top is None:
+        raise ConfigError("--preserve-from: the page is not in a git repository")
+    rel = Path(path).resolve().relative_to(Path(top).resolve()).as_posix()
+    r = subprocess.run(["git", "-C", top, "show", f"{ref}:./{rel}"],
+                       capture_output=True, check=False)
+    return r.stdout.decode("utf-8") if r.returncode == 0 else None
+
+
+def check_preserved(path: str, text: str, ref: str) -> list[Hit]:
+    old = text_at_ref(path, ref)
+    if old is None:
+        return [Hit("preserve", "fail", 1, f"no version at {ref}")]
+    return preserve_hits(old, text, Path(path), ref)
+
+
 # ------------------------------------------------------------------ CLI
 
 def _expand(paths: list[str]) -> list[str]:
@@ -927,8 +1096,6 @@ class Setup:
 
 
 def _setup(args) -> Setup:
-    if args.preserve_from:
-        raise ConfigError("--preserve-from: not implemented yet")
     config = load_config(args.config) if args.config else None
     ws = ((config or {}).get("quality") or {}).get("writing_standard") or {}
     standards = {n: load_standard(n) for n in list_standards()}
@@ -986,6 +1153,13 @@ def main(argv: list[str]) -> int:
             skipped += 1
             continue
         checked += 1
+        if args.preserve_from:
+            try:
+                hits = hits + check_preserved(path, text, args.preserve_from)
+            except ConfigError as e:
+                print(f"ERROR: {path}: {e}", file=sys.stderr)
+                errored = True
+                continue
         for h in hits:
             print(f"{h.severity.upper()}: {path}:{h.line}: {h.check}: {h.message}")
             failed = failed or h.severity == "fail"
