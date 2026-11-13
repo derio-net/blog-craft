@@ -1,4 +1,4 @@
-# Writing standards — a pluggable standard registry, a checker, and `apply-writing-standard` (STE first)
+# Writing standards — a pluggable standard registry, a checker, and `apply-writing-standard` (STE, Elements of Style, Plain Language)
 
 - **Branch:** `feat/ste-writing-standard`
 - **Date:** 2026-11-13
@@ -35,6 +35,15 @@ Three things in blog-craft today stop it from doing this:
 3. There is no notion of a writing standard at all, so there is nowhere to put a second
    one.
 
+One standard is not enough for one site. STE suits guides and reference pages, and it
+flattens a narrative explainer. An explainer still benefits from a standard, as long as
+the standard is about clarity rather than control: cut needless words, prefer the active
+voice, keep sentences short on average, and use common words. Two established guides say
+exactly that, for different readers: Strunk's *The Elements of Style* (general prose) and
+the US Federal Plain Language Guidelines (public-facing writing). So this feature ships
+three standards: `ste` for procedures and reference, and `elements-of-style` and
+`plain-language` as candidates for explainers.
+
 ## Operator decisions (2026-11-13, one question per turn)
 
 1. **Scope of the first release: checker + rewrite + fact check.** The deterministic
@@ -57,12 +66,19 @@ Three things in blog-craft today stop it from doing this:
 6. **Verification: CI plus one live rewrite before merge.** Unit tests for the checker,
    registry and selection; one `client-live` walk of the skill on two super-fr pages. No
    post-merge gate. super-fr adopting it is a separate super-fr feature.
+7. **Three standards, not one.** The operator asked for "a second and third standard":
+   *The Elements of Style* (Strunk & White) for general prose ("brevity, rhythm, active
+   verbs, omitting needless words") and Plain English / Plain Language ("active voice,
+   short sentences, common terms"), adding "we could try these for the explainers". Both
+   ship beside `ste`. The Elements of Style standard is built on Strunk's 1918 edition,
+   which is in the public domain; the later Strunk & White editions (E. B. White's
+   revisions, 1959 on) are under copyright, so none of their text ships (R25).
 
 ## Requirements
 
 R1. A writing standard is one reference file that holds its rules as prose for the rewriter and its checker data as one fenced YAML block, so instruction and mechanics cannot drift apart.
-R2. blog-craft ships exactly one standard in this feature, `ste`; adding another standard that uses only existing checks needs a new reference file and no code change.
-R3. A standard's data names the checks it uses from a closed set the checker implements; an unknown check name, or an unknown standard name, is an error, never a silent skip.
+R2. Adding a standard whose checks use only existing check kinds needs a new reference file and no code change.
+R3. A standard's data declares named check instances, each of a kind from a closed set the checker implements and with that kind's parameters; an unknown kind, a bad parameter, or an unknown standard name is an error, never a silent skip.
 R4. The checker validates any Markdown file, inside or outside a blog-craft blog, and needs only Python 3 and PyYAML.
 R5. Each page's standard is resolved in this order: its front matter `writing_standard:` (a standard name, or `none` to opt out); else the default of its series in `.blog-craft.yaml` when a blog config is given; else the CLI `--default`; else the page is skipped and counted as skipped.
 R6. The checker examines prose only: front matter, fenced code blocks, inline code spans, tables, HTML comments and link URLs are never checked.
@@ -81,10 +97,14 @@ R18. A `fact-keeper` agent, read-only and given only the original and the rewrit
 R19. In a blog, `/blog-post` and `/post-rewrite` apply a post's resolved standard's rules while drafting, and `scripts/batch-gate.sh` and the shipped CI template run the checker.
 R20. `.blog-craft.yaml` accepts a per-series `writing_standard` and a `quality.writing_standard` block (`enabled`, `severities`, `terms`), the config validator checks them, and `docs/CONFIG.md` documents them.
 R21. A materialized blog gets the checker and the standards' reference files in `scripts/` as byte-identical copies of the plugin's canonical files, guarded by the existing mirror test.
+R22. blog-craft ships two more standards beside `ste`, `elements-of-style` and `plain-language`, meant for prose that keeps its narrative, such as explainers.
+R23. Under `elements-of-style`, a needless-word phrase from the standard's list fails; passive voice anywhere, a negative-form phrase with a positive replacement, and a run of three or more loose sentences warn; there is no sentence-length limit.
+R24. Under `plain-language`, a page whose average sentence is over 20 words fails, and the word "shall" fails; a sentence over 35 words, passive voice anywhere, a word with a simpler replacement, a nominalization, an abbreviation used before it is spelled out, and a paragraph of more than six sentences warn.
+R25. Each standard's reference names its source: `elements-of-style` draws only on Strunk's 1918 edition (public domain), in blog-craft's own words, and quotes no later edition; `plain-language` draws on the US Federal Plain Language Guidelines (a US government work) and may adapt their word list; `ste` follows R11.
 
 ## Design
 
-### 1. The standard registry (R1–R3, R11)
+### 1. The standard registry (R1–R3, R11, R22, R25)
 
 A standard is one Markdown file:
 
@@ -92,41 +112,81 @@ A standard is one Markdown file:
 skills/apply-writing-standard/standards/<name>.md
 ```
 
-Its prose is the rule set as the rewriter must apply it (with short before/after
-examples). Its one fenced ` ```yaml ` block is the checker's data, parsed the same way
-`load_lint_data()` parses `ai-tells.md` today:
+Its prose is the rule set as the rewriter must apply it, with short before/after
+examples, and it names the standard's source (R25). Its one fenced ` ```yaml ` block is
+the checker's data, parsed the same way `load_lint_data()` parses `ai-tells.md` today.
+
+The block declares **check instances**. Each instance has an id (what severities, waivers
+and output name), a `kind` from the checker's closed set, a default `severity`, and that
+kind's parameters (R3). Two instances may share a kind: `plain-language` uses
+`replacements` twice, once for simpler words (warn) and once for "shall" (fail).
 
 ```yaml
 name: ste
 title: STE writing rules, based on ASD-STE100
-checks:                         # closed set; the checker refuses unknown names
-  sentence_length:   {severity: fail, procedural_max: 20, descriptive_max: 25}
-  contractions:      {severity: fail}
-  one_instruction:   {severity: fail}
-  passive_in_steps:  {severity: warn}
-  ing_forms:         {severity: warn}
-  vocabulary:        {severity: warn}
-  paragraph_length:  {severity: warn, max_sentences: 6}
-step_verbs: [add, apply, attach, close, copy, delete, do, find, give, go, install,
-             keep, make, merge, move, open, push, put, read, remove, run, select,
-             set, show, start, stop, tell, use, write]
-replacements:                   # blog-craft's own list, not ASD's dictionary
-  ensure: make sure
-  allow: let
-  allows: lets
-  create: make
-  refuse: do not accept
-  require: must / is necessary
-  utilize: use
-  # ...
-terms: []                       # standard-level exemptions (usually empty)
+checks:
+  sentence_length:  {kind: sentence_length, severity: fail, procedural_max: 20, descriptive_max: 25}
+  contractions:     {kind: contractions, severity: fail}
+  one_instruction:  {kind: one_instruction, severity: fail,
+                     step_verbs: [add, apply, close, copy, delete, do, find, give, go, install,
+                                  keep, make, merge, move, open, push, put, read, remove, run,
+                                  select, set, show, start, stop, tell, use, write]}
+  passive_in_steps: {kind: passive, severity: warn, scope: steps}
+  ing_forms:        {kind: ing_forms, severity: warn}
+  vocabulary:       {kind: replacements, severity: warn,
+                     words: {ensure: make sure, allow: let, create: make,
+                             refuse: do not accept, utilize: use}}     # ... blog-craft's own list
+  paragraph_length: {kind: paragraph_length, severity: warn, max_sentences: 6}
+terms: []
 ```
 
-`skills/apply-writing-standard/standards/README.md` documents the block's schema and the
-closed check set, so a second standard (say, a plain-language one) is a new file. The STE
-file's prose states the licensing position of R11 in one paragraph.
+```yaml
+name: elements-of-style
+title: Elements of Style rules, after Strunk (1918)
+checks:
+  needless_words:   {kind: phrases, severity: fail,
+                     phrases: {the fact that: "(omit, or: since / though)", in order to: to,
+                               there is no doubt but that: no doubt,
+                               the question as to whether: whether, owing to the fact that: since,
+                               in spite of the fact that: though, who is: "(omit)",
+                               which was: "(omit)"}}                    # ... own list
+  active_voice:     {kind: passive, severity: warn, scope: all}
+  positive_form:    {kind: phrases, severity: warn,
+                     phrases: {not honest: dishonest, not important: trifling,
+                               did not remember: forgot, did not pay any attention to: ignored,
+                               did not have much confidence in: distrusted}}
+  loose_sentences:  {kind: loose_sentences, severity: warn, run: 3}
+terms: []
+```
 
-### 2. The checker — `tools/validate_writing_standard.py` (R4–R13)
+```yaml
+name: plain-language
+title: Plain language rules, based on the US Federal Plain Language Guidelines
+checks:
+  average_length:   {kind: average_sentence_length, severity: fail, max: 20}
+  long_sentence:    {kind: sentence_length, severity: warn, procedural_max: 35, descriptive_max: 35}
+  must_not_shall:   {kind: replacements, severity: fail, words: {shall: must}}
+  active_voice:     {kind: passive, severity: warn, scope: all}
+  simple_words:     {kind: replacements, severity: warn,
+                     words: {commence: start, utilize: use, prior to: before,
+                             subsequent to: after, in accordance with: under,
+                             approximately: about, facilitate: help, accordingly: so}}  # ... adapted list
+  nominalizations:  {kind: nominalizations, severity: warn}
+  abbreviations:    {kind: abbreviations, severity: warn}
+  paragraph_length: {kind: paragraph_length, severity: warn, max_sentences: 6}
+terms: []
+```
+
+`elements-of-style` has no length limit and only one failing check, the needless-word
+list: it is a style guide, not a controlled language, and an explainer under it keeps its
+voice. `plain-language` fails only on two exact facts (the page's average sentence length,
+and "shall"), and warns on everything that needs judgement.
+
+`skills/apply-writing-standard/standards/README.md` documents the block's schema, the
+closed set of kinds and their parameters, and how to add a standard (R2). Each standard
+file's prose states its source and licensing position (R11, R25).
+
+### 2. The checker — `tools/validate_writing_standard.py` (R4–R13, R23, R24)
 
 ```
 validate_writing_standard.py [--config .blog-craft.yaml] [--default <standard>]
@@ -153,22 +213,27 @@ validate_writing_standard.py [--config .blog-craft.yaml] [--default <standard>]
   capital, a backtick, or an opening bracket; a list item or a table cell boundary also
   ends a sentence. A bold question that runs into its answer counts as two sentences
   (this was the 31-word artefact in the hand measurement, and a test pins it).
-- **Checks.** Exact checks (R7):
-  - `sentence_length` counts words, with inline code counted as one word.
-  - `contractions` matches `n't`, `'re`, `'ll`, `'ve`, `'d`, and `'s` after a pronoun.
-  - `one_instruction` fails a numbered step that holds two sentences, each starting with
-    a verb from `step_verbs`. It also fails one sentence that joins two such verbs with
-    `and`, `, then` or `then`. Exact relative to the verb list: what the list does not
-    name, it does not see.
+- **Check kinds.** The closed set. A kind is exact when it matches the text with no
+  judgement, and heuristic when it can misfire; the standards set exact kinds to `fail`
+  and heuristic kinds to `warn` by default (operator decision 2), apart from the phrase
+  and replacement lists, whose severity each standard chooses per list.
 
-  Heuristic checks (R8):
-  - `passive_in_steps` matches a form of *be* followed by a word ending in `-ed` or `-en`,
-    inside a numbered step.
-  - `ing_forms` matches `\w+ing\b`, minus a stop-list (`during`, `string`, `thing`,
-    `nothing`…) and the terms.
-  - `vocabulary` matches the `replacements` keys on word boundaries, minus the terms.
-  - `paragraph_length` counts sentences per paragraph.
-- **Severities and waivers (R9):** per-check default from the standard, overridden by
+  | Kind | Exact? | Parameters | What it matches |
+  |---|---|---|---|
+  | `sentence_length` | exact | `procedural_max`, `descriptive_max` | a sentence over the limit for its class; inline code counts as one word |
+  | `average_sentence_length` | exact | `max` | a page whose mean prose sentence length is over `max` (reported on line 1) |
+  | `contractions` | exact | — | `n't`, `'re`, `'ll`, `'ve`, `'d`, and `'s` after a pronoun |
+  | `one_instruction` | exact | `step_verbs` | a numbered step with two sentences that each start with a step verb, or one sentence that joins two step verbs with `and`, `, then` or `then`; exact relative to the list |
+  | `replacements` | exact | `words` (word → replacement) | a listed word or phrase on word boundaries, minus the terms; the message gives the replacement |
+  | `phrases` | exact | `phrases` (phrase → hint) | a listed multi-word phrase, case-insensitive; the message gives the hint |
+  | `passive` | heuristic | `scope: steps \| all` | a form of *be* followed by a word ending in `-ed` or `-en` |
+  | `ing_forms` | heuristic | — | `\w+ing\b`, minus a stop-list (`during`, `string`, `thing`, `nothing`…) and the terms |
+  | `paragraph_length` | heuristic | `max_sentences` | a paragraph with more sentences than `max_sentences` |
+  | `loose_sentences` | heuristic | `run` | `run` or more sentences in a row, each two clauses joined by `and`, `but`, `so`, `which` or `who` |
+  | `nominalizations` | heuristic | — | a weak verb (`make`, `give`, `take`, `have`, `conduct`, `perform`, `carry out`) + an article + a noun ending `-tion`, `-ment`, `-ance`, `-ence` or `-al` |
+  | `abbreviations` | heuristic | — | an all-capitals token of 2–6 letters whose first use has no spelled-out form in parentheses next to it, minus the terms |
+
+- **Severities and waivers (R9):** keyed by check id; the default comes from the standard, overridden by
   `quality.writing_standard.severities`, then by `--severity`. A waiver is an HTML comment
   on the line before the hit:
   `<!-- writing-standard: ignore sentence_length — a list of flag names -->`. A waiver
@@ -268,8 +333,9 @@ super-fr feature, not part of this one.
 
 ## Non-goals
 
-- A second standard. The format admits one; this feature ships `ste` only.
-- Any ASD-STE100 dictionary text, or a claim of conformance.
+- A fourth standard, or any standard's full source text: each standard ships blog-craft's own rules and lists.
+- Choosing which standard super-fr's explainers use. The live walk gives the evidence; the choice is super-fr's.
+- Any ASD-STE100 dictionary text, any text of the post-1918 Strunk & White editions, or a claim of conformance to any standard.
 - Natural-language parsing. The checks are rules over text, and the heuristic ones warn.
 - super-fr's adoption (pin bump, page groups, rewrites, CI wiring).
 - Changing `validate_educational.py`'s gate or its AI-tells lint.
@@ -282,17 +348,20 @@ strategy: client-live
 - writing-standard-checker: none — unit tests in CI over fixture pages, inside and outside a blog
 - writing-standard-selection: none — unit tests in CI
 - writing-standard-ste-checks: none — unit tests in CI, one fixture per check, severity and waiver
+- writing-standard-elements-of-style: none — unit tests in CI, one fixture per check of the standard
+- writing-standard-plain-language: none — unit tests in CI, one fixture per check of the standard
 - writing-standard-preservation: none — unit tests in CI against a temporary git repository
 - writing-standard-blog-integration: none — unit tests in CI (config validator, mirror test, batch-gate, CI template)
-- writing-standard-apply-skill: client-live — an agent runs the skill on two super-fr pages in a scratch copy before merge
+- writing-standard-apply-skill: client-live — an agent runs the skill on super-fr pages in a scratch copy before merge: two guides under `ste`, one explainer under each of the other two standards
 
 ## Test Plan
 
 Unit (CI, `tests/unit/`):
 
-1. `test_writing_standard_registry.py` — the shipped `ste.md` block parses. An unknown
-   check name and an unknown standard name each error. A fixture second standard that
-   uses only existing checks loads with no code change.
+1. `test_writing_standard_registry.py` — the three shipped standards' blocks parse, and
+   each reference names its source. An unknown kind, a bad parameter for a kind, and an
+   unknown standard name each error. A fixture fourth standard that uses only existing
+   kinds loads with no code change. Two instances of one kind in one standard both run.
 2. `test_writing_standard_checker.py` — prose extraction ignores front matter, code
    fences (including a nested ```` fence), inline code, tables, HTML comments and URLs. The
    procedural/descriptive split follows ordered lists. A bold question and its answer are
@@ -304,23 +373,35 @@ Unit (CI, `tests/unit/`):
 4. `test_writing_standard_ste_checks.py` — one passing and one failing fixture per check.
    Severity overrides from config and CLI work. A waiver with a reason suppresses one hit;
    one without a reason fails. Terms exempt vocabulary and `-ing`.
-5. `test_writing_standard_preserve.py` — in a temporary git repo, a changed code block,
+5. `test_writing_standard_elements_of_style.py` and `test_writing_standard_plain_language.py`
+   — for each check of the standard, one passing and one failing fixture, at the
+   standard's default severity: under `elements-of-style` a 60-word sentence passes and
+   "in order to" fails; under `plain-language` a page averaging 21 words fails, one
+   averaging 19 with a single 30-word sentence passes, and "shall" fails.
+6. `test_writing_standard_preserve.py` — in a temporary git repo, a changed code block,
    inline code span, link target or number fails `preserve`, and a reworded sentence
    passes.
-6. Blog integration — `validate_config.py` accepts and refuses the new keys. The mirror
+7. Blog integration — `validate_config.py` accepts and refuses the new keys. The mirror
    test covers the new copies. `batch-gate.sh` runs the checker. The CI template adds the
    step only when enabled.
 
 Live (pre-merge, `client-live`):
 
-7. In a scratch copy of super-fr at its current `main`, an agent runs `/apply-writing-standard
-   ste docs/reference/install.md docs/merge-protection.md`. Pass when:
-   - the checker reports no `FAIL` on both pages, `preserve` included;
+8. In scratch copies of super-fr at its current `main`, an agent runs three rewrites:
+   - `/apply-writing-standard ste docs/reference/install.md docs/merge-protection.md`;
+   - `/apply-writing-standard elements-of-style docs/explainers/fr-isolation.md`;
+   - `/apply-writing-standard plain-language docs/explainers/fr-isolation.md`, from a
+     fresh copy.
+
+   Pass when, for every run:
+   - the checker reports no `FAIL` on the rewritten pages, `preserve` included;
    - `fact-keeper` reports no `lost` fact, and every `changed` fact was fixed or accepted
      by the operator in the batch summary;
    - the run used one session (no `claude -p` in the transcript).
 
-   Evidence: the batch summary and the checker output, recorded on the row.
+   Evidence: each run's batch summary and `--stats` output, recorded on the row. The two
+   explainer rewrites, with their stats beside the original's, are the comparison super-fr
+   uses to choose a standard for its explainers.
 
 ## Implementation Plans
 
