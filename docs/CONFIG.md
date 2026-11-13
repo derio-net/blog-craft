@@ -57,6 +57,8 @@ series:
                           # key: a slug — letters, digits, '-', '_' (it is
                           #   content/docs/<key>/ and a CI shell word); unique;
                           #   at most one series may be content_type: papers
+    writing_standard: ste # optional; the series' default writing standard
+                          #   (ste | elements-of-style | plain-language | none) — §15
 
 series_index:             # optional; controls the {{< series-index >}} layout
   style: cards            #   cards (default) | table | none
@@ -68,10 +70,12 @@ content_types:            # optional; opt-in modules (e.g. papers, explainers)
             artefact_kinds, shortcodes, crosslink_fields, weight_offset }
   explainers: { enabled, weight_offset }
 
-quality:                  # optional; educational-writing gate (see §7). Absent => no CI gate.
+quality:                  # optional; educational-writing gate (see §7) and the
+                          # writing-standard checker (§15). Absent => no CI gate.
   enabled: true
   gate: { require_reader_goal, require_diataxis_mode,
           min_command_blocks, require_actionable_section }
+  writing_standard: { enabled, severities, terms }   # optional; §15
 
 features:                 # series_overview_posts, read_tracker, banners,
                           # roadmap{enabled,data}, analytics, css{mermaid_palette},
@@ -1136,3 +1140,114 @@ has run:
 published-content agent exports. See [Reader and agent publishing](READER-EXPERIENCE.md)
 for configuration, local data ownership, metadata semantics and the required
 production build/deployment command. Both feature switches default to false.
+
+## §15 Writing standards (`writing_standard`)
+
+A writing standard is a set of rules for how a page reads. The checker
+`validate_writing_standard.py` tests pages against one. blog-craft ships
+three:
+
+| Standard | Use it for | Source |
+|---|---|---|
+| `ste` | procedures and reference pages | STE writing rules, based on ASD-STE100 |
+| `elements-of-style` | explainers and essays | Strunk's 1918 edition, public domain |
+| `plain-language` | guides a newcomer reads first | the US Federal Plain Language Guidelines |
+
+The rules, their examples and their sources are in
+`skills/apply-writing-standard/standards/`. A materialized blog has copies in
+`scripts/writing-standards/`. The standards borrow rules from their sources.
+They do not claim to meet those sources in full.
+
+### The keys
+
+Both keys are optional parts of config contract v7. Adding them needs no
+version bump and no migration.
+
+```yaml
+series:
+  - key: guides
+    title: Guides
+    writing_standard: plain-language   # a shipped standard, or none
+
+quality:
+  writing_standard:
+    enabled: true          # adds the checker step to the shipped CI
+    severities:            # <check> or <standard>.<check>: fail | warn | off
+      sentence_length: warn
+      ste.paragraph_length: off
+    terms: [Hugo, Hextra]  # words no check flags
+```
+
+- `series[].writing_standard` sets the default standard for the posts of
+  that series. `none` turns the checks off for the series.
+- `quality.writing_standard.enabled` adds the checker to the CI workflow
+  that `/update` renders. `scripts/batch-gate.sh` runs the checker whether
+  or not it is set.
+- `quality.writing_standard.severities` changes how hard a check is. A key is
+  a check id, such as `sentence_length`, or a standard and a check, such as
+  `ste.paragraph_length`. The second form wins over the first. A key that
+  names no shipped standard or check is an error.
+- `quality.writing_standard.terms` lists words that no check flags, such as
+  product names.
+
+`tools/validate_config.py` checks each key. A standard name that is not
+shipped is an error. So is a severity key that names no check.
+
+### Which standard a page gets
+
+The checker picks one standard for each page, in this order:
+
+1. The page's front matter `writing_standard:`. Use `none` to skip the page.
+2. The default of the series that the front matter `series` names. Two series
+   with different defaults is an error.
+3. The `--default` given on the command line.
+4. If none of these apply, the checker skips the page and counts it as
+   skipped.
+
+### Severity, terms and waivers
+
+Each check of a standard has a default severity. The config changes it, and
+then `--severity <check>=<level>` on the command line changes it again. A
+`fail` makes the checker exit 1. A `warn` is printed but does not fail.
+
+The checker reads terms from four places: the standard, the config, a
+`.writing-standard-terms` file at the page's repository root (one word per
+line), and `--terms <file>` or `--term <word>` on the command line.
+
+To waive one hit, put an HTML comment with a reason on the line above it:
+
+```markdown
+<!-- writing-standard: ignore sentence_length -- the quote must stay whole -->
+```
+
+A waiver without a reason is itself a failure. `—` works in place of `--`.
+A page-level check, such as `average_sentence_length`, is waived in front
+matter:
+
+```yaml
+writing_standard_waive:
+  average_sentence_length: a reference table in prose form
+```
+
+### Run it
+
+In a blog, `scripts/batch-gate.sh` runs the checker after
+`validate_educational.py`. `/blog-post` and `/post-rewrite` run it in their
+gate step. To run it by hand:
+
+```bash
+python3 scripts/validate_writing_standard.py --config .blog-craft.yaml \
+    'content/**/*.md'
+```
+
+It also works with no blog. Point it at any Markdown files and name a
+standard:
+
+```bash
+python3 tools/validate_writing_standard.py --default ste docs/*.md
+```
+
+The exit code is 0 when nothing fails, 1 when a check fails, and 2 on a
+usage or configuration error. `--stats` adds one line per page with its
+sentence count and average length. To rewrite pages to a standard, use the
+`/apply-writing-standard` skill.

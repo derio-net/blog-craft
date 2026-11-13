@@ -1,0 +1,32 @@
+# Acceptance rows owned by one feature (spec 2026-11-04-repo-feature-settings R16).
+# The effective matrix is a fold over every fragment in this directory
+# (`fr acceptance status`); it is never stored. Write rows with
+# `fr acceptance add` / `set-status`, never by hand. Keep `rows:` before
+# `amendments:`.
+schema_version: 1
+feature: 2026-07-16-diagram-quality-gate
+repo: derio-net/blog-craft
+rows:
+  - id: diagram-gate-requires-diagram
+    capability: educational-writing quality gate
+    acceptance: A how-to or tutorial post with no Mermaid diagram fails the quality
+      gate
+    origin:
+    - spec:2026-07-16-diagram-quality-gate
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_educational_validator.py
+    status: ci
+    notes: require_diagram gate check, on by default; folds into validate_educational.py
+      (#25)
+  - id: diagram-gate-exempt-waives
+    capability: educational-writing quality gate
+    acceptance: diagram_exempt frontmatter waives the diagram requirement for a single
+      post
+    origin:
+    - spec:2026-07-16-diagram-quality-gate
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_educational_validator.py
+    status: ci
+    notes: targeted per-post opt-out, distinct from whole-post quality_exempt (#25)

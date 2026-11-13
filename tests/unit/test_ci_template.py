@@ -356,3 +356,37 @@ def test_reader_exports_build_from_the_site_root(tmp_path):
     step = next(s for s in yaml.safe_load(y)['jobs']['validate']['steps'] if s.get('name') == 'Hugo build')
     assert step['working-directory'] == 'blog'
     assert step['run'] == 'python3 scripts/build-site.py'
+
+
+# --- writing standard gate (docs/CONFIG.md §15, R19) ---------------------------
+
+def test_writing_standard_enabled_wires_the_checker_step(tmp_path):
+    cfg = {"quality": {"writing_standard": {"enabled": True}},
+           "ci": {"deploy": {"kind": "none"}}}
+    y = _render(cfg, tmp_path)
+    steps = [s for s in _steps(y) if "validate_writing_standard.py" in s.get("run", "")]
+    assert len(steps) == 1, y
+    assert "--config .blog-craft.yaml" in steps[0]["run"]
+    assert steps[0]["name"] == "Validate writing standard"
+
+
+@pytest.mark.parametrize("quality", [
+    None, {"enabled": True}, {"writing_standard": {"enabled": False}},
+    {"writing_standard": {"severities": {"sentence_length": "warn"}}},
+])
+def test_writing_standard_step_absent_unless_enabled(tmp_path, quality):
+    cfg = {"ci": {"deploy": {"kind": "none"}}}
+    if quality is not None:
+        cfg["quality"] = quality
+    y = _render(cfg, tmp_path)
+    assert "validate_writing_standard.py" not in y
+    yaml.safe_load(y)
+
+
+def test_writing_standard_step_prefixes_site_dir(tmp_path):
+    cfg = {"site_dir": "blog", "quality": {"writing_standard": {"enabled": True}},
+           "ci": {"deploy": {"kind": "none"}}}
+    y = _render(cfg, tmp_path)
+    run = next(s["run"] for s in _steps(y) if "validate_writing_standard.py" in s.get("run", ""))
+    assert "python3 blog/scripts/validate_writing_standard.py --config .blog-craft.yaml" in run
+    assert "blog/content/docs/*/*/index.md" in run

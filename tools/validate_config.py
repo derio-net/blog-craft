@@ -7,7 +7,8 @@ whenever present, and the v6 addition — features.mermaid_view (diagram
 rendering at natural size) + quality.mermaid_max_width (the width gate's
 budget) — likewise, as are the v7 additions: features.stickers (the sticker
 generation surface) and image.fallback_model / image.timeout_ms (generate-
-images.py's retry target and HTTP timeout). The engine hardcodes no layer
+images.py's retry target and HTTP timeout), plus the optional writing-standard
+keys series[].writing_standard and quality.writing_standard (no version bump). The engine hardcodes no layer
 vocabulary (spec D1), so no layer NAME implies a shape. A dict layer's
 `_template` (the `str.format` frame stickers need) is likewise validated
 whenever present — including the one cross-check the engine cannot make
@@ -21,6 +22,7 @@ from __future__ import annotations
 
 import re
 import sys
+from pathlib import Path
 
 RESERVED_SCENE = "scene"
 SERIES_INDEX_STYLES = frozenset({"cards", "table", "none"})
@@ -141,6 +143,37 @@ def _validate_stickers(stk, errors: list[str]) -> None:
                     f"[cols, rows] (got {grid!r})"
                 )
 
+
+def _checker():
+    """The writing-standard checker beside this file (tools/ or a blog's
+    scripts/), imported lazily so a config without writing-standard keys
+    needs neither it nor yaml."""
+    here = str(Path(__file__).resolve().parent)
+    if here not in sys.path:
+        sys.path.insert(0, here)
+    import validate_writing_standard
+    return validate_writing_standard
+
+
+def _writing_standards() -> list[str]:
+    """The shipped standards' names, read by the checker's own registry."""
+    return _checker().list_standards()
+
+
+def _validate_writing_standard(ws, errors: list[str]) -> None:
+    """The checker's own shape rules, then its own severity-key rules, so a
+    config this accepts is one the checker accepts (and vice versa)."""
+    vws = _checker()
+    errors.extend(vws.writing_standard_block_errors(ws))
+    sev = ws.get("severities") if isinstance(ws, dict) else None
+    if isinstance(sev, dict):
+        standards = {n: vws.load_standard(n) for n in vws.list_standards()}
+        for k in sev:
+            try:
+                vws.validate_severity_keys([str(k)], standards,
+                                           "quality.writing_standard.severities")
+            except vws.ConfigError as e:
+                errors.append(str(e))
 
 def validate_config(cfg: dict) -> list[str]:
     errors: list[str] = []
@@ -324,6 +357,12 @@ def validate_config(cfg: dict) -> list[str]:
                     seen_keys.add(key)
                 if s.get("content_type") == "papers":
                     papers_at.append(i)
+                if "writing_standard" in s:
+                    ws_name = s["writing_standard"]
+                    if ws_name != "none" and ws_name not in _writing_standards():
+                        errors.append(
+                            f"series[{i}].writing_standard must be one of "
+                            f"{_writing_standards() + ['none']} (got {ws_name!r})")
             # scaffold-paper.sh and validate_papers take the first papers entry;
             # more than one means the section they agree on is an accident.
             if len(papers_at) > 1:
@@ -380,6 +419,14 @@ def validate_config(cfg: dict) -> list[str]:
                                 f"quality.lint.thresholds.{k} must be a number "
                                 f"(got {v!r})"
                             )
+
+    # optional quality.writing_standard block (R20): enabled bool; severities a
+    # mapping of `<check>` or `<standard>.<check>` to fail|warn|off — unlike
+    # quality.lint, an unknown key is refused (the checker refuses it too, so
+    # accepting it here would only move the error to the gate); terms a list of
+    # strings.
+    if isinstance(quality, dict) and "writing_standard" in quality:
+        _validate_writing_standard(quality["writing_standard"], errors)
 
     # optional series_index block: style cards|table|none (default cards at render
     # time), optional layers registry (opts into layer colour-coding).

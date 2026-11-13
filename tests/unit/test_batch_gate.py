@@ -82,3 +82,37 @@ def test_skill_documents_batch_mode():
     assert "Batch" in text, "no batch/campaign section in post-rewrite SKILL.md"
     assert "batch-gate.sh" in text, "batch section must reference the batch gate script"
     assert "hugo-serve.sh" in text, "batch section must reference the live-preview script"
+
+
+# --- writing standard (R19): the checker runs after the educational gate ------
+
+def test_writing_standard_failure_fails_the_batch(tmp_path):
+    d = _blog(tmp_path)
+    p = _post(d, "01-a", {**GOOD_FM, "writing_standard": "ste"},
+              GOOD_BODY + "\nDon't do that.\n")
+    r = _run(p)
+    assert r.returncode == 1, r.stdout + r.stderr
+    out = r.stdout + r.stderr
+    assert "contractions" in out
+    assert "BATCH GATE FAILED" in out
+    # it ran after the educational gate
+    assert out.index("educational gate") < out.index("writing standard")
+
+
+def test_writing_standard_pass_passes_the_batch(tmp_path):
+    d = _blog(tmp_path)
+    p = _post(d, "01-a", {**GOOD_FM, "writing_standard": "ste"}, GOOD_BODY)
+    r = _run(p)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "writing standard" in r.stdout
+
+
+def test_writing_standard_reads_the_series_default_from_the_config(tmp_path):
+    d = _blog(tmp_path)
+    cfg = yaml.safe_load((tmp_path / ".blog-craft.yaml").read_text())
+    cfg["series"][0]["writing_standard"] = "ste"
+    (tmp_path / ".blog-craft.yaml").write_text(yaml.safe_dump(cfg))
+    p = _post(d, "01-a", GOOD_FM, GOOD_BODY + "\nDon't do that.\n")
+    r = _run(p)
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert "contractions" in r.stdout + r.stderr

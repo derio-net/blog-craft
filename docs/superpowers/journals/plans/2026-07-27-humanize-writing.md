@@ -1,4 +1,4 @@
-<!-- fr:journal-schema=3 -->
+<!-- fr:journal-schema=4 -->
 # Journal: 2026-07-27-humanize-writing
 
 <!-- fr:journal kind=discovery scope=plan id=p1-test-venv-bridge created=2026-07-27T21:58:49 phase=1 -->

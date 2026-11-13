@@ -1,6 +1,7 @@
 name: acceptance-report
 
-# The acceptance matrix (docs/acceptance/matrix.yaml) rendered + gated.
+# The acceptance matrix (per-feature fragments in docs/acceptance/features/,
+# folded by fr) rendered + gated.
 # - `failing` rows FAIL this workflow (by design — fix or re-classify).
 # - `skipped` / `not-implemented` rows surface as warning annotations; the
 #   backfill rule (.claude/rules/acceptance-matrix.md) owns their lifecycle.
@@ -30,6 +31,9 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
+        with:
+          # fr resolves the default branch and folds fragments over git history.
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@v5
       - name: Install fr
         run: uv tool install "git+https://github.com/derio-net/super-fr@main#subdirectory=packages/fr"

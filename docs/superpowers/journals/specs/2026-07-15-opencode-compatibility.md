@@ -1,4 +1,4 @@
-<!-- fr:journal-schema=3 -->
+<!-- fr:journal-schema=4 -->
 # Journal: 2026-07-15-opencode-compatibility
 
 <!-- fr:journal kind=discovery scope=spec id=test-plan-step-4 created=2026-11-08T11:49:45+00:00 -->

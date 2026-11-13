@@ -28,7 +28,7 @@ one post, in place, only after you approve the new draft.
 
 - **Methodology (load first):** `<plugin_root>/skills/educational-writing/SKILL.md` and its `references/`. This is the standard you rewrite *to*.
 - **Evidence subagent:** `<plugin_root>/agents/post-researcher.md` — read-only, gathers evidence from a source repo.
-- **Gate:** `<plugin_root>/tools/validate_educational.py`.
+- **Gate:** `<plugin_root>/tools/validate_educational.py`, then `<plugin_root>/tools/validate_writing_standard.py` (the post's writing standard, if any).
 
 ## Procedure
 
@@ -128,6 +128,12 @@ Resolve the **voice level** first: the `voice_level` arg, else the blog's
 `educational-writing/references/voice.md`) — a "too dry" complaint usually means
 bumping `balanced` warmer, or the blog was left at `dry`.
 
+Resolve the post's **writing standard** next: its front matter
+`writing_standard:`, else the `writing_standard` of its series in
+`.blog-craft.yaml`; `none`, or neither set, means no standard. When one
+resolves, read `<plugin_root>/skills/apply-writing-standard/standards/<standard>.md`
+and write the rewrite to its rules — Step 9 checks the post against it.
+
 Compose the new body to the methodology:
 
 - **Set the stage first** (methodology §2a) — open with motivation (the concrete problem, felt), what it solves, and the one load-bearing design choice. Then **name the foundation**: "to build this you need A, B, C" with **links to the earlier posts** where A/B/C were built, rather than re-explaining. A reader must feel oriented, not dropped into `Step 1`.
@@ -193,7 +199,13 @@ Re-run the gate — it must pass:
 python <plugin_root>/tools/validate_educational.py --config <blog-root>/.blog-craft.yaml <post-path>
 ```
 
-If it still fails, surface the failures and return to Step 6 (do not leave a post
+Then run the writing-standard checker; it skips a post with no standard:
+
+```bash
+python <plugin_root>/tools/validate_writing_standard.py --config <blog-root>/.blog-craft.yaml <post-path>
+```
+
+If either still fails, surface the failures and return to Step 6 (do not leave a post
 that fails the gate). On pass, tell the user:
 
 > Rewrote `<post-path>`. Original backed up at `<post-path>.bak`. Preview with:
@@ -240,7 +252,8 @@ go stale and confuse), no `.bak` clutter.
    ```bash
    bash scripts/batch-gate.sh content/docs/<series>/<NN>-<slug>/index.md [more...]
    ```
-   Runs the educational gate over every post in the batch, then a Hugo build
+   Runs the educational gate over every post in the batch, then the
+   writing standard checker (each post's resolved standard), then a Hugo build
    check (0 errors). Must pass before committing. (Set `BATCH_GATE_SKIP_BUILD=1`
    to run only the content gate when Hugo isn't handy.)
 5. **Commit the batch**, then move to the next round.

@@ -1,0 +1,183 @@
+schema_version: 2
+phase:
+  number: 1
+  title: Writing-standard checker core and the ste standard
+  tag: agentic
+  depends_on: []
+  tracking_issue: null
+  acceptance:
+  - writing-standard-registry
+  - writing-standard-checker
+  - writing-standard-selection
+  - writing-standard-ste-checks
+  skeleton: true
+  tier: standard
+  files:
+  - tools/validate_writing_standard.py
+  - skills/apply-writing-standard/standards/ste.md
+  - tests/unit/test_writing_standard_*.py
+  - tests/fixtures/writing_standard/**
+  estimate_lines: 1100
+tasks:
+- number: 1
+  title: Smoke — a trivial checker test is green in CI
+  steps:
+  - id: P1.T1.S1
+    text: |
+      Create tools/validate_writing_standard.py with a module docstring (spec §2 synopsis), `from __future__ import annotations`, and a `main(argv) -> int` that parses no options yet and returns 0; guard with `if __name__ == "__main__": raise SystemExit(main(sys.argv[1:]))`.
+      Create tests/unit/test_writing_standard_checker.py with one test: `import validate_writing_standard as vws; assert vws.main([]) == 0` (tests/conftest.py already puts tools/ on sys.path).
+      Run: bash tests/run-unit.sh tests/unit/test_writing_standard_checker.py -q
+      EXPECT: 1 passed.
+  - id: P1.T1.S2
+    text: |
+      Commit ("feat(writing-standard): checker skeleton"), push the branch, and confirm the PR's `test` job (ci.yml) is green on that commit before going on. The local full suite cannot be the evidence in this container (38 pre-existing failures need `hugo`), so CI is: use `tests: ci`.
+- number: 2
+  title: Standard registry — reference files with a check-instance YAML block (R1–R3,
+    R11)
+  steps:
+  - id: P1.T2.S1
+    text: |
+      [RED] tests/unit/test_writing_standard_registry.py:
+        - load_standard("ste") returns an object with name, title, checks (dict id -> CheckSpec(kind, severity, params)), terms (list).
+        - the fenced yaml block is found the way validate_educational.load_lint_data finds ai-tells' (first ```yaml block).
+        - unknown kind -> StandardError naming the check id and kind; a parameter the kind does not take, or a missing required one -> StandardError; severity not in fail|warn|off -> StandardError.
+        - unknown standard name -> StandardError listing available names.
+        - list_standards() over a directory ignores README.md.
+        - a fixture standard in tmp_path that uses two instances of one kind (e.g. two `replacements`) loads, and both instances are kept.
+        - ste.md names its source ("based on ASD-STE100") and contains neither "conformant" nor "compliant" (case-insensitive).
+      Run: bash tests/run-unit.sh tests/unit/test_writing_standard_registry.py -q
+      EXPECT: RED (ImportError / missing names).
+  - id: P1.T2.S2
+    text: |
+      [GREEN] In tools/validate_writing_standard.py: KINDS = a dict kind -> (required params, optional params) for the closed set of spec §2's kind table (all 12 kinds declared now; P2 implements the rest of the matchers). StandardError, CheckSpec, Standard dataclasses; standards_dirs() = [<repo>/skills/apply-writing-standard/standards, <script dir>/writing-standards] (spec §2 Standards lookup); load_standard(name, dirs=None), list_standards(dirs=None) (excludes README.md).
+      Write skills/apply-writing-standard/standards/ste.md: title, source paragraph (STE writing rules, based on ASD-STE100; blog-craft's own replacement list; no ASD dictionary text; never claims conformance), the rules as prose for a rewriter with one short before/after example each (sentence length 20/25, one instruction per step, no contractions, active voice in steps, no -ing forms, approved replacements, paragraphs of at most six sentences), then the yaml block exactly as spec §1 shows, with the full replacement list: at least 25 common words with a simpler STE-style replacement, written by blog-craft (for example ensure, allow(s), create(s), refuse(s), require(s), utilize, provide(s), commence, terminate, assist).
+      Run the S1 command. EXPECT: all pass.
+  - id: P1.T2.S3
+    text: |
+      [REFACTOR] Keep parsing and validation in one function per concern (parse block, validate spec); messages name file, check id and the bad key. Re-run the registry tests: green.
+- number: 3
+  title: Prose extraction and sentence splitting (R6 and the splitter rules)
+  steps:
+  - id: P1.T3.S1
+    text: |
+      [RED] In test_writing_standard_checker.py add cases for extract_prose(body) -> list of units (text, line, in_step: bool, paragraph id):
+        - front matter, fenced code (including a ```` fence holding ``` lines), tables, HTML comments are excluded; link text kept, URL dropped; heading text kept.
+        - each inline code span becomes one placeholder token that counts as a word and that no word-matching check sees.
+        - typographic apostrophes and quotes normalise to ASCII.
+        - a sentence inside an ordered-list item is in_step=True; anything else False.
+      And split_sentences(unit) cases:
+        - "**Why?** Because it works." -> 2 sentences; "It ends here.” Next" -> 2.
+        - "Use e.g. this form. Then go." -> 2 (e.g. is not a break); same for i.e., etc., vs., cf., approx.
+        - "Run this command:" directly before a fence or list -> one sentence; "The rule: keep it short." -> one sentence.
+        - a list item boundary ends a sentence; a multi-line sentence reports the line where it starts.
+      Run: bash tests/run-unit.sh tests/unit/test_writing_standard_checker.py -q
+      EXPECT: RED.
+  - id: P1.T3.S2
+    text: |
+      [GREEN] Implement extract_prose and split_sentences, reusing validate_educational._prose_lines' fence rule (import it from the sibling module; tools/ is flat). Run the S1 command: green.
+  - id: P1.T3.S3
+    text: |
+      [REFACTOR] Name the abbreviation list and the placeholder token as module constants; keep the splitter one regex plus the colon rule. Tests green.
+- number: 4
+  title: The ste checks (R7, R8)
+  steps:
+  - id: P1.T4.S1
+    text: |
+      [RED] tests/unit/test_writing_standard_ste_checks.py — one passing and one failing fixture per ste check, at default severity, via run_checks(text, standard) -> list of Hit(check, severity, line, message):
+        - sentence_length: a 21-word step sentence fails, a 20-word one passes; a 26-word descriptive sentence fails, 25 passes; inline code counts as one word.
+        - contractions: "don't", "it's", "you're" fail; "the user's file" passes.
+        - one_instruction: a step "Open the file. Run the tests." fails; "Open the file and run the tests." fails; "Run the tests. This lets you keep working." passes (keep is not sentence-initial).
+        - passive_in_steps: "The file is deleted." in a step warns; the same outside a step does not.
+        - ing_forms: "running" warns; "during", "string", "thing" and a configured term do not.
+        - vocabulary (replacements): "ensure" warns with message naming "make sure"; a term listed in terms does not.
+        - paragraph_length: 7 sentences warns, 6 passes.
+      Run: bash tests/run-unit.sh tests/unit/test_writing_standard_ste_checks.py -q
+      EXPECT: RED.
+  - id: P1.T4.S2
+    text: |
+      [GREEN] Implement the matchers for kinds sentence_length, contractions, one_instruction, passive (scope steps|all), ing_forms, replacements, paragraph_length per spec §2's kind table; run_checks dispatches each check instance to its kind's matcher with its params. Run the S1 command: green.
+  - id: P1.T4.S3
+    text: |
+      [REFACTOR] One matcher function per kind, registered in a dict next to KINDS so a kind's params and its matcher sit together. Tests green.
+- number: 5
+  title: CLI — resolution, severities, waivers, terms, output (R4, R5, R9, R10, R13)
+  steps:
+  - id: P1.T5.S1
+    text: |
+      [RED] tests/unit/test_writing_standard_selection.py and more CLI cases in test_writing_standard_checker.py, driving main([...]) with tmp_path pages:
+        - selection: front matter `writing_standard` beats a series default (from --config .blog-craft.yaml with series[].writing_standard), which beats --default; `none` skips; no standard -> skipped; the summary reports "N checked, M skipped".
+        - a post whose front matter series (string, comma list or list) names two series with different defaults exits 2; an unknown standard name exits 2 naming the page.
+        - severities: --severity ste.sentence_length=warn and bare sentence_length=off; qualified beats bare; config quality.writing_standard.severities likewise; an override naming an unknown standard or check exits 2.
+        - waivers: `<!-- writing-standard: ignore sentence_length -- reason -->` and the em-dash form suppress the next hit; no reason -> a `waiver_reason` FAIL; front matter writing_standard_waive: {average_sentence_length: reason} is accepted (the check itself lands in P2).
+        - terms: from the standard, quality.writing_standard.terms, a .writing-standard-terms file at the page's git toplevel (init a git repo in tmp_path), --terms FILE and --term WORD.
+        - output: `FAIL: <path>:<line>: <check>: <msg>` / `WARN: ...`; exit 0 with only warnings, 1 with a FAIL, 2 on usage/config error; --stats prints `STATS: <path>: <standard>: sentences=.. avg=.. max=.. over_limit=..`; runs with no --config; a page in a different git repo than the script works.
+      Run: bash tests/run-unit.sh tests/unit/test_writing_standard_selection.py tests/unit/test_writing_standard_checker.py -q
+      EXPECT: RED.
+  - id: P1.T5.S2
+    text: |
+      [GREEN] Implement main(): argparse per spec §2's synopsis (--preserve-from may be accepted and rejected as "not implemented" until P3), glob expansion, front matter via yaml, resolution order, severity layering, waiver parsing, terms union, output and exit codes. Run the S1 command: green.
+  - id: P1.T5.S3
+    text: |
+      [REFACTOR] Separate pure functions (resolve_standard, effective_severity, parse_waivers, load_terms) from I/O in main. Run all writing-standard tests: bash tests/run-unit.sh tests/unit/ -k writing_standard -q -> green. Commit, push, and let CI (`test` job) run on the pushed head; that run is the phase's test evidence (tests: ci).
+state:
+  steps:
+    P1.T1.S1:
+      state: x
+      ticked_at: '2026-11-13T13:58:11+00:00'
+      note: null
+    P1.T1.S2:
+      state: x
+      ticked_at: '2026-11-13T13:58:11+00:00'
+      note: null
+    P1.T2.S1:
+      state: x
+      ticked_at: '2026-11-13T13:58:11+00:00'
+      note: null
+    P1.T2.S2:
+      state: x
+      ticked_at: '2026-11-13T13:58:11+00:00'
+      note: null
+    P1.T2.S3:
+      state: x
+      ticked_at: '2026-11-13T13:58:11+00:00'
+      note: null
+    P1.T3.S1:
+      state: x
+      ticked_at: '2026-11-13T13:58:11+00:00'
+      note: null
+    P1.T3.S2:
+      state: x
+      ticked_at: '2026-11-13T13:58:11+00:00'
+      note: null
+    P1.T3.S3:
+      state: x
+      ticked_at: '2026-11-13T13:58:11+00:00'
+      note: null
+    P1.T4.S1:
+      state: x
+      ticked_at: '2026-11-13T13:58:11+00:00'
+      note: null
+    P1.T4.S2:
+      state: x
+      ticked_at: '2026-11-13T13:58:11+00:00'
+      note: null
+    P1.T4.S3:
+      state: x
+      ticked_at: '2026-11-13T13:58:11+00:00'
+      note: null
+    P1.T5.S1:
+      state: x
+      ticked_at: '2026-11-13T13:58:11+00:00'
+      note: null
+    P1.T5.S2:
+      state: x
+      ticked_at: '2026-11-13T13:58:11+00:00'
+      note: null
+    P1.T5.S3:
+      state: x
+      ticked_at: '2026-11-13T13:58:11+00:00'
+      note: null
+  completion:
+    at: '2026-11-13T13:58:11+00:00'
+    note: null
+    observed_prs: []

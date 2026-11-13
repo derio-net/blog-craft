@@ -1,0 +1,31 @@
+# Acceptance rows owned by one feature (spec 2026-11-04-repo-feature-settings R16).
+# The effective matrix is a fold over every fragment in this directory
+# (`fr acceptance status`); it is never stored. Write rows with
+# `fr acceptance add` / `set-status`, never by hand. Keep `rows:` before
+# `amendments:`.
+schema_version: 1
+feature: 2026-07-17-opencode-sync-drift
+repo: derio-net/blog-craft
+rows:
+  - id: opencode-mirror-sync-enforced
+    capability: opencode compatibility
+    acceptance: committed .opencode/ skill mirrors always match canonical skills/ (unit-enforced;
+      advances OC-1/OC-2)
+    origin:
+    - spec:2026-07-17-opencode-sync-drift
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_opencode_sync.py
+    status: ci
+    notes: ''
+  - id: version-lockstep-covers-uvlock
+    capability: controlled versioning
+    acceptance: uv.lock project version stays in lockstep with pyproject.toml; bump_version.py
+      syncs it and --check catches drift
+    origin:
+    - spec:2026-07-17-opencode-sync-drift
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_version.py
+    status: ci
+    notes: ''

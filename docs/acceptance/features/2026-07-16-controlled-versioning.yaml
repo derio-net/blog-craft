@@ -1,0 +1,42 @@
+# Acceptance rows owned by one feature (spec 2026-11-04-repo-feature-settings R16).
+# The effective matrix is a fold over every fragment in this directory
+# (`fr acceptance status`); it is never stored. Write rows with
+# `fr acceptance add` / `set-status`, never by hand. Keep `rows:` before
+# `amendments:`.
+schema_version: 1
+feature: 2026-07-16-controlled-versioning
+repo: derio-net/blog-craft
+rows:
+  - id: version-lockstep-guard
+    capability: controlled versioning
+    acceptance: bump_version.py --check fails when pyproject.toml and the plugin manifests
+      drift
+    origin:
+    - spec:2026-07-16-controlled-versioning
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_version.py
+    status: ci
+    notes: pyproject.toml canonical; syncs plugin.json + marketplace.json (#18)
+  - id: version-bump-required
+    capability: controlled versioning
+    acceptance: a PR changing templates/ or tools/ without a version bump fails CI
+    origin:
+    - spec:2026-07-16-controlled-versioning
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_version.py
+    status: ci
+    notes: check_version_bump_needed.py, wired in ci.yml; auto-tag.yml cuts vX.Y.Z on
+      merge (#18)
+  - id: client-version-stamped
+    capability: controlled versioning
+    acceptance: bootstrap stamps a resolvable blog_craft_version tag so update.py can
+      recover the 3-way base
+    origin:
+    - spec:2026-07-16-controlled-versioning
+    levels:
+      int:
+      - blog-craft:tests/smoke-bootstrap.sh
+    status: ci
+    notes: bootstrap-render.sh injects blog_craft_version=v<version>; smoke A1.c (#18)

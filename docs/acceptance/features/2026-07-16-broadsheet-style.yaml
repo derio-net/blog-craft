@@ -1,0 +1,32 @@
+# Acceptance rows owned by one feature (spec 2026-11-04-repo-feature-settings R16).
+# The effective matrix is a fold over every fragment in this directory
+# (`fr acceptance status`); it is never stored. Write rows with
+# `fr acceptance add` / `set-status`, never by hand. Keep `rows:` before
+# `amendments:`.
+schema_version: 1
+feature: 2026-07-16-broadsheet-style
+repo: derio-net/blog-craft
+rows:
+  - id: explainer-broadsheet-style
+    capability: standalone explainer rendering
+    acceptance: render_explainer offers a broadsheet editorial style with per-style
+      Mermaid theming
+    origin:
+    - spec:2026-07-16-broadsheet-style
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_explainers_broadsheet.py
+    status: ci
+    notes: broadsheet --style + per-style _MERMAID_VARS; byte-mirrored (#22)
+  - id: explainer-embed-fonts
+    capability: standalone explainer rendering
+    acceptance: --embed-fonts inlines the bundled broadsheet web fonts as base64 data
+      URIs for a self-contained page
+    origin:
+    - spec:2026-07-16-broadsheet-style
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_explainers_broadsheet.py
+    status: ci
+    notes: bundled Fraunces+Newsreader (OFL); reproducible via fetch_broadsheet_fonts.py
+      (#22)

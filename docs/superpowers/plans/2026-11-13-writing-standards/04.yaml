@@ -1,0 +1,102 @@
+schema_version: 2
+phase:
+  number: 4
+  title: Blog integration, materialization and release notes
+  tag: agentic
+  depends_on:
+  - 3
+  tracking_issue: null
+  acceptance:
+  - writing-standard-blog-integration
+  tier: standard
+  files:
+  - tools/validate_config.py
+  - docs/CONFIG.md
+  - skills/blog-post/SKILL.md
+  - skills/post-rewrite/SKILL.md
+  - templates/hugo-hextra/scripts/**
+  - templates/hugo-hextra/.github/workflows/blog-ci.yml.tmpl
+  - tests/unit/test_mirrors.py
+  - tests/unit/test_config_schema.py
+  - tests/unit/test_batch_gate.py
+  - tests/unit/test_ci_template.py
+  - tests/unit/test_writing_standard_wiring.py
+  - pyproject.toml
+  - .claude-plugin/*.json
+  - uv.lock
+  - CHANGELOG.md
+  estimate_lines: 450
+tasks:
+- number: 1
+  title: Config keys and docs (R20)
+  steps:
+  - id: P4.T1.S1
+    text: |
+      [RED] In tests/unit/test_config_schema.py (or the file validate_config's tests live in): series[].writing_standard accepts a shipped name and refuses an unknown one; quality.writing_standard accepts enabled (bool), severities (mapping of `<check>` or `<standard>.<check>` to fail|warn|off; unknown standard/check refused) and terms (list of str); the config stays at v7.
+      Run: bash tests/run-unit.sh tests/unit/test_config_schema.py -q
+      EXPECT: RED.
+  - id: P4.T1.S2
+    text: |
+      [GREEN] Extend tools/validate_config.py (series validation near its series loop; quality block next to quality.lint), importing the standards list from validate_writing_standard. Add docs/CONFIG.md §15 "Writing standards (`writing_standard`)": keys, resolution order, severity keys, waiver syntax, the three shipped standards with their sources, and the standalone invocation. Run the S1 command: green.
+  - id: P4.T1.S3
+    text: |
+      [REFACTOR] Keep the error messages in validate_config's existing style. Tests green.
+- number: 2
+  title: Materialization, batch-gate and CI template (R19, R21)
+  steps:
+  - id: P4.T2.S1
+    text: |
+      [RED]
+        - tests/unit/test_mirrors.py: add the pair (tools/validate_writing_standard.py, templates/hugo-hextra/scripts/validate_writing_standard.py) and a new test that globs skills/apply-writing-standard/standards/*.md except README.md against templates/hugo-hextra/scripts/writing-standards/*.md in both directions, byte-identical.
+        - tests/unit/test_batch_gate.py: batch-gate.sh runs validate_writing_standard.py --config after validate_educational.py and fails when it fails.
+        - tests/unit/test_ci_template.py: the rendered CI has the writing-standard step only when quality.writing_standard.enabled is true.
+        - tests/unit/test_writing_standard_wiring.py: skills/blog-post/SKILL.md and skills/post-rewrite/SKILL.md load the resolved standard's reference while drafting and run validate_writing_standard.py in their gate step.
+        - the materialized checker finds standards in scripts/writing-standards/ (run the template copy from a tmp dir holding only scripts/).
+      Run: bash tests/run-unit.sh tests/unit/test_mirrors.py tests/unit/test_batch_gate.py tests/unit/test_ci_template.py tests/unit/test_writing_standard_wiring.py -q
+      EXPECT: RED.
+  - id: P4.T2.S2
+    text: |
+      [GREEN] Copy the checker and the three standards into templates/hugo-hextra/scripts/ (standards under writing-standards/); edit batch-gate.sh and blog-ci.yml.tmpl (follow the `with .quality }}{{ if .enabled` precedent); add the wiring to blog-post Step 11 and post-rewrite's gate step. Run the S1 command: green.
+  - id: P4.T2.S3
+    text: |
+      [REFACTOR] Update test_mirrors.py's module docstring to name the new mirrors. Tests green.
+- number: 3
+  title: Version and changelog
+  steps:
+  - id: P4.T3.S1
+    text: |
+      Run python3 tools/bump_version.py minor (0.22.7 -> 0.23.0) and python3 tools/bump_version.py --check. Add a CHANGELOG.md [0.23.0] "Added" entry: writing standards (ste, elements-of-style, plain-language), validate_writing_standard.py, /apply-writing-standard, fact-keeper, config keys — wording "STE writing rules, based on ASD-STE100", never "conformant". Run all writing-standard tests and test_mirrors green, commit, push; CI on the pushed head is the evidence (tests: ci).
+state:
+  steps:
+    P4.T1.S1:
+      state: x
+      ticked_at: '2026-11-13T15:30:29+00:00'
+      note: null
+    P4.T1.S2:
+      state: x
+      ticked_at: '2026-11-13T15:30:29+00:00'
+      note: null
+    P4.T1.S3:
+      state: x
+      ticked_at: '2026-11-13T15:30:29+00:00'
+      note: null
+    P4.T2.S1:
+      state: x
+      ticked_at: '2026-11-13T15:30:29+00:00'
+      note: null
+    P4.T2.S2:
+      state: x
+      ticked_at: '2026-11-13T15:30:29+00:00'
+      note: null
+    P4.T2.S3:
+      state: x
+      ticked_at: '2026-11-13T15:30:29+00:00'
+      note: null
+    P4.T3.S1:
+      state: x
+      ticked_at: '2026-11-13T15:30:29+00:00'
+      note: null
+  completion:
+    at: '2026-11-13T15:30:29+00:00'
+    note: null
+    observed_prs: []

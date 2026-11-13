@@ -1,0 +1,33 @@
+# Acceptance rows owned by one feature (spec 2026-11-04-repo-feature-settings R16).
+# The effective matrix is a fold over every fragment in this directory
+# (`fr acceptance status`); it is never stored. Write rows with
+# `fr acceptance add` / `set-status`, never by hand. Keep `rows:` before
+# `amendments:`.
+schema_version: 1
+feature: 2026-07-16-batch-rewrite-workflow
+repo: derio-net/blog-craft
+rows:
+  - id: batch-gate-fails-bad-post
+    capability: batch post-rewrite workflow
+    acceptance: The batch gate validates a set of posts and fails the batch when any
+      post fails the educational gate
+    origin:
+    - spec:2026-07-16-batch-rewrite-workflow
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_batch_gate.py
+    status: ci
+    notes: reproducible scripts/batch-gate.sh; build check skippable via BATCH_GATE_SKIP_BUILD
+      (#26)
+  - id: batch-rewrite-documented
+    capability: batch post-rewrite workflow
+    acceptance: post-rewrite documents a batch/campaign mode with in-place edits and
+      a reproducible per-batch gate
+    origin:
+    - spec:2026-07-16-batch-rewrite-workflow
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_batch_gate.py
+    status: ci
+    notes: SKILL.md 'Batch / campaign mode' section; shape test guards doc<->script
+      drift (#26)

@@ -1,0 +1,89 @@
+schema_version: 2
+phase:
+  number: 3
+  title: apply-writing-standard skill, preservation check and fact-keeper agent
+  tag: agentic
+  depends_on:
+  - 2
+  tracking_issue: null
+  acceptance:
+  - writing-standard-preservation
+  - writing-standard-apply-skill
+  tier: standard
+  files:
+  - tools/validate_writing_standard.py
+  - skills/apply-writing-standard/SKILL.md
+  - agents/fact-keeper.md
+  - tests/unit/test_writing_standard_preserve.py
+  - tests/unit/test_apply_writing_standard_contract.py
+  - tests/unit/test_fact_keeper_contract.py
+  estimate_lines: 650
+tasks:
+- number: 1
+  title: --preserve-from (R12)
+  steps:
+  - id: P3.T1.S1
+    text: |
+      [RED] tests/unit/test_writing_standard_preserve.py, each in a git repo initialised in tmp_path with a committed page, then a working-tree edit, then main(["--default","ste","--preserve-from","HEAD",page]):
+        - a changed fenced code block, inline code span, link target or prose numeral -> FAIL `preserve` naming what appeared/disappeared.
+        - a reworded sentence with the same code/links/numerals -> no preserve hit.
+        - splitting one numbered step into two (list renumbered) -> no preserve hit.
+        - renaming a heading and updating an in-page `#old-slug` link to `#new-slug` -> no hit; a link to `#no-such-heading` -> FAIL.
+        - "2" -> "two" FAILs (numeral lost); "two" -> "three" does not (documented: the fact check's job).
+        - a page with no version at HEAD -> FAIL `preserve: no version at HEAD`.
+        - the page lives in a different repo from the script (git show runs at the page's toplevel).
+      Run: bash tests/run-unit.sh tests/unit/test_writing_standard_preserve.py -q
+      EXPECT: RED.
+  - id: P3.T1.S2
+    text: |
+      [GREEN] Implement preservation per spec §2: git -C <page toplevel> show <ref>:./<relpath>; multisets of fences, inline code, link targets (anchor-only change accepted when the new anchor slug matches a heading of the target page, GitHub-style slugs), numerals excluding ordered-list markers. Run the S1 command: green.
+  - id: P3.T1.S3
+    text: |
+      [REFACTOR] Keep the multiset extraction a pure function of text, shared by both versions. Tests green.
+- number: 2
+  title: The skill and the agent, with contract tests (R14, R14a, R15–R18)
+  steps:
+  - id: P3.T2.S1
+    text: |
+      [RED] tests/unit/test_apply_writing_standard_contract.py and tests/unit/test_fact_keeper_contract.py, in the style of test_cold_reader_contract.py (grep-style on load-bearing strings):
+        - SKILL.md front matter: name apply-writing-standard, user-invocable, arguments standard (required), paths (required), batch_size (3–5, default 4).
+        - SKILL.md body names: refusing an unknown standard (and listing shipped ones); refusing pages with uncommitted changes or no version at HEAD; "language only" with the keep list (front matter keys, section order, code, inline code, numerals, link targets apart from updated anchors); finding inbound links to a changed heading's old anchor; running validate_writing_standard.py with --preserve-from HEAD --stats; fact-keeper once per page; a per-page summary line; stopping for approval between batches; the baseline written outside the repository and deleted after the batch; the no-claude-p-batch rule; one session.
+        - agents/fact-keeper.md: tools exactly Read, Grep, Glob; "exactly two paths"; over-share reporting; returns kept / changed / lost / added.
+      Run: bash tests/run-unit.sh tests/unit/test_apply_writing_standard_contract.py tests/unit/test_fact_keeper_contract.py -q
+      EXPECT: RED (files missing).
+  - id: P3.T2.S2
+    text: |
+      [GREEN] Write skills/apply-writing-standard/SKILL.md (spec §3 procedure as the skill's steps; announce line; plugin internals naming standards/, the checker and the agent; batch loop; summary line format) and agents/fact-keeper.md (spec §4, modelled on agents/cold-reader.md: read-only, blind to the session, fact definition, output table). Run the S1 command: green.
+  - id: P3.T2.S3
+    text: |
+      [REFACTOR] Run python3 tools/validate_writing_standard.py --default plain-language skills/apply-writing-standard/SKILL.md agents/fact-keeper.md --stats and fix any FAIL in the skill's own prose (it should meet the standard it applies). Run all writing-standard tests green, commit, push; CI is the evidence.
+state:
+  steps:
+    P3.T1.S1:
+      state: x
+      ticked_at: '2026-11-13T14:59:59+00:00'
+      note: null
+    P3.T1.S2:
+      state: x
+      ticked_at: '2026-11-13T14:59:59+00:00'
+      note: null
+    P3.T1.S3:
+      state: x
+      ticked_at: '2026-11-13T14:59:59+00:00'
+      note: null
+    P3.T2.S1:
+      state: x
+      ticked_at: '2026-11-13T14:59:59+00:00'
+      note: null
+    P3.T2.S2:
+      state: x
+      ticked_at: '2026-11-13T14:59:59+00:00'
+      note: null
+    P3.T2.S3:
+      state: x
+      ticked_at: '2026-11-13T14:59:59+00:00'
+      note: null
+  completion:
+    at: '2026-11-13T14:59:59+00:00'
+    note: null
+    observed_prs: []

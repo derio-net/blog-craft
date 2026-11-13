@@ -10,6 +10,38 @@ matching `vX.Y.Z` tag on merge (#18).
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-11-13
+
+### Added
+- **Writing standards: `ste`, `elements-of-style`, `plain-language`.**
+  `tools/validate_writing_standard.py` checks Markdown pages against a writing
+  standard, in a blog or standalone (`--default <standard>`, no blog config).
+  `ste` holds STE writing rules, based on ASD-STE100; `elements-of-style` follows
+  Strunk's 1918 edition (public domain) and fails only on always-needless phrases;
+  `plain-language` is based on the US Federal Plain Language Guidelines and fails
+  on a page average over 20 words and on "shall". Each page's standard comes from
+  its front matter, else its series default, else `--default`; severities, terms
+  and reasoned waivers adjust the checks. Twelve check kinds, the heuristic
+  ones shipped as warnings; `standards/README.md` documents the schema.
+- **`/apply-writing-standard` and the `fact-keeper` agent.** The skill rewrites
+  Markdown pages to a standard, language only, in batches of 3 to 5 in one session.
+  Each batch runs the checker with the new `--preserve-from HEAD`, which fails when
+  fenced code, inline code, link targets or prose numerals differ from the committed
+  page (an anchor updated to a renamed heading passes). `fact-keeper`, read-only, gets
+  only the original and the rewrite and marks each fact kept, changed, lost or added.
+- **Blog config keys for writing standards (config v7, no bump).** A series may
+  set `writing_standard: <name | none>`, and `quality.writing_standard` takes
+  `enabled`, `severities` (`<check>` or `<standard>.<check>`: fail | warn | off)
+  and `terms`. `validate_config.py` refuses an unknown standard or check;
+  `docs/CONFIG.md` §15 documents the keys, the resolution order and the waivers.
+- **Blog wiring.** `/blog-post` and `/post-rewrite` load the post's resolved
+  standard while drafting and run the checker in their gate step;
+  `scripts/batch-gate.sh` runs it after the educational gate; the shipped CI adds
+  a "Validate writing standard" step when `quality.writing_standard.enabled` is true.
+- **Materialized copies.** A blog gets the checker at
+  `scripts/validate_writing_standard.py` and the standards at
+  `scripts/writing-standards/`, byte-identical to the plugin's (mirror-tested).
+
 ## [0.22.7] - 2026-10-12
 
 ### Fixed

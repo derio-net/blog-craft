@@ -86,6 +86,13 @@ short: pick the Diátaxis mode before writing, ground every claim in a citable
 artifact, and keep the persona as a thin frame — never prose about the session
 that generated the post.
 
+**Load the post's writing standard, if it has one.** Resolve it as the checker
+does: the post's front matter `writing_standard:`, else the `writing_standard`
+of its series in `.blog-craft.yaml`; `none`, or neither set, means no standard.
+When one resolves, read
+`<plugin_root>/skills/apply-writing-standard/standards/<standard>.md` and draft
+to its rules and examples — Step 11 checks the post against it.
+
 The body and summary are both written by the agent from available context, not by hand. Survey:
 
 - The most recent commits in the blog repo since the last post in this series (or, if applicable, the linked source repo for what the post chronicles).
@@ -308,6 +315,18 @@ surface the failures and return to Step 4 to strengthen the draft — do not lea
 post that fails the gate. On pass, continue. (A genuinely non-teaching post — a
 pure announcement — may carry `quality_exempt: <reason>` in frontmatter instead;
 use rarely.)
+
+Then run the writing-standard checker on the same post:
+
+```bash
+python <plugin_root>/tools/validate_writing_standard.py --config <blog_root>/.blog-craft.yaml \
+    <blog_root>/<site_dir>/content/docs/<series>/<number>-<slug>/index.md
+```
+
+It checks the post against its resolved standard (Step 4) and skips a post
+with none. A `FAIL` sends you back to Step 4, like the educational gate; a
+`WARN` is yours to judge. Waive a hit only with a reason, as
+`docs/CONFIG.md` §15 shows.
 
 ### Step 12: Print the preview command and stop
 

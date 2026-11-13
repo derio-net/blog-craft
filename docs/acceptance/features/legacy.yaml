@@ -1,0 +1,185 @@
+# Acceptance rows owned by one feature (spec 2026-11-04-repo-feature-settings R16).
+# The effective matrix is a fold over every fragment in this directory
+# (`fr acceptance status`); it is never stored. Write rows with
+# `fr acceptance add` / `set-status`, never by hand. Keep `rows:` before
+# `amendments:`.
+schema_version: 1
+feature: legacy
+repo: derio-net/blog-craft
+rows:
+  - id: opencode-skill-namespace
+    capability: opencode-compatibility
+    acceptance: OpenCode skills/commands are namespaced blog-craft-<name> (OpenCode's
+      flat global skill dir has no marketplace layer); canonical skills/ stay bare so
+      Claude Code is unaffected; the sync mirror and installer both enforce the prefix
+    origin:
+    - blog-craft:docs/superpowers/implemented/journals/debug/2026-07-23-opencode-skill-namespace.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_opencode_namespace.py
+      - blog-craft:tests/unit/test_opencode_sync.py
+    status: ci
+    notes: Mirror contract (all .opencode/ skill dirs + commands prefixed, frontmatter
+      name == dir, body verbatim apart from the name line) and canonical-stays-bare
+      are static-pinned; install delivery/migration/third-party-safety are install.sh-pinned.
+  - id: CSP-1
+    capability: csp-safe-templates
+    acceptance: A blog serving `script-src 'self'` keeps every shipped behaviour — no
+      template relies on an inline <script>
+    origin:
+    - blog-craft:docs/superpowers/implemented/journals/debug/2026-07-26-csp-inline-script.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_templates_csp_safe.py
+    status: ci
+    notes: 'Regression guard for #56. A CSP drops inline <script> SILENTLY — no build
+      error, no console message an author looks for — so the read-tracker "Clear read
+      history" link cleared nothing and {{< asciinema >}} never started a player, on
+      any blog with one. Both now use external assets + data-* attributes. Guarded at
+      two levels: source (no inline <script> in any HTML-emitting template, comments
+      and .js/.css templates excluded) and output (a Hugo build asserting the external
+      scripts load, the data-* attributes are present, and the built page carries zero
+      inline blocks). A detector self-test pins both match directions so the guard cannot
+      go vacuous.'
+  - id: GL-10
+    capability: abbreviation-glossary
+    acceptance: A sweep never marks an abbreviation inside a shortcode body that is
+      handed to a renderer, and CI names any marker an earlier sweep left there
+    origin:
+    - blog-craft:CHANGELOG.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_glossary_opaque_bodies.py
+    status: ci
+    notes: 'Found in the field, not in a spec: a full-blog sweep put four markers inside
+      {{< papers/landscape >}} bodies, which Hugo wraps in <pre class="mermaid"> under
+      a quadrantChart header. The expansion is a <button popovertarget> tree inside
+      a chart axis and mermaid dies with a lexer error that names nothing connecting
+      it to a glossary sweep. Extends GL-4 (fences/headings/frontmatter) to a class
+      the exclusions missed — the shortcode TAG was excluded, its BODY was not. Criterion
+      is ''the body is renderer source'', NOT ''the shortcode has a body'': pullquote
+      and scar take prose bodies that must stay markable. Two halves because the applier
+      is idempotent and never removes what it would no longer add — excluded_spans stops
+      new markers, a validate_glossary PLACEMENT error reports existing ones (the key
+      can be valid and the marker still fatal).'
+  - id: GL-13
+    capability: abbreviation-glossary
+    acceptance: A sweep never marks inside a hand-written <pre class="mermaid"> block
+      or a blog's own declared renderer shortcode, and CI names any marker already there
+    origin:
+    - blog-craft:CHANGELOG.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_glossary_opaque_bodies.py
+    status: ci
+    notes: blog-craft#68 items 2+3 — GL-10 closed 'shortcode bodies handed to a renderer'
+      for the one shipped shortcode; the category above it is 'content another parser
+      consumes'. Raw <pre class="mermaid"> (whole class token, any attr order, case-insensitive
+      closer) is now an opaque region in the same _opaque_bodies seam, so excluded_spans
+      and misplaced_markers both cover it; a plain <pre> stays markable. features.glossary.opaque_body_shortcodes
+      is merged OVER OPAQUE_BODY_SHORTCODES (floor, not ceiling) and read by the scan,
+      apply and validate CLIs alike.
+  - id: UPD-R7
+    capability: update-path-roots
+    acceptance: On a site_dir blog, scaffold-paper.sh writes the paper bundle inside
+      the Hugo site while the dossier stays config-root-relative
+    origin:
+    - blog-craft:CHANGELOG.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_scaffold_paper.py
+    status: ci
+    notes: 'blog-craft#79 — the script rooted the bundle at dirname(--config) and never
+      read site_dir, so on frank (config at repo root, site_dir: blog) the bundle landed
+      in a top-level content/ Hugo never sees, while the dossier (dossier_dir, config-root-relative
+      by contract) landed correctly. content/** is site-placed per templates/manifest.yaml,
+      so only the bundle takes the site prefix; the printed bundle path now matches
+      the one written.'
+  - id: brg-1
+    capability: bootstrap render gates
+    acceptance: A bootstrap renders exactly the gated features the config asks for,
+      and a renderer that cannot run fails loudly instead of silently producing a partial
+      blog
+    origin:
+    - blog-craft:docs/superpowers/implemented/journals/plans/2026-08-03-stickers.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_bootstrap_render_gates.py
+    status: ci
+    notes: 'Nine gate reads in tools/bootstrap-render.sh. The DEFAULTS half is the regression
+      guard and matters most: absent keys are the common field shape, and every one
+      of the nine is asserted as a whole log line plus its filesystem effect, so the
+      one gate that defaults ON (features.mermaid_view) cannot be flattened into the
+      eight that default OFF. The FAILURE half is the fix: go run reports an absent
+      key and a renderer that never ran identically (exit 1), and go run also writes
+      its own stderr (exit status 1 on any child failure, go: downloading chatter on
+      success), so neither the exit code nor an empty stderr can discriminate. The gate
+      now matches the renderer''s own sentinel on stderr, and a non-sentinel failure
+      aborts with the renderer output quoted, before anything is written. Pinned for
+      three renderer-broken shapes (no go package, compile error, a fault injected at
+      the --has path) and for a malformed answers file. RED before the fix: the faults-on-has
+      shape bootstrapped OK, exit 0, with the analytics feature silently skipped.'
+  - id: reader-exports-1
+    capability: reader and agent publishing
+    acceptance: Agent exports include only published Hugo pages and retain code whitespace,
+      tables, glossary definitions, references and canonical links; path escapes fail
+      before writing exports
+    origin:
+    - blog-craft:docs/READER-EXPERIENCE.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_reader_exports.py
+      - blog-craft:tests/unit/test_ci_template.py
+      - blog-craft:tests/unit/test_config_schema.py
+      - blog-craft:tests/unit/test_features_gating.py
+      - blog-craft:tests/unit/test_hugo_toml.py
+    status: ci
+    notes: Hugo publication-boundary integration runs with the pinned Hugo installed
+      in CI. Unknown verification and command-state metadata are explicit, and Markdown
+      digests cover the emitted bytes.
+  - id: OPC-1
+    capability: operator-content-preservation
+    acceptance: A config migration rewrites only the keys it migrates; every comment,
+      key order, quoting, flow style and alignment elsewhere in .blog-craft.yaml survives
+      verbatim
+    origin:
+    - blog-craft:tools/migrate_config.py
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_operator_content_preserved.py
+    status: ci
+    notes: '#73. Migrations still run on a plain dict; ruamel.yaml renders the result
+      and the original lines are spliced back for every unchanged key. Pinned on frank''s
+      real-shape fixture (v2 -> latest): the only removed lines are the two the ladder
+      rewrites, no comment is duplicated, and the parse equals upgrade().'
+  - id: OPC-2
+    capability: operator-content-preservation
+    acceptance: /update keeps operator-added .gitignore rules while still delivering
+      new shipped ones; a clash surfaces as a conflict, never a silent deletion
+    origin:
+    - blog-craft:templates/manifest.yaml
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_operator_content_preserved.py
+    status: ci
+    notes: '#83. .gitignore reclassified framework -> merged (git merge-file 3-way).
+      A conflict leaves the operator''s file untouched and named.'
+  - id: CFG-KEY-1
+    capability: config-validation
+    acceptance: A series key that cannot be a path segment and a shell word, a duplicate
+      key, or a second papers series is rejected by validate_config, and the shipped
+      CI never renders a degenerate papers glob
+    origin:
+    - blog-craft:CHANGELOG.md
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_config_schema.py
+      - blog-craft:tests/unit/test_ci_template.py
+    status: ci
+    notes: 'blog-craft#68 item 1 — validate_config checked only that key was present,
+      but the key is content/docs/<key>/ and an unquoted word in the CI papers glob:
+      key '''' rendered content/docs//*/index.md, a missing key rendered ''<no value>''
+      (bash redirection), a space split the word. Slug rule [A-Za-z0-9][A-Za-z0-9_-]*
+      accepts every key in fixtures and frank. Two papers series were silent: scaffold-paper.sh/validate_papers
+      took the FIRST, the template the LAST; now rejected, and the template takes the
+      first non-empty key as a fallback for unvalidated configs.'
