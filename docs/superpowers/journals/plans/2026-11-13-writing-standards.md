@@ -190,3 +190,78 @@ loose_sentences counts a sentence as loose when a comma precedes and/but/so/whic
 ### p2-ste-after-example · discovery · ste's inline two-step "after" example read as one step (phase 2) (phase 2)
 
 "- After: 1. Open the file. 2. Run the tests." becomes one ordered item on a scratch page and fails one_instruction. ste.md now writes it as a two-line list. A registry test (test_each_standards_after_examples_pass_its_own_checker) checks every standard's "- After:" examples against its own checker, so P2.T2.S3 is enforced, not one-off.
+
+<!-- fr:journal kind=review scope=plan id=review-p2 created=2026-11-13T14:37:12+00:00 phase=2 -->
+### review-p2 · review · phase 2 code review: 7 findings (6 in, 1 reclassified in), all fixed (phase 2)
+
+Independent reviewer (separate context, read-only) over spec + plan + diff 03bea73..86631a8, weighted to tests and simplicity; real-world probe of both standards on super-fr's fr-isolation explainer and two hand drafts found the hits sensible. Licensing checked: eos rules map to Strunk 1918 rules, nothing copied from later editions. Fixes in c82fe87; 222 writing-standard tests pass locally; CI test green on c82fe87. Reviewer suggested a heuristic-precision lens (false-positive pass of warn-level heuristics on a real corpus).
+
+<!-- fr:journal kind=finding scope=plan id=p2-r1 created=2026-11-13T14:37:12+00:00 phase=2 state=open review_scope=in -->
+### p2-r1 · finding [open] (reviewer: in scope) · abbreviations misses a sentence-final token (phase 2)
+
+Raised by the phase 2 reviewer.
+
+<!-- fr:journal kind=finding scope=plan id=p2-r2 created=2026-11-13T14:37:12+00:00 phase=2 state=open review_scope=in -->
+### p2-r2 · finding [open] (reviewer: in scope) · nominalizations fires on -al adjectives and common nouns; stop-lists real nominalizations (phase 2)
+
+Raised by the phase 2 reviewer.
+
+<!-- fr:journal kind=finding scope=plan id=p2-r3 created=2026-11-13T14:37:12+00:00 phase=2 state=open review_scope=in -->
+### p2-r3 · finding [open] (reviewer: in scope) · loose_sentences counts Oxford-comma lists as clause joins (phase 2)
+
+Raised by the phase 2 reviewer.
+
+<!-- fr:journal kind=finding scope=plan id=p2-r4 created=2026-11-13T14:37:12+00:00 phase=2 state=open review_scope=in -->
+### p2-r4 · finding [open] (reviewer: in scope) · abbreviations flags all-caps emphasis and Roman numerals (phase 2)
+
+Raised by the phase 2 reviewer.
+
+<!-- fr:journal kind=finding scope=plan id=p2-r5 created=2026-11-13T14:37:12+00:00 phase=2 state=open review_scope=in -->
+### p2-r5 · finding [open] (reviewer: in scope) · README misstates which exact kinds ship at warn; 'capitalized' vs all-capitals (phase 2)
+
+Raised by the phase 2 reviewer.
+
+<!-- fr:journal kind=finding scope=plan id=p2-r6 created=2026-11-13T14:37:12+00:00 phase=2 state=open review_scope=in -->
+### p2-r6 · finding [open] (reviewer: in scope) · README kinds test only checked names appear anywhere (phase 2)
+
+Raised by the phase 2 reviewer.
+
+<!-- fr:journal kind=finding scope=plan id=p2-r7 created=2026-11-13T14:37:12+00:00 phase=2 state=open review_scope=in -->
+### p2-r7 · finding [open] (reviewer: in scope) · front-matter waiver keyed by kind name accepted but never applied when the check id differs (phase 2)
+
+The reviewer tagged it out of scope as phase 1 code; reclassified in scope by the orchestrator because this feature (phase 1) introduced it, so this change is what is wrong.
+
+<!-- fr:journal kind=finding scope=plan id=p2-r1-resolved created=2026-11-13T14:37:12+00:00 phase=2 state=fixed resolves=p2-r1 -->
+### p2-r1-resolved · finding [fixed] · resolves p2-r1: abbreviations misses a sentence-final token (phase 2)
+
+c82fe87; test_r1_sentence_final_abbreviation_hits, test_r1_dotted_token_is_not_an_abbreviation
+
+<!-- fr:journal kind=finding scope=plan id=p2-r2-resolved created=2026-11-13T14:37:12+00:00 phase=2 state=fixed resolves=p2-r2 -->
+### p2-r2-resolved · finding [fixed] · resolves p2-r2: nominalizations fires on -al adjectives and common nouns; stop-lists real nominalizations (phase 2)
+
+c82fe87; test_r2_nouns_that_hide_no_verb_pass, test_r2_real_al_nominalizations_hit (spec kind row amended)
+
+<!-- fr:journal kind=finding scope=plan id=p2-r3-resolved created=2026-11-13T14:37:12+00:00 phase=2 state=fixed resolves=p2-r3 -->
+### p2-r3-resolved · finding [fixed] · resolves p2-r3: loose_sentences counts Oxford-comma lists as clause joins (phase 2)
+
+c82fe87; test_r3_oxford_comma_lists_are_not_loose_sentences, test_r3_a_clause_join_after_a_list_still_counts
+
+<!-- fr:journal kind=finding scope=plan id=p2-r4-resolved created=2026-11-13T14:37:12+00:00 phase=2 state=fixed resolves=p2-r4 -->
+### p2-r4-resolved · finding [fixed] · resolves p2-r4: abbreviations flags all-caps emphasis and Roman numerals (phase 2)
+
+c82fe87; test_r4_emphasis_caps_and_roman_numerals_pass
+
+<!-- fr:journal kind=finding scope=plan id=p2-r5-resolved created=2026-11-13T14:37:12+00:00 phase=2 state=fixed resolves=p2-r5 -->
+### p2-r5-resolved · finding [fixed] · resolves p2-r5: README misstates which exact kinds ship at warn; 'capitalized' vs all-capitals (phase 2)
+
+c82fe87; test_readme_names_long_sentence_as_an_exception, test_readme_and_plain_language_say_all_capitals
+
+<!-- fr:journal kind=finding scope=plan id=p2-r6-resolved created=2026-11-13T14:37:12+00:00 phase=2 state=fixed resolves=p2-r6 -->
+### p2-r6-resolved · finding [fixed] · resolves p2-r6: README kinds test only checked names appear anywhere (phase 2)
+
+c82fe87; test_readme_kind_table_matches_kinds
+
+<!-- fr:journal kind=finding scope=plan id=p2-r7-resolved created=2026-11-13T14:37:12+00:00 phase=2 state=fixed resolves=p2-r7 -->
+### p2-r7-resolved · finding [fixed] · resolves p2-r7: front-matter waiver keyed by kind name accepted but never applied when the check id differs (phase 2)
+
+c82fe87; test_r7_a_kind_name_waiver_applies_to_the_standards_check_of_that_kind
