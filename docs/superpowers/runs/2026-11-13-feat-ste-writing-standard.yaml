@@ -3,7 +3,7 @@ run: 2026-11-13-feat-ste-writing-standard
 workflow: fr-goal@1
 branch: feat/ste-writing-standard
 started: '2026-11-13T11:49:33+00:00'
-cursor: journal-check
+cursor: deliver
 steps:
   brainstorm:
     state: done
@@ -172,7 +172,11 @@ steps:
           findings: p4-r1,p4-r2,p4-r3,p4-r4,p4-r5
           unobserved: reviewer,reviewer-return
   journal-check:
-    state: pending
+    state: done
+    at: '2026-11-13T15:44:49+00:00'
+    exit: 0
+    stdout: |
+      1 out-of-scope finding(s): p3-readme-skill-list
   deliver:
     state: pending
 driver: standalone
