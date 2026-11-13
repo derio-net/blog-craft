@@ -255,14 +255,196 @@ def test_a_page_outside_any_git_repository_is_a_usage_error(tmp_path, capsys):
 
 
 def test_the_preserve_hit_cannot_be_waived(tmp_path, capsys):
+    """p3-r9: the waiver covers the changed line, and the hit on it stays."""
     after = BASE.replace("Run the installer. It takes 3 minutes.",
                          "<!-- writing-standard: ignore preserve -- I want to -->\n"
                          "Run the installer. It takes 4 minutes.")
     code, hits = _edit(tmp_path, capsys, BASE, after)
-    assert code == 1 and hits
+    assert code == 1
+    assert any(":4: preserve: numeral '4' appeared" in h for h in hits)
 
 
-@pytest.mark.parametrize("text", [BASE, ANCHORED, ""])
-def test_preserved_items_is_a_pure_function_of_text(text):
-    assert vws.preserved_items(text) == vws.preserved_items(text)
-    assert set(vws.preserved_items(text)) == {"fenced code", "inline code", "link target", "numeral"}
+def test_a_front_matter_preserve_waiver_is_refused(tmp_path, capsys):
+    """p3-r9: front matter cannot waive preserve either: it names no check."""
+    before = "---\ntitle: T\n---\n\n" + BASE
+    after = before.replace("title: T", "title: T\nwriting_standard_waive: {preserve: I want to}")
+    root = _repo(tmp_path)
+    page = _committed(root, "page.md", before)
+    page.write_text(after.replace("3 minutes", "4 minutes"), encoding="utf-8")
+    code = vws.main(["--default", "ste", "--preserve-from", "HEAD", str(page)])
+    captured = capsys.readouterr()
+    assert code == 2
+    assert "preserve" in captured.err
+
+
+def test_preserved_items_lists_each_kind_of_a_known_page():
+    """p3-r9: the multisets of BASE, exactly."""
+    items = vws.preserved_items(BASE)
+    assert items["fenced code"] == {"```bash\nmake install PREFIX=/usr/local\n```": 1}
+    assert items["inline code"] == {"make install": 1}
+    assert items["link target"] == {"guide.md": 1}
+    assert items["numeral"] == {"3": 1}
+
+
+# ------------------------------------------------------------------ review fixes (phase 3)
+
+def test_numerals_in_link_text_are_compared(tmp_path, capsys):
+    """p3-r1: replacing a link must keep its text for the numeral scan."""
+    root = _repo(tmp_path)
+    (root / "b.md").write_text("# B\n\n## Install\n", encoding="utf-8")
+    before = "# Page\n\nSee [3 steps](b.md#install).\n"
+    page = _committed(root, "page.md", before)
+    page.write_text(before.replace("[3 steps]", "[5 steps]"), encoding="utf-8")
+    code, hits = _run(page, capsys)
+    assert code == 1
+    assert any("numeral '5' appeared" in h for h in hits)
+
+
+def test_link_text_numerals_unchanged_pass(tmp_path, capsys):
+    before = "# Page\n\nSee [3 steps](b.md).\n"
+    _, hits = _edit(tmp_path, capsys, before, before.replace("See [3", "Read [3"))
+    assert hits == []
+
+
+@pytest.mark.parametrize("text, target", [
+    ("See [z](<c d.md#e>).\n", "c d.md#e"),
+    ('See [x]({{< ref "b.md#usage" >}}).\n', '{{< ref "b.md#usage" >}}'),
+    ('See [x]({{< relref "b.md#usage" >}}).\n', '{{< relref "b.md#usage" >}}'),
+    ('See <a href="b.html#usage">usage</a>.\n', "b.html#usage"),
+    ('See <img src="img/3.png" alt="x">.\n', "img/3.png"),
+    ("See [x](b.md \"Title 7\").\n", "b.md"),
+])
+def test_each_link_form_gives_its_target(text, target):
+    """p3-r2: angle targets with spaces, Hugo ref/relref, HTML href/src."""
+    items = vws.preserved_items("# P\n\n" + text)
+    assert items["link target"] == {target: 1}
+    assert items["numeral"] == {}
+
+
+def test_a_changed_hugo_ref_target_fails(tmp_path, capsys):
+    before = '# P\n\nSee [x]({{< ref "b.md" >}}).\n'
+    code, hits = _edit(tmp_path, capsys, before, before.replace("b.md", "c.md"))
+    assert code == 1 and any("link target" in h for h in hits)
+
+
+def test_a_changed_html_href_fails(tmp_path, capsys):
+    before = '# P\n\nSee <a href="b.html">usage</a>.\n'
+    code, hits = _edit(tmp_path, capsys, before, before.replace("b.html", "c.html"))
+    assert code == 1 and any("link target" in h for h in hits)
+
+
+def test_an_anchor_move_into_a_hugo_ref_is_accepted(tmp_path, capsys):
+    root = _repo(tmp_path)
+    (root / "b.md").write_text("# B\n\n## Usage\n", encoding="utf-8")
+    before = '# P\n\nSee [x]({{< ref "b.md#use" >}}).\n'
+    page = _committed(root, "page.md", before)
+    page.write_text(before.replace("#use", "#usage"), encoding="utf-8")
+    assert _run(page, capsys)[1] == []
+
+
+def test_an_anchor_move_is_refused_when_the_old_heading_still_exists(tmp_path, capsys):
+    """p3-r3: retargeting a link that still resolves is a real change."""
+    root = _repo(tmp_path)
+    (root / "b.md").write_text("# B\n\n## Install\n\n## Usage\n", encoding="utf-8")
+    before = "# P\n\nSee [see](b.md#install).\n"
+    page = _committed(root, "page.md", before)
+    page.write_text(before.replace("#install", "#usage"), encoding="utf-8")
+    code, hits = _run(page, capsys)
+    assert code == 1 and any("#usage" in h for h in hits)
+
+
+def test_a_wrapped_sentence_ending_in_a_number_is_not_a_list_marker(tmp_path, capsys):
+    """p3-r4: "20." at a line start after paragraph text is a numeral."""
+    before = "# P\n\nThe limit is 20. Use it.\n"
+    _, hits = _edit(tmp_path, capsys, before, "# P\n\nThe limit is\n20. Use it.\n")
+    assert hits == []
+
+
+def test_a_changed_year_at_a_wrapped_line_start_fails(tmp_path, capsys):
+    before = "# P\n\nReleased in\n2019. Then it grew.\n"
+    code, hits = _edit(tmp_path, capsys, before, before.replace("2019", "2024"))
+    assert code == 1 and any("'2019' disappeared" in h for h in hits)
+
+
+def test_list_markers_after_a_blank_line_or_in_a_list_are_not_numerals():
+    text = "# P\n\nIntro:\n1. One.\n2. Two.\n   lazy text\n3. Three.\n\n> 4. Quoted.\n"
+    assert vws.preserved_items(text)["numeral"] == {}
+
+
+def test_a_page_with_no_standard_is_still_preserve_checked(tmp_path, capsys):
+    """p3-r5: writing_standard: none skips the checks, not preservation."""
+    before = "---\nwriting_standard: none\n---\n\n" + BASE
+    code, hits = _edit(tmp_path, capsys, before, before.replace("3 minutes", "4 minutes"))
+    assert code == 1
+    assert any("numeral '4' appeared" in h for h in hits)
+
+
+def test_a_skipped_page_that_kept_everything_passes(tmp_path, capsys):
+    before = "---\nwriting_standard: none\n---\n\n" + BASE
+    code, hits = _edit(tmp_path, capsys, before, before.replace("Run the", "Start the"))
+    assert code == 0 and hits == []
+
+
+def test_an_unknown_ref_is_a_usage_error(tmp_path, capsys):
+    """p3-r10: a bad ref is not "no version"."""
+    root = _repo(tmp_path)
+    page = _committed(root, "page.md", BASE)
+    code = vws.main(["--default", "ste", "--preserve-from", "no-such-ref", str(page)])
+    captured = capsys.readouterr()
+    assert code == 2
+    assert "no-such-ref" in captured.err
+    assert "no version" not in captured.out
+
+
+def test_an_old_version_that_is_not_utf8_is_a_usage_error(tmp_path, capsys):
+    root = _repo(tmp_path)
+    page = root / "page.md"
+    page.write_bytes(b"# P\n\ncaf\xe9\n")
+    _git(root, "add", "page.md")
+    _git(root, "commit", "-q", "-m", "latin-1")
+    page.write_text("# P\n\nText.\n", encoding="utf-8")
+    code = vws.main(["--default", "ste", "--preserve-from", "HEAD", str(page)])
+    captured = capsys.readouterr()
+    assert code == 2 and "UTF-8" in captured.err
+
+
+def test_setext_headings_get_slugs():
+    """p3-r12."""
+    text = "Set up the tool\n===============\n\nText.\n\nNext part\n---------\n"
+    assert vws.heading_slugs(text) == {"set-up-the-tool", "next-part"}
+
+
+def test_a_thematic_break_after_a_blank_line_is_no_heading():
+    assert vws.heading_slugs("Text.\n\n---\n\nMore.\n") == set()
+
+
+def test_an_anchor_move_to_a_setext_heading_is_accepted(tmp_path, capsys):
+    before = "# P\n\nGo to [s](#old).\n\nOld\n---\n"
+    after = "# P\n\nGo to [s](#new-name).\n\nNew name\n--------\n"
+    _, hits = _edit(tmp_path, capsys, before, after)
+    assert hits == []
+
+
+def test_adjacent_fences_are_two_items():
+    """p3-r12: a fence closes its block even with no prose after it."""
+    text = "# P\n\n```\na\n```\n```\nb\n```\n"
+    assert vws.preserved_items(text)["fenced code"] == {"```\na\n```": 1, "```\nb\n```": 1}
+
+
+def test_a_root_relative_anchor_resolves_against_the_content_root(tmp_path, capsys):
+    """p3-r7: a site-rooted link resolves under the nearest content/ directory."""
+    root = _repo(tmp_path)
+    (root / "content/posts/b").mkdir(parents=True)
+    (root / "content/posts/b/index.md").write_text("# B\n\n## Usage\n", encoding="utf-8")
+    before = "# P\n\nSee [x](/posts/b/#use).\n"
+    page = _committed(root, "content/posts/a/index.md", before)
+    page.write_text(before.replace("#use", "#usage"), encoding="utf-8")
+    assert _run(page, capsys)[1] == []
+
+
+def test_a_url_encoded_anchor_is_decoded(tmp_path, capsys):
+    """p3-r7: an anchor written URL-encoded matches the heading's slug."""
+    before = "# P\n\nGo to [s](#old).\n\n## Old\n"
+    after = "# P\n\nGo to [s](#caf%C3%A9).\n\n## Café\n"
+    _, hits = _edit(tmp_path, capsys, before, after)
+    assert hits == []
