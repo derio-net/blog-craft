@@ -1574,9 +1574,12 @@ rows:
     - blog-craft:docs/superpowers/specs/2026-11-13-ste-writing-standard-design.md#R16
     - blog-craft:docs/superpowers/specs/2026-11-13-ste-writing-standard-design.md#R17
     - blog-craft:docs/superpowers/specs/2026-11-13-ste-writing-standard-design.md#R18
-    levels: {}
-    status: not-implemented
-    notes: operator chose no live walk; contract tests owed (spec Test Plan 8)
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_apply_writing_standard_contract.py
+      - blog-craft:tests/unit/test_fact_keeper_contract.py
+    status: ci
+    notes: unit tests in CI (test job), green on 5f9d1a7
     verify: none
   - id: writing-standard-blog-integration
     capability: writing-standards
