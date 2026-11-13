@@ -1581,3 +1581,16 @@ rows:
     status: not-implemented
     notes: ''
     verify: none
+  - id: writing-standard-elements-of-style
+    capability: writing-standards
+    acceptance: Under elements-of-style, needless-word phrases fail; passive voice,
+      negative-form phrases and runs of loose sentences warn; there is no length limit;
+      the rules cite only Strunk's 1918 edition.
+    origin:
+    - blog-craft:docs/superpowers/specs/2026-11-13-ste-writing-standard-design.md#R22
+    - blog-craft:docs/superpowers/specs/2026-11-13-ste-writing-standard-design.md#R23
+    - blog-craft:docs/superpowers/specs/2026-11-13-ste-writing-standard-design.md#R25
+    levels: {}
+    status: not-implemented
+    notes: unit tests owed (spec Test Plan 5)
+    verify: none
