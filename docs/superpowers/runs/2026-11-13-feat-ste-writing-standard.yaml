@@ -178,13 +178,22 @@ steps:
     stdout: |
       1 out-of-scope finding(s): p3-readme-skill-list
   deliver:
-    state: running
-    at: '2026-11-13T15:44:49+00:00'
+    state: done
+    at: '2026-11-13T15:54:36+00:00'
+    emitted:
+      pr: https://github.com/derio-net/blog-craft/pull/105
     units:
       step/deliver:
         attempts:
         - dispatched: '2026-11-13T15:44:49+00:00'
           harness: claude-code
           session: 2ae187b3-8892-590d-8ab7-d7c2dc9e646f
+          returned: '2026-11-13T15:54:32+00:00'
+          outcome: done
+        evidence:
+          tests: ci:7fb662a8832ac60092d1a599a1c5568324079c79+cdff7a66b4dc383b66aa8e5465d0d978117dd3c0;tree=3df11cc721aa9747822f0a8cda10fdb58ab7cd7614f5e1da5bcd7d978d20d5af
+          walk: none
+          proportionality: cdff7a66b4dc383b66aa8e5465d0d978117dd3c0:06e22b3ee7673daa397bd239feaaf841237c66ee39ce1e37ee9bc7da7b98fc11
+          visual: none
 driver: standalone
 fr_version: 6.2.0
