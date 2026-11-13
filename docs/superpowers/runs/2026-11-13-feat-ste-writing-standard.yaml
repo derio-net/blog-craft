@@ -3,7 +3,7 @@ run: 2026-11-13-feat-ste-writing-standard
 workflow: fr-goal@1
 branch: feat/ste-writing-standard
 started: '2026-11-13T11:49:33+00:00'
-cursor: plan
+cursor: plan-review
 steps:
   brainstorm:
     state: done
@@ -30,14 +30,18 @@ steps:
           findings: s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11,s12,s13,s14,s15,s16,s17,s18,s19
           unobserved: reviewer
   plan:
-    state: running
-    at: '2026-11-13T13:29:53+00:00'
+    state: done
+    at: '2026-11-13T13:40:41+00:00'
+    emitted:
+      plan: docs/superpowers/plans/2026-11-13-writing-standards
     units:
       step/plan:
         attempts:
         - dispatched: '2026-11-13T13:29:53+00:00'
           harness: claude-code
           session: 2ae187b3-8892-590d-8ab7-d7c2dc9e646f
+          returned: '2026-11-13T13:40:41+00:00'
+          outcome: done
   plan-review:
     state: pending
   implement:
