@@ -295,3 +295,59 @@ run_kind: none
 ### s19-resolved-2 · finding [deferred → https://github.com/derio-net/blog-craft/issues/106] · resolves s19: README skill list and USING-ON-A-HOST do not mention the new skill or agent
 
 Filed at deliver as https://github.com/derio-net/blog-craft/issues/106.
+
+<!-- fr:journal kind=discovery scope=spec id=test-plan-step-1 created=2026-11-13T21:07:08+00:00 -->
+### test-plan-step-1 · discovery · Test Plan step 1: ran
+
+Step: `test_writing_standard_registry.py` — the shipped set is exactly `ste`, `elements-of-style` and `plain-language` (`README.md` is not a standard); their blocks parse, each reference names its source, and no standard, README or SKILL.md says "conformant" or "compliant" (R11). An unknown kind, a bad parameter for a kind, and an unknown standard name each error. A fixture fourth standard that uses only existing kinds loads with no code change. Two instances of one kind in one standard both run.
+
+Evidence: ran on merged main 358f386: the Test Plan's test files, 381 passed together (tests/run-unit.sh), and CI test was green on the PR head 1ec71c7 before merge
+
+<!-- fr:journal kind=discovery scope=spec id=test-plan-step-2 created=2026-11-13T21:07:09+00:00 -->
+### test-plan-step-2 · discovery · Test Plan step 2: ran
+
+Step: `test_writing_standard_checker.py` — prose extraction ignores front matter, code fences (including a nested ```` fence), inline code, tables, HTML comments and URLs. The procedural/descriptive split follows ordered lists. A bold question and its answer are two sentences. The splitter pins: closing emphasis after `?`, the listed abbreviations, a colon before a list or fence versus inside a sentence. Inline code counts as one word; typographic apostrophes normalise. A hit is reported on the line where its sentence starts. Exit codes are 0/1/2. `--stats` prints its line. It runs with no `--config`, from one repository against pages in another (terms file and `git show` resolve at the page's toplevel).
+
+Evidence: ran on merged main 358f386: the Test Plan's test files, 381 passed together (tests/run-unit.sh), and CI test was green on the PR head 1ec71c7 before merge
+
+<!-- fr:journal kind=discovery scope=spec id=test-plan-step-3 created=2026-11-13T21:07:10+00:00 -->
+### test-plan-step-3 · discovery · Test Plan step 3: ran
+
+Step: `test_writing_standard_selection.py` — front matter beats the series default, the series default beats `--default`, and `none` skips; skipped pages appear in the `M skipped` count. A post in two series with different defaults exits 2. An unknown name exits 2 and names the page.
+
+Evidence: ran on merged main 358f386: the Test Plan's test files, 381 passed together (tests/run-unit.sh), and CI test was green on the PR head 1ec71c7 before merge
+
+<!-- fr:journal kind=discovery scope=spec id=test-plan-step-4 created=2026-11-13T21:07:12+00:00 -->
+### test-plan-step-4 · discovery · Test Plan step 4: ran
+
+Step: `test_writing_standard_ste_checks.py` — one passing and one failing fixture per check. Severity overrides from config and CLI work, qualified (`ste.paragraph_length`) over bare, and an override naming an unknown standard or check exits 2. A waiver with a reason (either delimiter) suppresses one hit; one without a reason fails; a front matter waiver covers `average_sentence_length`. Terms exempt `replacements`, `-ing` and abbreviations. A descriptive clause in a step that contains a step verb ("this lets you keep working") passes `one_instruction`.
+
+Evidence: ran on merged main 358f386: the Test Plan's test files, 381 passed together (tests/run-unit.sh), and CI test was green on the PR head 1ec71c7 before merge
+
+<!-- fr:journal kind=discovery scope=spec id=test-plan-step-5 created=2026-11-13T21:07:13+00:00 -->
+### test-plan-step-5 · discovery · Test Plan step 5: ran
+
+Step: `test_writing_standard_elements_of_style.py` and `test_writing_standard_plain_language.py` — for each check of the standard, one passing and one failing fixture, at the standard's default severity: under `elements-of-style` a 60-word sentence passes, "in order to" fails and "who is" only warns; under `plain-language` a page averaging 21 words fails, one averaging 19 with a single 30-word sentence passes, and "shall" fails.
+
+Evidence: ran on merged main 358f386: the Test Plan's test files, 381 passed together (tests/run-unit.sh), and CI test was green on the PR head 1ec71c7 before merge
+
+<!-- fr:journal kind=discovery scope=spec id=test-plan-step-6 created=2026-11-13T21:07:14+00:00 -->
+### test-plan-step-6 · discovery · Test Plan step 6: ran
+
+Step: `test_writing_standard_preserve.py` — in a temporary git repo, a changed code block, inline code span, link target or numeral fails `preserve`, and a reworded sentence passes. Splitting a step into two (renumbering the list) passes. Changing a heading and its in-page `#anchor` link together passes; an anchor to no heading fails. A page absent at the ref fails with `no version at <ref>`.
+
+Evidence: ran on merged main 358f386: the Test Plan's test files, 381 passed together (tests/run-unit.sh), and CI test was green on the PR head 1ec71c7 before merge
+
+<!-- fr:journal kind=discovery scope=spec id=test-plan-step-7 created=2026-11-13T21:07:15+00:00 -->
+### test-plan-step-7 · discovery · Test Plan step 7: ran
+
+Step: Blog integration — `validate_config.py` accepts and refuses the new keys, at v7. The mirror test pairs the checker and globs the standards both ways. `batch-gate.sh` runs the checker. The CI template adds the step only when enabled. A contract test, like `test_cold_reader_contract.py`'s wiring checks, asserts that `/blog-post` and `/post-rewrite` load the resolved standard and run the checker in their gate step.
+
+Evidence: ran on merged main 358f386: the Test Plan's test files, 381 passed together (tests/run-unit.sh), and CI test was green on the PR head 1ec71c7 before merge
+
+<!-- fr:journal kind=discovery scope=spec id=test-plan-step-8 created=2026-11-13T21:07:17+00:00 -->
+### test-plan-step-8 · discovery · Test Plan step 8: ran
+
+Step: `test_apply_writing_standard_contract.py` and `test_fact_keeper_contract.py` — like `test_cold_reader_contract.py`: the skill takes `standard`, `paths` and `batch_size` (3–5); it refuses an unknown standard, dirty paths and paths with no version at `HEAD`; it writes the fact-keeper baseline outside the repository and deletes it; each batch runs the checker with `--preserve-from HEAD`, dispatches `fact-keeper` per page and stops for approval; it handles changed headings' inbound links; it names the no-`claude -p` rule. The agent is read-only (Read, Grep, Glob), takes exactly two paths, and returns kept / changed / lost / added.
+
+Evidence: ran on merged main 358f386: the Test Plan's test files, 381 passed together (tests/run-unit.sh), and CI test was green on the PR head 1ec71c7 before merge
