@@ -1566,8 +1566,8 @@ rows:
     - blog-craft:docs/superpowers/specs/2026-11-13-ste-writing-standard-design.md#R18
     levels: {}
     status: not-implemented
-    notes: ''
-    verify: client-live
+    notes: operator chose no live walk; contract tests owed (spec Test Plan 8)
+    verify: none
   - id: writing-standard-blog-integration
     capability: writing-standards
     acceptance: In a blog, a per-series writing_standard and quality.writing_standard
