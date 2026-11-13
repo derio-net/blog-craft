@@ -15,16 +15,14 @@ matching `vX.Y.Z` tag on merge (#18).
 ### Added
 - **Writing standards: `ste`, `elements-of-style`, `plain-language`.**
   `tools/validate_writing_standard.py` checks Markdown pages against a writing
-  standard, in a blog or standalone (`--default <standard>`, no blog config);
-  `ste` holds STE writing rules, based on ASD-STE100. Each page's standard comes
-  from its front matter, else its series default, else `--default`; severities,
-  terms and reasoned waivers adjust the checks.
-- **Two more writing standards: `elements-of-style` and `plain-language`.**
-  `elements-of-style` follows Strunk's 1918 edition (public domain) and fails only
-  on always-needless phrases; `plain-language` is based on the US Federal Plain
-  Language Guidelines and fails on a page average over 20 words and on "shall".
-  Five new check kinds (`phrases`, `average_sentence_length`, `loose_sentences`,
-  `nominalizations`, `abbreviations`); `standards/README.md` documents the schema.
+  standard, in a blog or standalone (`--default <standard>`, no blog config).
+  `ste` holds STE writing rules, based on ASD-STE100; `elements-of-style` follows
+  Strunk's 1918 edition (public domain) and fails only on always-needless phrases;
+  `plain-language` is based on the US Federal Plain Language Guidelines and fails
+  on a page average over 20 words and on "shall". Each page's standard comes from
+  its front matter, else its series default, else `--default`; severities, terms
+  and reasoned waivers adjust the checks. Twelve check kinds, the heuristic
+  ones shipped as warnings; `standards/README.md` documents the schema.
 - **`/apply-writing-standard` and the `fact-keeper` agent.** The skill rewrites
   Markdown pages to a standard, language only, in batches of 3 to 5 in one session.
   Each batch runs the checker with the new `--preserve-from HEAD`, which fails when

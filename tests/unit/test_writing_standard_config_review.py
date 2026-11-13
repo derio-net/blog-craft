@@ -96,3 +96,14 @@ def test_r2_config_md_overview_names_the_writing_standard_keys():
     quality = overview[overview.index("\nquality:"):overview.index("\nfeatures:")]
     assert "writing_standard" in series and "§15" in series
     assert "writing_standard" in quality and "§15" in quality
+
+
+# p4-r4: the 0.23.0 entry announces each standard in one bullet title only ----
+
+def test_r4_changelog_announces_each_standard_once():
+    text = open(os.path.join(ROOT, "CHANGELOG.md")).read()
+    entry = text[text.index("## [0.23.0]"):]
+    entry = entry[:entry.index("\n## [", 1)]
+    titles = re.findall(r"^- \*\*(.*?)\*\*", entry, re.M | re.S)
+    for name in ("ste", "elements-of-style", "plain-language"):
+        assert sum(f"`{name}`" in t for t in titles) == 1, (name, titles)
