@@ -447,4 +447,6 @@ Unit (CI, `tests/unit/`):
 
 ## Implementation Plans
 
-To be written by `fr-plan`.
+| Plan | Repo | File | Depends on |
+|---|---|---|---|
+| 2026-11-13-writing-standards | `derio-net/blog-craft` | `2026-11-13-writing-standards` | — |

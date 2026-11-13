@@ -1,0 +1,88 @@
+schema_version: 2
+phase:
+  number: 2
+  title: The elements-of-style and plain-language standards
+  tag: agentic
+  depends_on:
+  - 1
+  tracking_issue: null
+  acceptance:
+  - writing-standard-elements-of-style
+  - writing-standard-plain-language
+  - writing-standard-registry
+  tier: standard
+  files:
+  - tools/validate_writing_standard.py
+  - skills/apply-writing-standard/standards/elements-of-style.md
+  - skills/apply-writing-standard/standards/plain-language.md
+  - skills/apply-writing-standard/standards/README.md
+  - tests/unit/test_writing_standard_*.py
+  estimate_lines: 700
+tasks:
+- number: 1
+  title: The remaining kinds (phrases, average_sentence_length, loose_sentences, nominalizations,
+    abbreviations)
+  steps:
+  - id: P2.T1.S1
+    text: |
+      [RED] In tests/unit/test_writing_standard_ste_checks.py's style (or a new tests/unit/test_writing_standard_kinds.py), one passing and one failing case per kind using fixture standards in tmp_path:
+        - phrases: "in order to" hits with the hint in the message; case-insensitive; "in orderly" does not.
+        - average_sentence_length: a page averaging 21 words hits once, reported on line 1; 19 does not; the front matter waiver from P1 suppresses it with a reason.
+        - loose_sentences (run 3): three consecutive "X, and Y." sentences hit; two do not.
+        - nominalizations: "make a decision", "conduct an analysis", "carry out an assessment" hit; "make a list" does not.
+        - abbreviations: "CI" with no spelled-out form near its first use hits once; "continuous integration (CI)" or "CI (continuous integration)" does not; a term does not.
+      Run: bash tests/run-unit.sh tests/unit/ -k writing_standard -q
+      EXPECT: RED for the new cases.
+  - id: P2.T1.S2
+    text: |
+      [GREEN] Implement the five matchers per spec §2's kind table. Run the S1 command: green.
+  - id: P2.T1.S3
+    text: |
+      [REFACTOR] Share the word-boundary phrase matcher between replacements and phrases. Tests green.
+- number: 2
+  title: elements-of-style.md, plain-language.md and the standards README (R2, R22–R25)
+  steps:
+  - id: P2.T2.S1
+    text: |
+      [RED] tests/unit/test_writing_standard_elements_of_style.py and tests/unit/test_writing_standard_plain_language.py:
+        - eos: a 60-word sentence passes; "in order to" and "the fact that" FAIL; "who is" and "which was" only WARN; a passive sentence anywhere warns; "did not remember" warns naming "forgot"; three loose sentences warn.
+        - plain: a page averaging 21 words FAILs; one averaging 19 with a single 30-word sentence passes, and a 36-word sentence warns; "shall" FAILs naming "must"; "commence" warns naming "start"; "make a decision" warns; an unexplained "PR" warns; a 7-sentence paragraph warns.
+      Extend test_writing_standard_registry.py: list_standards() == ["elements-of-style", "plain-language", "ste"]; each reference names its source (eos: "Strunk" and "1918"; plain: "Plain Language Guidelines"); none says "conformant"/"compliant"; a fixture fourth standard using only existing kinds loads with no code change.
+      Run: bash tests/run-unit.sh tests/unit/ -k writing_standard -q
+      EXPECT: RED.
+  - id: P2.T2.S2
+    text: |
+      [GREEN] Write skills/apply-writing-standard/standards/elements-of-style.md (source: Strunk's 1918 edition, public domain, in blog-craft's own words; quotes no later edition; rules as prose with before/after examples: omit needless words, active voice, positive form, avoid a succession of loose sentences, put emphatic words at the end; then the yaml block of spec §1 with the needless_words fail list of unambiguous phrases only and maybe_needless at warn) and plain-language.md (source: US Federal Plain Language Guidelines, a US government work; rules: write for "you", average sentence of 20 words or fewer, common words, active voice, must not shall, avoid nominalizations, spell out abbreviations, short paragraphs, question headings; yaml block of spec §1 with an adapted simple_words list of at least 25 entries). Write skills/apply-writing-standard/standards/README.md: the block schema, the kind table with parameters (from KINDS), and "add a standard" in three steps. Run the S1 command: green.
+  - id: P2.T2.S3
+    text: |
+      [REFACTOR] Check each standard's prose example against its own checker: run python3 tools/validate_writing_standard.py --default <name> on a scratch page holding only the "after" examples; fix examples that fail their own standard. Run all writing-standard tests green, commit, push; CI on the pushed head is the evidence (tests: ci).
+state:
+  steps:
+    P2.T1.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T1.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T1.S3:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T2.S1:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T2.S2:
+      state: ' '
+      ticked_at: null
+      note: null
+    P2.T2.S3:
+      state: ' '
+      ticked_at: null
+      note: null
+  completion:
+    at: null
+    note: null
+    observed_prs: []
