@@ -85,6 +85,15 @@ jobs:
       - name: Validate post quality (educational-writing)
         run: python3 {{ $site }}scripts/validate_educational.py --config .blog-craft.yaml {{ $site }}content/docs/*/*/index.md
 {{- end }}{{- end }}
+{{- with .quality }}{{- with .writing_standard }}{{- if .enabled }}
+      # Writing-standard gate: each post is checked against its resolved
+      # standard (front matter writing_standard, else its series default);
+      # a post with none is skipped. Ships at scripts/ with the standards in
+      # scripts/writing-standards/ so a plain-python CI runs it without the
+      # plugin. See docs/CONFIG.md §15.
+      - name: Validate writing standard
+        run: python3 {{ $site }}scripts/validate_writing_standard.py --config .blog-craft.yaml {{ $site }}content/docs/*/*/index.md
+{{- end }}{{- end }}{{- end }}
 {{- with .features }}{{- with .glossary }}{{- if .enabled }}
       # Abbreviation glossary gate: every abbr marker must have an entry in
       # data/glossary.yaml. A marker with nothing behind it is a broken promise

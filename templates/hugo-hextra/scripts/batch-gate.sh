@@ -5,8 +5,9 @@
 #
 #   scripts/batch-gate.sh content/docs/<series>/<NN>-<slug>/index.md [more...]
 #
-# It (1) runs the educational-writing gate over the batch, then (2) a Hugo build
-# check. The build step is skipped — with a clear warning — when Hugo/Go is
+# It (1) runs the educational-writing gate over the batch, then (2) the
+# writing-standard checker (each post's resolved standard; posts with none are
+# skipped), then (3) a Hugo build check. The build step is skipped — with a clear warning — when Hugo/Go is
 # unavailable or BATCH_GATE_SKIP_BUILD=1, so the validate path stays reproducible
 # (and unit-testable) without a Hugo toolchain. Read-only: never edits posts.
 set -euo pipefail
@@ -42,7 +43,14 @@ echo "batch-gate: validating $# post(s) against the educational gate..."
 "$PYBIN" "$SCRIPT_DIR/validate_educational.py" \
   --config "$BLOG_ROOT/.blog-craft.yaml" "$@" || fail
 
-# 2. Hugo build check (skippable).
+# 2. Writing-standard checker over the batch: front matter writing_standard,
+#    else the series default in .blog-craft.yaml; a post with neither is
+#    skipped (docs/CONFIG.md §15).
+echo "batch-gate: checking $# post(s) against their writing standard..."
+"$PYBIN" "$SCRIPT_DIR/validate_writing_standard.py" \
+  --config "$BLOG_ROOT/.blog-craft.yaml" "$@" || fail
+
+# 3. Hugo build check (skippable).
 if [ "${BATCH_GATE_SKIP_BUILD:-0}" = "1" ]; then
   echo "batch-gate: build check skipped (BATCH_GATE_SKIP_BUILD=1)"
 else
