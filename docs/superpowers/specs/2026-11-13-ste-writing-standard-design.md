@@ -249,7 +249,7 @@ validate_writing_standard.py [--config .blog-craft.yaml] [--default <standard>]
   | `ing_forms` | heuristic | — | `\w+ing\b`, minus a stop-list (`during`, `string`, `thing`, `nothing`…) and the terms |
   | `paragraph_length` | heuristic | `max_sentences` | a paragraph with more sentences than `max_sentences` |
   | `loose_sentences` | heuristic | `run` | `run` or more sentences in a row, each two clauses joined by `and`, `but`, `so`, `which` or `who` |
-  | `nominalizations` | heuristic | — | a weak verb (`make`, `give`, `take`, `have`, `conduct`, `perform`, `carry out`) + an article + a noun ending `-ion`, `-ment`, `-ance`, `-ence`, `-al` or `-sis` (so "make a decision" and "conduct an analysis" count), minus a stop-list of nouns that hide no verb |
+  | `nominalizations` | heuristic | — | a weak verb (`make`, `give`, `take`, `have`, `conduct`, `perform`, `carry out`) + an article + a noun ending `-ion`, `-ment`, `-ance`, `-ence` or `-sis` (so "make a decision" and "conduct an analysis" count), or one of a closed list of `-al` nominalizations (`approval`, `removal`, `arrival`, `refusal`, `renewal`, `denial`, `disposal`, `withdrawal`, `retrieval`, `proposal`, `referral`, `reversal`, `dismissal`; a bare `-al` ending catches adjectives), minus a stop-list of nouns that hide no verb (`chance`, `balance`, `session`, `position`…) |
   | `abbreviations` | heuristic | — | an all-capitals token of 2–6 letters whose first use has no spelled-out form in parentheses next to it, minus the terms |
 
 - **Severities and waivers (R9):** keyed `<standard>.<check>` (for example

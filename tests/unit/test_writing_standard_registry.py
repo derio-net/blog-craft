@@ -157,12 +157,31 @@ def test_no_standard_claims_conformance(name):
     assert not re.search(r"conformant|compliant", _read(name), re.IGNORECASE)
 
 
-def test_readme_documents_every_kind():
-    text = _read("README")
-    for kind, (required, optional) in vws.KINDS.items():
-        assert f"`{kind}`" in text
-        for param in list(required) + list(optional):
-            assert f"`{param}`" in text
+def _readme_kind_table():
+    """kind -> the parameter names its README table row lists (the
+    backticked names outside parentheses in the Parameters column)."""
+    table = {}
+    for line in _read("README").splitlines():
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) == 4 and re.fullmatch(r"`\w+`", cells[0]) and cells[1] in ("exact", "heuristic"):
+            params = re.sub(r"\([^)]*\)", "", cells[2])
+            table[cells[0].strip("`")] = set(re.findall(r"`(\w+)`", params))
+    return table
+
+
+def test_readme_kind_table_matches_kinds():
+    expected = {kind: set(req) | set(opt) for kind, (req, opt) in vws.KINDS.items()}
+    assert _readme_kind_table() == expected
+
+
+def test_readme_and_plain_language_say_all_capitals():
+    for name in ("README", "plain-language"):
+        assert "capitalized" not in _read(name)
+    assert "all-capitals" in _read("README") and "all-capitals" in _read("plain-language")
+
+
+def test_readme_names_long_sentence_as_an_exception():
+    assert "long_sentence" in _read("README")
 
 
 def test_a_fourth_standard_of_existing_kinds_needs_no_code(tmp_path):

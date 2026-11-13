@@ -83,7 +83,7 @@ on a weak verb, an article and a noun of that shape.
 A reader who meets an unknown abbreviation stops. Write the full form the
 first time, with the abbreviation in parentheses after it, or the abbreviation
 with the full form in parentheses. After that, the short form is enough. The
-checker warns on a capitalized abbreviation whose first use has no full form
+checker warns on an all-capitals abbreviation whose first use has no full form
 next to it. Add a term to the terms list when every reader knows it.
 
 - Before: Open a PR when the CI passes.

@@ -42,8 +42,10 @@ error, never a silent skip.
 
 A kind is exact when it matches the text with no judgement, and heuristic
 when it can misfire. The shipped standards set exact kinds to `fail` and
-heuristic kinds to `warn`, apart from the phrase and word lists, whose
-severity each standard chooses.
+heuristic kinds to `warn`, with two exceptions: the phrase and word lists,
+whose severity each standard chooses, and `plain-language`'s `long_sentence`,
+an exact `sentence_length` check that only warns (the page average is the
+limit that fails there).
 
 | Kind | Exact? | Parameters | What it matches |
 |---|---|---|---|
@@ -56,9 +58,9 @@ severity each standard chooses.
 | `passive` | heuristic | `scope` (`steps` or `all`) | a form of *be*, an optional adverb, then a word ending in `-ed` or `-en` |
 | `ing_forms` | heuristic | none | a word ending in `-ing`, minus a stop-list and the terms |
 | `paragraph_length` | heuristic | `max_sentences` (an integer) | a paragraph with more sentences than `max_sentences` |
-| `loose_sentences` | heuristic | `run` (an integer) | `run` or more sentences in a row in one paragraph, each two clauses joined by a comma and `and`, `but`, `so`, `which` or `who` |
-| `nominalizations` | heuristic | none | a weak verb (`make`, `give`, `take`, `have`, `conduct`, `perform`, `carry out`), an article, then a noun ending in `-ion`, `-ment`, `-ance`, `-ence`, `-al` or `-sis`, minus a stop-list |
-| `abbreviations` | heuristic | none | a capitalized token of 2 to 6 letters whose first use has no full form in parentheses next to it, minus the terms |
+| `loose_sentences` | heuristic | `run` (an integer) | `run` or more sentences in a row in one paragraph, each two clauses joined by a comma and `and`, `but`, `so`, `which` or `who`; a join with another comma in the three words before it is a list, not a clause |
+| `nominalizations` | heuristic | none | a weak verb (`make`, `give`, `take`, `have`, `conduct`, `perform`, `carry out`), an article, then a noun ending in `-ion`, `-ment`, `-ance`, `-ence` or `-sis`, or one of a short list of `-al` nouns (`approval`, `removal`, `proposal`…), minus a stop-list of nouns that hide no verb |
+| `abbreviations` | heuristic | none | an all-capitals token of 2 to 6 letters (a plural `s` allowed) whose first use has no full form in parentheses next to it, minus the terms and a stop-list of emphasis words (`NOT`, `MUST`…) and Roman numerals |
 
 The checker reads prose only. Front matter, fenced code, inline code, tables,
 HTML comments and link targets are never checked.

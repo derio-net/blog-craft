@@ -219,3 +219,69 @@ def test_a_phrase_inside_a_longer_listed_phrase_is_reported_once(tmp_path):
     hits = _hits("We stopped owing to the fact that it rained.\n", std)
     assert len(hits) == 1 and "since" in hits[0].message
     assert len(_hits("The fact that it rained stopped us.\n", std)) == 1
+
+
+# ------------------------------------------------------------------ phase 2 review findings
+
+# p2-r1
+@pytest.mark.parametrize("text, token", [("Wait for the CI.", "CI"), ("Open a PR.", "PR"),
+                                         ("Open two PRs.", "PR"), ("Is it the API?", "API")])
+def test_r1_sentence_final_abbreviation_hits(tmp_path, text, token):
+    hits = _hits(text + "\n", _standard(tmp_path, [ABBR]))
+    assert len(hits) == 1 and token in hits[0].message
+
+
+def test_r1_dotted_token_is_not_an_abbreviation(tmp_path):
+    assert _hits("Read the CI.yaml file.\n", _standard(tmp_path, [ABBR])) == []
+
+
+# p2-r2
+@pytest.mark.parametrize("text", [
+    "Take an additional step.", "We take a critical look at it.", "Take a chance on it.",
+    "We have a goal.", "You have a session open.", "They have a balance due.",
+    "We take a position on it.", "They have a mission.", "We take a sequence of steps.",
+])
+def test_r2_nouns_that_hide_no_verb_pass(tmp_path, text):
+    assert _hits(text + "\n", _standard(tmp_path, [NOMINAL])) == []
+
+
+@pytest.mark.parametrize("text", [
+    "We give an approval today.", "They make a proposal to us.",
+    "We carry out a removal of the cache.", "They make a referral to the team.",
+])
+def test_r2_real_al_nominalizations_hit(tmp_path, text):
+    assert len(_hits(text + "\n", _standard(tmp_path, [NOMINAL]))) == 1
+
+
+# p2-r3
+def test_r3_oxford_comma_lists_are_not_loose_sentences(tmp_path):
+    text = ("We support Linux, macOS, and Windows. It reads YAML, JSON, and TOML. "
+            "It runs fast, slow, and medium.\n")
+    assert _hits(text, _standard(tmp_path, [LOOSE])) == []
+
+
+def test_r3_a_clause_join_after_a_list_still_counts(tmp_path):
+    text = ("We opened the file, and it was empty. We ran the build, but it failed. "
+            "We read the long log at last, so we found the cause.\n")
+    assert len(_hits(text, _standard(tmp_path, [LOOSE]))) == 1
+
+
+# p2-r4
+@pytest.mark.parametrize("text", ["Do NOT commit the file.", "It is OK now.", "You MUST stop.",
+                                  "NEVER push it.", "Read part II first.", "See chapter XII."])
+def test_r4_emphasis_caps_and_roman_numerals_pass(tmp_path, text):
+    assert _hits(text + "\n", _standard(tmp_path, [ABBR])) == []
+
+
+# p2-r7
+def test_r7_a_kind_name_waiver_applies_to_the_standards_check_of_that_kind(tmp_path, monkeypatch):
+    (tmp_path / "std").mkdir()
+    _standard(tmp_path / "std", ["avg: {kind: average_sentence_length, severity: fail, max: 20}"])
+    monkeypatch.setattr(vws, "standards_dirs", lambda: [str(tmp_path / "std")])
+    body = _sentence(21) + " " + _sentence(21) + "\n"
+    by_kind = tmp_path / "kind.md"
+    by_kind.write_text("---\nwriting_standard_waive: {average_sentence_length: quoted law}\n---\n" + body)
+    by_id = tmp_path / "id.md"
+    by_id.write_text("---\nwriting_standard_waive: {avg: quoted law}\n---\n" + body)
+    assert vws.main(["--default", "fix", str(by_kind)]) == 0
+    assert vws.main(["--default", "fix", str(by_id)]) == 0

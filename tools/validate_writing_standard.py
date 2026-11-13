@@ -492,6 +492,15 @@ def match_average_sentence_length(page: Page, p: dict) -> list[Finding]:
 _LOOSE_JOIN = re.compile(r",\s+(?:and|but|so|which|who)\s+\w", re.IGNORECASE)
 
 
+# Another comma within the three words before the join: a list ("Linux, macOS,
+# and Windows"), not two clauses.
+_LIST_TAIL = re.compile(r",\s*(?:\S+\s+){0,2}\S+$")
+
+
+def _is_loose(text: str) -> bool:
+    return any(not _LIST_TAIL.search(text[:m.start()]) for m in _LOOSE_JOIN.finditer(text))
+
+
 def match_loose_sentences(page: Page, p: dict) -> list[Finding]:
     out: list[Finding] = []
     run: list[Sentence] = []
@@ -505,7 +514,7 @@ def match_loose_sentences(page: Page, p: dict) -> list[Finding]:
     for s in page.sentences:
         if run and s.paragraph != run[-1].paragraph:
             close()
-        if _LOOSE_JOIN.search(s.text):
+        if _is_loose(s.text):
             run.append(s)
         else:
             close()
@@ -513,23 +522,30 @@ def match_loose_sentences(page: Page, p: dict) -> list[Finding]:
     return out
 
 
+# The -al nouns that are nominalizations: -al alone catches adjectives
+# ("an additional step", "a critical look") and plain nouns ("a goal").
+AL_NOMINALIZATIONS = frozenset({
+    "approval", "removal", "arrival", "refusal", "renewal", "denial", "disposal",
+    "withdrawal", "retrieval", "proposal", "referral", "reversal", "dismissal",
+})
 _WEAK_VERB = (
     r"(?:make|makes|made|making|give|gives|gave|given|giving|take|takes|took|taken|taking"
     r"|have|has|had|having|conduct|conducts|conducted|conducting"
     r"|perform|performs|performed|performing|carr(?:y|ies|ied|ying)\s+out)"
 )
 _NOMINALIZATION = re.compile(
-    r"\b" + _WEAK_VERB + r"\s+(?:a|an|the)\s+([A-Za-z]+(?:ion|ment|ance|ence|al|sis))\b",
+    r"\b" + _WEAK_VERB + r"\s+(?:a|an|the)\s+([A-Za-z]+(?:ion|ment|ance|ence|sis)|"
+    + "|".join(sorted(AL_NOMINALIZATIONS)) + r")\b",
     re.IGNORECASE,
 )
 # Nouns with those endings that hide no verb.
 NOMINAL_STOP_LIST = frozenset({
     "question", "section", "function", "option", "station", "edition", "portion", "nation",
     "version", "region", "opinion", "million", "billion", "union", "onion", "basis",
+    "session", "position", "mission", "vision", "lesson", "religion", "champion",
     "moment", "document", "element", "segment", "fragment", "instrument", "comment",
-    "sentence", "audience", "distance", "instance", "total", "final", "general", "special",
-    "original", "local", "signal", "manual", "terminal", "interval", "journal", "hospital",
-    "capital", "animal", "metal", "tutorial", "proposal", "material", "potential",
+    "sentence", "sequence", "audience", "distance", "instance", "chance", "balance",
+    "evidence", "experience", "science", "conscience", "silence", "glance", "romance",
 })
 
 
@@ -539,7 +555,14 @@ def match_nominalizations(page: Page, p: dict) -> list[Finding]:
             if m.group(1).lower() not in NOMINAL_STOP_LIST]
 
 
-_ABBREVIATION = re.compile(r"(?<![\w.-])([A-Z]{2,6})s?(?![\w.-])")
+# A period after the token blocks it only when a word follows (CI.yaml), so a
+# sentence-final "the CI." still counts.
+_ABBREVIATION = re.compile(r"(?<![\w.-])([A-Z]{2,6})s?(?![\w-]|\.\w)")
+# All-capitals words that are emphasis or Roman numerals, not abbreviations.
+ABBREVIATION_STOP_LIST = frozenset({
+    "NOT", "NO", "OK", "MUST", "DO", "NEVER",
+    "II", "III", "IV", "VI", "VII", "VIII", "IX", "XI", "XII",
+})
 # Directly after the token: a parenthesis holding a word with a lowercase letter.
 _EXPANSION_AFTER = re.compile(r"\s*\([^()]*[a-z][^()]*\)")
 
@@ -557,7 +580,7 @@ def match_abbreviations(page: Page, p: dict) -> list[Finding]:
     for s in page.sentences:
         for m in _ABBREVIATION.finditer(s.text):
             token = m.group(1)
-            if token in seen or token.lower() in page.terms:
+            if token in seen or token in ABBREVIATION_STOP_LIST or token.lower() in page.terms:
                 continue
             seen.add(token)
             if not _spelled_out(s.text, m):
@@ -758,8 +781,10 @@ def front_matter_waivers(fm: dict, standard: Standard,
         elif spec is not None and spec.kind not in PAGE_LEVEL_KINDS:
             bad.append(Hit("waiver_reason", "fail", 1,
                            f"{cid} is not a page-level check: waive one hit in the source"))
-        else:
+        elif spec is not None:
             waived.add(cid)
+        else:   # a kind name: waive this standard's checks of that kind
+            waived |= {c for c, sp in standard.checks.items() if sp.kind == cid}
     return waived, bad
 
 
