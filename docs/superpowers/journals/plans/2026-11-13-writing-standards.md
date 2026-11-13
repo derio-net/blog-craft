@@ -265,3 +265,38 @@ c82fe87; test_readme_kind_table_matches_kinds
 ### p2-r7-resolved · finding [fixed] · resolves p2-r7: front-matter waiver keyed by kind name accepted but never applied when the check id differs (phase 2)
 
 c82fe87; test_r7_a_kind_name_waiver_applies_to_the_standards_check_of_that_kind
+
+<!-- fr:journal kind=decision scope=plan id=p3-preserve-shape created=2026-11-13T14:59:58+00:00 phase=3 -->
+### p3-preserve-shape · decision · --preserve-from: one unwaivable FAIL per item that appeared or disappeared; a page outside git is exit 2 (phase 3)
+
+preserved_items(text) is a pure function returning four Counters (fenced code incl. its
+fence lines, inline code content, link targets incl. reference definitions, autolinks and
+bare URLs, numerals by the spec's regex in prose with list markers, link targets, HTML tags
+and inline code removed). Each difference is one `preserve` FAIL: a disappeared item at
+line 1 naming its line at the ref, an appeared item at its line in the page. Preserve hits
+are added after waivers, so an in-source waiver cannot hide one (the skill may not waive to
+pass). A page with no git toplevel is a usage error (exit 2), distinct from a page with no
+version at the ref (FAIL `preserve: no version at <ref>`). Anchor moves: an appeared
+`path#a` pairs with a disappeared target of the same path when `a` is a heading slug of
+the linked page (in-page for an empty path; `p`, `p.md`, `p/index.md`, `p/_index.md`
+relative to the page); slugs are GitHub-style with -1/-2 repeats, or an explicit `{#id}`.
+
+<!-- fr:journal kind=decision scope=plan id=p3-skill-stats-standard-guard created=2026-11-13T14:59:58+00:00 phase=3 -->
+### p3-skill-stats-standard-guard · decision · apply-writing-standard stops when a STATS line names another standard than the one applied (phase 3)
+
+The checker resolves front matter `writing_standard` and the series default before
+`--default`, so a page pinned to another standard would be gated against that one while
+the skill rewrites to the requested one. The skill reads the standard on each STATS line
+and asks the operator when it differs; not in the spec's procedure, added as a guard.
+
+<!-- fr:journal kind=finding scope=plan id=p3-readme-skill-list created=2026-11-13T14:59:58+00:00 phase=3 state=open review_scope=out -->
+### p3-readme-skill-list · finding [open] (reviewer: out of scope) · README's skill list does not mention /apply-writing-standard (phase 3)
+
+README.md lists every user-invocable skill; no phase of the plan adds the new skill there.
+Left out of phase 3 (scope is P3.T1-P3.T2); a one-bullet README addition belongs to phase 4
+or a follow-up.
+
+<!-- fr:journal kind=discovery scope=plan id=p3-opencode-mirror created=2026-11-13T14:59:58+00:00 phase=3 -->
+### p3-opencode-mirror · discovery · A new skill needs its generated OpenCode mirror (phase 3)
+
+scripts/sync-opencode.py generates .opencode/ copies; test_opencode_sync and test_opencode_namespace fail CI without them.
