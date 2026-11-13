@@ -865,33 +865,105 @@ def page_stats(page: Page, standard: Standard) -> str:
 PRESERVED_KINDS = ("fenced code", "inline code", "link target", "numeral")
 
 _NUMERAL = re.compile(r"\b\d+(?:\.\d+)?%?")
-_ORDERED_MARKER = re.compile(r"^(\s*(?:>\s*)*)\d{1,9}[.)](?=\s)")
-_LINK_TARGET = re.compile(r"!?\[[^\]]*\]\(\s*<?([^)\s>]*)>?(?:\s+[\"'(][^)]*)?\)")
-_REF_DEFINITION = re.compile(r"^\s{0,3}\[[^\]]+\]:\s*<?(\S+?)>?(?:\s+.*)?$")
+_QUOTE_PREFIX = re.compile(r"^\s*(?:>\s?)*")
+_FENCE_OPEN = re.compile(r"^\s{0,3}(`{3,}|~{3,})")
+# [text](target "title"): the target in <...> (may hold spaces), a Hugo
+# ref/relref shortcode, or a plain run without spaces.
+_SHORTCODE = r"\{\{[<%]\s*(?:rel)?ref\s+\"[^\"]*\"\s*[>%]\}\}"
+_LINK_TARGET = re.compile(
+    r"(!?\[[^\]]*\])\(\s*(?:<([^>\n]*)>|(" + _SHORTCODE + r")|([^)\s]*))"
+    r"(?:\s+(?:\"[^\"]*\"|'[^']*'|\([^)]*\)))?\s*\)")
+_SHORTCODE_PATH = re.compile(r"\"([^\"]*)\"")
+_HTML_TARGET = re.compile(r"<(?:a|img)\b[^>]*?\b(?:href|src)\s*=\s*[\"']([^\"']*)[\"'][^>]*>",
+                          re.IGNORECASE)
+_REF_DEFINITION = re.compile(r"^\s{0,3}\[[^\]]+\]:\s*(?:<([^>]*)>|(\S+))(?:\s+.*)?$")
 _AUTOLINK = re.compile(r"<(https?://[^>\s]+)>")
-_BARE_URL = re.compile(r"(?<![(<\w])https?://\S+?(?=[.,;:!?)\]]*(?:\s|$))")
+_BARE_URL = re.compile(r"(?<![(<\w\"'])https?://\S+?(?=[.,;:!?)\]]*(?:\s|$))")
 _HEADING = re.compile(r"^\s{0,3}#{1,6}\s+(.*?)\s*#*\s*$")
+_SETEXT = re.compile(r"^\s{0,3}(?:=+|-+)\s*$")
 _HEADING_ID = re.compile(r"\s*\{#([\w-]+)\}\s*$")
+
+
+def _fenced_blocks(lines: list[str], prose: set[int]) -> list[str]:
+    """Each fenced code block, fences included; a block ends at its closing
+    fence even when the next block starts on the next line."""
+    blocks: list[str] = []
+    block: list[str] = []
+    fence = ""
+    for i, line in enumerate(lines):
+        if i in prose:
+            if block:
+                blocks.append("\n".join(block))
+            block, fence = [], ""
+            continue
+        m = _FENCE_OPEN.match(line)
+        if not fence:
+            if block:
+                blocks.append("\n".join(block))
+            block, fence = [line], (m.group(1) if m else "")
+            continue
+        block.append(line)
+        if m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence) \
+                and not line.strip().strip(fence[0]):
+            blocks.append("\n".join(block))
+            block, fence = [], ""
+    if block:
+        blocks.append("\n".join(block))
+    return blocks
+
+
+def _take_links(line: str, targets: list[str]) -> str:
+    """Append every link target of *line* to *targets*; return the line with
+    the targets (never the link text) removed."""
+    def inline(m: re.Match) -> str:
+        targets.append(next(g for g in m.groups()[1:] if g is not None).strip())
+        return m.group(1)
+
+    def html(m: re.Match) -> str:
+        targets.append(m.group(1))
+        return " "
+
+    line = _LINK_TARGET.sub(inline, line)
+    line = _HTML_TARGET.sub(html, line)
+    for pattern in (_AUTOLINK, _BARE_URL):
+        targets += pattern.findall(line)
+        line = pattern.sub(" ", line)
+    return re.sub(r"</?[A-Za-z][^>]*>", " ", line)
+
+
+def _strip_list_markers(lines: list[str]) -> list[str]:
+    """Drop ordered-list markers, by CommonMark's rule: an item may start
+    after a blank line or inside a list; one that interrupts a paragraph
+    must start at 1. Any other leading "20." is text."""
+    out: list[str] = []
+    prev_blank, in_list = True, False
+    for line in lines:
+        prefix = _QUOTE_PREFIX.match(line).group(0)
+        body = line[len(prefix):]
+        if not body.strip():
+            prev_blank = True
+            out.append(line)
+            continue
+        item = _LIST_ITEM.match(body)
+        indented = len(body) - len(body.lstrip()) > 0
+        if item and (prev_blank or in_list or item.group(2) or item.group(3) == "1"):
+            in_list = True
+            if item.group(3) is not None:
+                body = item.group(1) + " " * (len(item.group(3)) + 1) + body[len(item.group(1)) + len(item.group(3)) + 1:]
+        elif _HEADING.match(body) or (prev_blank and not indented):
+            in_list = False
+        prev_blank = False
+        out.append(prefix + body)
+    return out
 
 
 def preserved_items(text: str) -> dict[str, Counter]:
     """What a rewrite must keep, as multisets: fenced code blocks (content
-    with fences), inline code spans, link targets and numerals in prose.
-    Ordered-list markers are not numerals, so a renumbered list keeps all."""
+    with fences), inline code spans, link targets and numerals in prose
+    (link text included). Ordered-list markers are not numerals, so a
+    renumbered list keeps all."""
     lines = _blank_front_matter(text.splitlines())
     prose = _prose_line_numbers(lines)
-    fences: list[str] = []
-    block: list[str] = []
-    for i, line in enumerate(lines):
-        if i in prose:
-            if block:
-                fences.append("\n".join(block))
-                block = []
-        else:
-            block.append(line)
-    if block:
-        fences.append("\n".join(block))
-
     source = _blank_comments("\n".join(line if i in prose else "" for i, line in enumerate(lines)))
     inline = [m.group(2) for m in _INLINE_CODE.finditer(source)]
     targets: list[str] = []
@@ -899,18 +971,15 @@ def preserved_items(text: str) -> dict[str, Counter]:
     for line in _mask_code(source).splitlines():
         ref = _REF_DEFINITION.match(line)
         if ref:
-            targets.append(ref.group(1))
+            targets.append(ref.group(1) if ref.group(1) is not None else ref.group(2))
+            rest.append("")
             continue
-        for pattern in (_LINK_TARGET, _AUTOLINK, _BARE_URL):
-            targets += pattern.findall(line)
-            line = pattern.sub(" ", line)
-        line = re.sub(r"</?[A-Za-z][^>]*>", " ", line)
-        rest.append(_ORDERED_MARKER.sub(r"\1", line))
+        rest.append(_take_links(line, targets))
     return {
-        "fenced code": Counter(fences),
+        "fenced code": Counter(_fenced_blocks(lines, prose)),
         "inline code": Counter(inline),
         "link target": Counter(targets),
-        "numeral": Counter(_NUMERAL.findall("\n".join(rest))),
+        "numeral": Counter(_NUMERAL.findall("\n".join(_strip_list_markers(rest)))),
     }
 
 
@@ -922,58 +991,108 @@ def _github_slug(heading: str) -> str:
     return text.replace(" ", "-")
 
 
+def _heading_texts(text: str) -> list[str]:
+    """The text of each ATX and setext heading, in page order."""
+    out: list[str] = []
+    para: list[str] = []
+    for line in _prose_source_lines(text):
+        if not line.strip():
+            para = []
+            continue
+        if para and _SETEXT.match(line) and not _LIST_ITEM.match(para[0]):
+            out.append(" ".join(p.strip() for p in para))
+            para = []
+            continue
+        m = _HEADING.match(line)
+        if m:
+            out.append(m.group(1))
+            para = []
+            continue
+        para.append(line)
+    return out
+
+
 def heading_slugs(text: str) -> set[str]:
-    """The anchors a page's ATX headings get: an explicit `{#id}`, else the
+    """The anchors a page's headings get: an explicit `{#id}`, else the
     GitHub slug, with -1, -2 ... on repeats."""
     seen: Counter = Counter()
     out = set()
-    for line in _prose_source_lines(text):
-        m = _HEADING.match(line)
-        if not m:
-            continue
-        explicit = _HEADING_ID.search(m.group(1))
+    for heading in _heading_texts(text):
+        explicit = _HEADING_ID.search(heading)
         if explicit:
             out.add(explicit.group(1))
             continue
-        slug = _github_slug(m.group(1))
+        slug = _github_slug(heading)
         out.add(f"{slug}-{seen[slug]}" if seen[slug] else slug)
         seen[slug] += 1
     return out
 
 
+def _split_target(target: str) -> tuple[str, str, str]:
+    """(link key without its anchor, path to resolve, decoded anchor)."""
+    from urllib.parse import unquote
+    m = re.fullmatch(_SHORTCODE, target)
+    inner = _SHORTCODE_PATH.search(target).group(1) if m else target
+    path, _, anchor = inner.partition("#")
+    key = target.replace("#" + anchor, "", 1) if anchor else target
+    return key, path, unquote(anchor)
+
+
+def _content_root(page_path: Path) -> Path | None:
+    for parent in page_path.resolve().parents:
+        if parent.name == "content":
+            return parent
+    return None
+
+
 def _linked_page_text(page_path: Path, page_text: str, target_path: str) -> str | None:
     """The text of the page a link points to (*page_text* for an in-page
-    anchor), or None when it is not a local Markdown page."""
+    anchor), or None when it is not a local Markdown page. A path that
+    starts with / resolves under the nearest content/ directory."""
+    from urllib.parse import unquote
     if not target_path:
         return page_text
     if re.match(r"^[a-z][a-z0-9+.-]*:", target_path, re.IGNORECASE):
         return None
-    base = page_path.parent / target_path.split("?", 1)[0]
-    candidates = [base, base / "index.md", base / "_index.md"]
-    if not base.suffix:
-        candidates.insert(1, base.with_suffix(".md"))
-    for cand in candidates:
-        if cand.is_file():
-            try:
-                return cand.read_text(encoding="utf-8")
-            except (OSError, UnicodeDecodeError):
-                return None
+    path = unquote(target_path.split("?", 1)[0])
+    roots = [page_path.parent]
+    if path.startswith("/"):
+        root = _content_root(page_path)
+        roots = [root] if root else []
+        path = path.lstrip("/")
+    elif _content_root(page_path):
+        roots.append(_content_root(page_path))   # Hugo's ref falls back to the content root
+    for root in roots:
+        base = root / path
+        candidates = [base, base / "index.md", base / "_index.md"]
+        if not base.suffix:
+            candidates.insert(1, base.with_suffix(".md"))
+        for cand in candidates:
+            if cand.is_file():
+                try:
+                    return cand.read_text(encoding="utf-8")
+                except (OSError, UnicodeDecodeError):
+                    return None
     return None
 
 
 def _accept_anchor_moves(gone: Counter, added: Counter, page_path: Path, page_text: str) -> None:
-    """Drop from both sides each pair of link targets with the same path whose
-    new anchor names a heading of the page it points to (R15's update)."""
+    """Drop from both sides each pair of link targets with the same path
+    where the new anchor names a heading of the page it points to and the
+    old anchor names none any more (R15's update)."""
     for target in list(added.elements()):
-        path, _, anchor = target.partition("#")
-        if "#" not in target:
-            continue
-        old = next((g for g, n in gone.items()
-                    if n > 0 and "#" in g and g.partition("#")[0] == path), None)
-        if old is None:
+        key, path, anchor = _split_target(target)
+        if not anchor:
             continue
         linked = _linked_page_text(page_path, page_text, path)
-        if linked is not None and anchor in heading_slugs(linked):
+        if linked is None:
+            continue
+        slugs = heading_slugs(linked)
+        if anchor not in slugs:
+            continue
+        old = next((g for g, n in gone.items() if n > 0 and _split_target(g)[0] == key
+                    and _split_target(g)[2] and _split_target(g)[2] not in slugs), None)
+        if old is not None:
             gone[old] -= 1
             added[target] -= 1
 
@@ -1013,17 +1132,43 @@ def preserve_hits(old: str, new: str, page_path: Path, ref: str) -> list[Hit]:
     return hits
 
 
+_VERIFIED_REFS: dict[tuple[str, str], bool] = {}
+
+
+def _verify_ref(top: str, ref: str) -> None:
+    """ConfigError unless *ref* names a commit in the repository at *top*
+    (checked once per repository and ref)."""
+    import subprocess
+    if (top, ref) not in _VERIFIED_REFS:
+        r = subprocess.run(["git", "-C", top, "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"],
+                           capture_output=True, check=False)
+        _VERIFIED_REFS[(top, ref)] = r.returncode == 0
+    if not _VERIFIED_REFS[(top, ref)]:
+        raise ConfigError(f"--preserve-from: {ref!r} is not a commit in {top}")
+
+
 def text_at_ref(path: str, ref: str) -> str | None:
     """The page as it is at *ref*, read at its own git toplevel, or None when
-    it has no version there. ConfigError when it is in no git repository."""
+    the path is not in the tree at *ref*. ConfigError when the page is in no
+    git repository, the ref names no commit, git fails otherwise, or the old
+    version is not UTF-8."""
     import subprocess
     top = git_toplevel(path)
     if top is None:
         raise ConfigError("--preserve-from: the page is not in a git repository")
+    _verify_ref(top, ref)
     rel = Path(path).resolve().relative_to(Path(top).resolve()).as_posix()
     r = subprocess.run(["git", "-C", top, "show", f"{ref}:./{rel}"],
                        capture_output=True, check=False)
-    return r.stdout.decode("utf-8") if r.returncode == 0 else None
+    if r.returncode != 0:
+        err = r.stderr.decode("utf-8", "replace")
+        if "does not exist in" in err or "exists on disk, but not in" in err:
+            return None
+        raise ConfigError(f"--preserve-from: git show {ref}:./{rel} failed: {err.strip()}")
+    try:
+        return r.stdout.decode("utf-8")
+    except UnicodeDecodeError as e:
+        raise ConfigError(f"--preserve-from: the version at {ref} is not UTF-8: {e}") from e
 
 
 def check_preserved(path: str, text: str, ref: str) -> list[Hit]:
@@ -1150,25 +1295,21 @@ def main(argv: list[str]) -> int:
         try:
             text = Path(path).read_text(encoding="utf-8")
             standard, hits, page = _check_page(path, text, args.default, setup)
+            # Preservation runs on every page, a skipped one too (R12).
+            if args.preserve_from:
+                hits = (hits or []) + check_preserved(path, text, args.preserve_from)
         except (ConfigError, StandardError, OSError, UnicodeDecodeError) as e:
             print(f"ERROR: {path}: {e}", file=sys.stderr)
             errored = True
             continue
         if standard is None:
             skipped += 1
-            continue
-        checked += 1
-        if args.preserve_from:
-            try:
-                hits = hits + check_preserved(path, text, args.preserve_from)
-            except ConfigError as e:
-                print(f"ERROR: {path}: {e}", file=sys.stderr)
-                errored = True
-                continue
-        for h in hits:
+        else:
+            checked += 1
+        for h in hits or []:
             print(f"{h.severity.upper()}: {path}:{h.line}: {h.check}: {h.message}")
             failed = failed or h.severity == "fail"
-        if args.stats:
+        if args.stats and standard is not None:
             print(f"STATS: {path}: {standard.name}: {page_stats(page, standard)}")
     if errored:
         return 2
