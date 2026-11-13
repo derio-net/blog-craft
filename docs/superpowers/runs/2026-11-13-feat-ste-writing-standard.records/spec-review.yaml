@@ -1,0 +1,172 @@
+schema_version: 10
+run: 2026-11-13-feat-ste-writing-standard
+step: spec-review
+outcome: done
+journal:
+- kind: review
+  id: spec-review
+  title: 'independent spec review: 19 findings (18 in scope, 1 out)'
+  body: "fr-spec-reviewer, read-only, separate context. Verified the named codebase surfaces (validate_educational.py, validate_config.py, test_mirrors.py, cold-reader contract, batch-gate.sh, CI template,\
+    \ CONFIG.md \xA714 last) and the licensing claims."
+- kind: finding
+  id: s1
+  title: R15 anchor updates broke R12's link-target preservation
+  review_scope: in
+  body: 'severity: high. Independent spec review.'
+- kind: finding
+  id: s2
+  title: Number preservation failed legitimate rewrites (list renumbering, step splits)
+  review_scope: in
+  body: 'severity: high. Independent spec review.'
+- kind: finding
+  id: s3
+  title: Non-goals still cited the dropped live walk
+  review_scope: in
+  body: 'severity: medium. Independent spec review.'
+- kind: finding
+  id: s4
+  title: Standards lookup named siblings, materialization uses scripts/writing-standards/
+  review_scope: in
+  body: 'severity: medium. Independent spec review.'
+- kind: finding
+  id: s5
+  title: Hand-listed mirror pairs made R2 false for blogs
+  review_scope: in
+  body: 'severity: medium. Independent spec review.'
+- kind: finding
+  id: s6
+  title: standards/README.md would be read as a standard
+  review_scope: in
+  body: 'severity: low. Independent spec review.'
+- kind: finding
+  id: s7
+  title: Series default ambiguous for multi-series posts
+  review_scope: in
+  body: 'severity: medium. Independent spec review.'
+- kind: finding
+  id: s8
+  title: Flat severity keys across standards; unknown ids unspecified
+  review_scope: in
+  body: 'severity: medium. Independent spec review.'
+- kind: finding
+  id: s9
+  title: Inline code dropped vs counted as one word
+  review_scope: in
+  body: 'severity: low. Independent spec review.'
+- kind: finding
+  id: s10
+  title: Splitter rules for ':' , closing emphasis, abbreviations
+  review_scope: in
+  body: 'severity: low. Independent spec review.'
+- kind: finding
+  id: s11
+  title: Context-dependent phrases and verbs at fail severity
+  review_scope: in
+  body: 'severity: medium. Independent spec review.'
+- kind: finding
+  id: s12
+  title: Page-level hits unwaivable; waiver delimiter ambiguous
+  review_scope: in
+  body: 'severity: low. Independent spec review.'
+- kind: finding
+  id: s13
+  title: fact-keeper baseline as a temp file contradicted 'no /tmp copies'; untracked pages
+  review_scope: in
+  body: 'severity: low. Independent spec review.'
+- kind: finding
+  id: s14
+  title: Test Plan gaps for R19 wiring, R11 wording, R5 skipped count, R12 absent page
+  review_scope: in
+  body: 'severity: medium. Independent spec review.'
+- kind: finding
+  id: s15
+  title: Repo root for terms file and git show undefined without blog config
+  review_scope: in
+  body: 'severity: low. Independent spec review.'
+- kind: finding
+  id: s16
+  title: R10 exemption scope vs kind table; typographic apostrophes
+  review_scope: in
+  body: 'severity: low. Independent spec review.'
+- kind: finding
+  id: s17
+  title: Config schema version for new keys unstated
+  review_scope: in
+  body: 'severity: low. Independent spec review.'
+- kind: finding
+  id: s18
+  title: Registry acceptance row described one standard
+  review_scope: in
+  body: 'severity: low. Independent spec review.'
+- kind: finding
+  id: s19
+  title: README skill list and USING-ON-A-HOST do not mention the new skill or agent
+  review_scope: out
+  body: 'severity: low. Adjacent docs; no decision requires it.'
+- kind: discovery
+  id: ste-draft-preserve
+  title: The hand-written STE draft of fr-isolation fails the preservation check
+  body: 'Measured 2026-11-13 against super-fr''s fr-isolation.md: the STE draft split the bash block into steps (lost fence) and list markers counted as numerals; the Elements of Style and Plain language
+    drafts preserve every fence, inline code span, link and numeral. Fed findings s1/s2.'
+resolves:
+- id: s1
+  state: fixed
+  body: R12 now passes an anchor-only change whose new anchor names a heading; skill keep-list and Test Plan 6 updated.
+- id: s2
+  state: fixed
+  body: Ordered-list markers excluded; spelled-out numbers left to fact-keeper; step-split case in Test Plan 6.
+- id: s3
+  state: fixed
+  body: 'Reworded: the choice belongs to super-fr''s adoption feature.'
+- id: s4
+  state: fixed
+  body: Lookup now names writing-standards/ next to the script.
+- id: s5
+  state: fixed
+  body: Standards mirrored by a glob both ways; only the checker is a pair.
+- id: s6
+  state: fixed
+  body: Registry excludes README.md; Test Plan 1 asserts exactly three.
+- id: s7
+  state: fixed
+  body: Series from front matter; conflicting defaults exit 2 (R5); Test Plan 3 case.
+- id: s8
+  state: fixed
+  body: Keys <standard>.<check> with bare fallback; unknown keys exit 2 (R9); tested.
+- id: s9
+  state: fixed
+  body: Inline code becomes one placeholder token counted as a word; Test Plan 2.
+- id: s10
+  state: fixed
+  body: Rules sharpened (closing emphasis, abbreviation list, colon only before list/fence); each pinned in Test Plan 2.
+- id: s11
+  state: fixed
+  body: who is / which was moved to a warn instance; one_instruction looks only at sentence-initial verbs; decision 2 states the rule for the later standards.
+- id: s12
+  state: fixed
+  body: "Front matter waiver for page-level checks; delimiter ' -- ' or ' \u2014 '; hit line is the sentence's first line."
+- id: s13
+  state: fixed
+  body: Baseline in a per-run scratch dir outside the repo, deleted after the batch; pages with no HEAD version refused (R14a).
+- id: s14
+  state: fixed
+  body: Each added to Test Plan 1, 3, 6, 7; R14a added for refusing dirty or untracked pages.
+- id: s15
+  state: fixed
+  body: Both resolve at each page's git toplevel; cross-repo case in Test Plan 2.
+- id: s16
+  state: fixed
+  body: R10 lists replacements, ing_forms, abbreviations; apostrophes normalise.
+- id: s17
+  state: fixed
+  body: 'R20: optional keys of contract v7, no bump or migration.'
+- id: s18
+  state: fixed
+  body: Row notes now state all three standards; fr 6.2 has no reword command and the matrix is never hand-edited.
+- id: s19
+  state: out-of-scope
+  body: Not required by any decision; raised to the operator to add README entries during implementation if wanted.
+acceptance: []
+evidence:
+  review: spec-review
+  reviewer: fr-spec-reviewer
