@@ -447,15 +447,113 @@ def match_ing_forms(page: Page, p: dict) -> list[Finding]:
     return out
 
 
-def match_replacements(page: Page, p: dict) -> list[Finding]:
-    out = []
-    for word, replacement in p["words"].items():
-        if str(word).lower() in page.terms:
+def _listed(page: Page, mapping: dict, skip_terms: bool):
+    """(sentence, match, value) for each listed word or phrase of *mapping*
+    found on word boundaries, case-insensitive; a term is skipped on request."""
+    for key, value in mapping.items():
+        if skip_terms and str(key).lower() in page.terms:
             continue
-        pattern = _word_pattern(str(word))
+        pattern = _word_pattern(str(key))
         for s in page.sentences:
             for m in pattern.finditer(s.text):
-                out.append((s.line, f"{m.group(0)!r}: use {replacement!r}"))
+                yield s, m, value
+
+
+def match_replacements(page: Page, p: dict) -> list[Finding]:
+    return [(s.line, f"{m.group(0)!r}: use {replacement!r}")
+            for s, m, replacement in _listed(page, p["words"], skip_terms=True)]
+
+
+def match_phrases(page: Page, p: dict) -> list[Finding]:
+    return [(s.line, f"{m.group(0)!r}: {hint}")
+            for s, m, hint in _listed(page, p["phrases"], skip_terms=False)]
+
+
+def match_average_sentence_length(page: Page, p: dict) -> list[Finding]:
+    lengths = [count_words(s.text) for s in page.sentences]
+    if not lengths:
+        return []
+    avg = sum(lengths) / len(lengths)
+    if avg <= p["max"]:
+        return []
+    return [(1, f"page averages {avg:.1f} words a sentence (max {p['max']})")]
+
+
+# Two clauses joined by a comma and a coordinating word or a relative pronoun.
+_LOOSE_JOIN = re.compile(r",\s+(?:and|but|so|which|who)\s+\w", re.IGNORECASE)
+
+
+def match_loose_sentences(page: Page, p: dict) -> list[Finding]:
+    out: list[Finding] = []
+    run: list[Sentence] = []
+
+    def close():
+        if len(run) >= p["run"]:
+            out.append((run[0].line, f"{len(run)} loose sentences in a row: "
+                                     "vary them, or make some periodic"))
+        run.clear()
+
+    for s in page.sentences:
+        if run and s.paragraph != run[-1].paragraph:
+            close()
+        if _LOOSE_JOIN.search(s.text):
+            run.append(s)
+        else:
+            close()
+    close()
+    return out
+
+
+_WEAK_VERB = (
+    r"(?:make|makes|made|making|give|gives|gave|given|giving|take|takes|took|taken|taking"
+    r"|have|has|had|having|conduct|conducts|conducted|conducting"
+    r"|perform|performs|performed|performing|carr(?:y|ies|ied|ying)\s+out)"
+)
+_NOMINALIZATION = re.compile(
+    r"\b" + _WEAK_VERB + r"\s+(?:a|an|the)\s+([A-Za-z]+(?:ion|ment|ance|ence|al|sis))\b",
+    re.IGNORECASE,
+)
+# Nouns with those endings that hide no verb.
+NOMINAL_STOP_LIST = frozenset({
+    "question", "section", "function", "option", "station", "edition", "portion", "nation",
+    "version", "region", "opinion", "million", "billion", "union", "onion", "basis",
+    "moment", "document", "element", "segment", "fragment", "instrument", "comment",
+    "sentence", "audience", "distance", "instance", "total", "final", "general", "special",
+    "original", "local", "signal", "manual", "terminal", "interval", "journal", "hospital",
+    "capital", "animal", "metal", "tutorial", "proposal", "material", "potential",
+})
+
+
+def match_nominalizations(page: Page, p: dict) -> list[Finding]:
+    return [(s.line, f"{m.group(0)!r}: use the verb that {m.group(1)!r} hides")
+            for s in page.sentences for m in _NOMINALIZATION.finditer(s.text)
+            if m.group(1).lower() not in NOMINAL_STOP_LIST]
+
+
+_ABBREVIATION = re.compile(r"(?<![\w.-])([A-Z]{2,6})s?(?![\w.-])")
+# Directly after the token: a parenthesis holding a word with a lowercase letter.
+_EXPANSION_AFTER = re.compile(r"\s*\([^()]*[a-z][^()]*\)")
+
+
+def _spelled_out(text: str, m: re.Match) -> bool:
+    """Is the abbreviation at *m* written as `full form (ABC)` or `ABC (full form)`?"""
+    if text[:m.start()].endswith("(") and text[m.end():].startswith(")"):
+        return re.search(r"[A-Za-z]{2}", text[:m.start() - 1]) is not None
+    return _EXPANSION_AFTER.match(text, m.end()) is not None
+
+
+def match_abbreviations(page: Page, p: dict) -> list[Finding]:
+    seen: set[str] = set()
+    out = []
+    for s in page.sentences:
+        for m in _ABBREVIATION.finditer(s.text):
+            token = m.group(1)
+            if token in seen or token.lower() in page.terms:
+                continue
+            seen.add(token)
+            if not _spelled_out(s.text, m):
+                out.append((s.line, f"{token!r} is not spelled out at its first use: "
+                                    f"write the full form, then ({token})"))
     return out
 
 
@@ -484,8 +582,8 @@ KINDS: dict[str, tuple[dict[str, type | tuple], dict[str, type | tuple]]] = {
     "abbreviations": ({}, {}),
 }
 
-# kind -> its matcher. A kind with no matcher yet is declared in KINDS so a
-# standard that names it loads; running it is an error, never a silent skip.
+# kind -> its matcher. Every kind in KINDS has one; a kind without one would be
+# an error when run, never a silent skip.
 MATCHERS = {
     "sentence_length": match_sentence_length,
     "contractions": match_contractions,
@@ -494,6 +592,11 @@ MATCHERS = {
     "ing_forms": match_ing_forms,
     "replacements": match_replacements,
     "paragraph_length": match_paragraph_length,
+    "phrases": match_phrases,
+    "average_sentence_length": match_average_sentence_length,
+    "loose_sentences": match_loose_sentences,
+    "nominalizations": match_nominalizations,
+    "abbreviations": match_abbreviations,
 }
 
 
