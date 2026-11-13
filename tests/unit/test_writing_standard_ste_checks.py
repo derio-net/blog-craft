@@ -10,7 +10,7 @@ def ste():
 
 
 def _hits(text, std, check, **kw):
-    return [h for h in vws.run_checks(text, std, **kw) if h.check == check]
+    return [h for h in vws.run_checks(text, std, **kw).hits if h.check == check]
 
 
 def _words(n, first="Word"):

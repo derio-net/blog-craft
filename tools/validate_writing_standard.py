@@ -155,7 +155,7 @@ ABBREVIATIONS = ("e.g.", "i.e.", "etc.", "vs.", "cf.", "approx.")
 _SENTENCE_END = re.compile(
     r"[.!?][*_]*[\"')\]]*[*_]*\s+(?=[A-Z" + CODE_TOKEN + r"`(\[*_\"])"
 )
-_WORD = re.compile(r"[\w" + CODE_TOKEN + r"][\w'\-" + CODE_TOKEN + r"]*")
+_WORD = re.compile(r"[\w" + CODE_TOKEN + r"](?:[\w'\-" + CODE_TOKEN + r"]|\.(?=\w))*")
 _LIST_ITEM = re.compile(r"^(\s*)(?:([-*+])|(\d{1,9})[.)])\s+(.*)$")
 _TYPOGRAPHIC = str.maketrans({"’": "'", "‘": "'", "“": '"', "”": '"'})
 
@@ -167,6 +167,7 @@ class Unit:
     line: int
     in_step: bool
     paragraph: int
+    item: int | None = None      # the list item it belongs to, across its paragraphs
 
 
 @dataclass(frozen=True)
@@ -175,6 +176,7 @@ class Sentence:
     line: int
     in_step: bool
     paragraph: int
+    item: int | None = None
 
 
 def count_words(text: str) -> int:
@@ -202,20 +204,43 @@ def _blank_front_matter(lines: list[str]) -> list[str]:
     return lines
 
 
+_INLINE_CODE = re.compile(r"(`+)(?!`)(.+?)(?<!`)\1(?!`)", re.DOTALL)
+_COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
+
+
+def _prose_source_lines(text: str) -> list[str]:
+    """The page's lines with front matter and fenced code blanked, so line
+    numbers hold and nothing in code is read as prose (or as a comment)."""
+    lines = _blank_front_matter(text.splitlines())
+    prose = _prose_line_numbers(lines)
+    return [line if i in prose else "" for i, line in enumerate(lines)]
+
+
+def _mask_code(text: str) -> str:
+    """*text* with every inline code span replaced by x's of the same length
+    (newlines kept), so offsets found in the mask are offsets in *text*."""
+    return _INLINE_CODE.sub(lambda m: re.sub(r"[^\n]", "x", m.group(0)), text)
+
+
 def _blank_comments(text: str) -> str:
-    """Drop HTML comments, keeping their newlines so line numbers hold."""
-    return re.sub(r"<!--.*?-->", lambda m: "\n" * m.group(0).count("\n"), text, flags=re.DOTALL)
+    """Drop HTML comments outside inline code, keeping their newlines."""
+    out, pos = [], 0
+    for m in _COMMENT.finditer(_mask_code(text)):
+        out.append(text[pos:m.start()])
+        out.append("\n" * m.group(0).count("\n"))
+        pos = m.end()
+    out.append(text[pos:])
+    return "".join(out)
 
 
 def _clean_inline(text: str) -> str:
     """Inline markup of one unit: code to CODE_TOKEN, links to their text."""
-    text = re.sub(r"(`+)(?!`)(.+?)(?<!`)\1(?!`)",
-                  lambda m: CODE_TOKEN + "\n" * m.group(2).count("\n"), text, flags=re.DOTALL)
+    text = _INLINE_CODE.sub(lambda m: CODE_TOKEN + "\n" * m.group(2).count("\n"), text)
     text = re.sub(r"!\[[^\]]*\]\([^)]*\)", "", text)          # images
     text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", text)       # inline links
     text = re.sub(r"\[([^\]]*)\]\[[^\]]*\]", r"\1", text)      # reference links
     text = re.sub(r"<https?://[^>]*>", "", text)               # autolinks
-    text = re.sub(r"https?://\S+", "", text)                   # bare URLs
+    text = re.sub(r"https?://\S+?(?=[.,;:!?)\]]*(?:\s|$))", "", text)  # bare URLs
     text = re.sub(r"</?[A-Za-z][^>]*>", "", text)              # HTML tags
     return text.translate(_TYPOGRAPHIC)
 
@@ -226,14 +251,15 @@ def extract_prose(text: str) -> list[Unit]:
     Front matter, fenced code, tables, HTML comments, link URLs and reference
     definitions are dropped. A unit inside an ordered-list item is a step.
     """
-    lines = _blank_front_matter(_blank_comments(text).splitlines())
-    prose = _prose_line_numbers(lines)
+    lines = _blank_comments("\n".join(_prose_source_lines(text))).splitlines()
     units: list[Unit] = []
     buf: list[str] = []
     start = 0
     in_step = False
     item_indent = -1          # content indent of the open list item, -1 when none
     item_ordered = False
+    item_id: int | None = None
+    items = 0
 
     def flush():
         nonlocal buf
@@ -241,12 +267,12 @@ def extract_prose(text: str) -> list[Unit]:
         if joined:
             cleaned = _clean_inline(joined).strip()
             if cleaned:
-                units.append(Unit(cleaned, start + 1, in_step, len(units)))
+                units.append(Unit(cleaned, start + 1, in_step, len(units), item_id))
         buf = []
 
     for i, line in enumerate(lines):
         stripped = line.strip()
-        if i not in prose or not stripped:
+        if not stripped:
             flush()
             continue
         if stripped.startswith("|") or re.match(r"^\[[^\]]+\]:\s", stripped):
@@ -257,7 +283,7 @@ def extract_prose(text: str) -> list[Unit]:
         heading = re.match(r"^#{1,6}\s+(.*?)\s*#*\s*$", stripped)
         if heading:
             flush()
-            item_indent = -1
+            item_indent, item_id = -1, None
             start, in_step, buf = i, False, [heading.group(1)]
             flush()
             continue
@@ -265,10 +291,12 @@ def extract_prose(text: str) -> list[Unit]:
             flush()
             item_ordered = item.group(3) is not None
             item_indent = len(line) - len(item.group(4))
+            items += 1
+            item_id = items
             start, in_step, buf = i, item_ordered, [item.group(4)]
             continue
         if item_indent >= 0 and indent < item_indent and not buf:
-            item_indent = -1           # a dedented paragraph closes the item
+            item_indent, item_id = -1, None   # a dedented paragraph closes the item
         if not buf:
             start = i
             in_step = item_indent >= 0 and item_ordered
@@ -298,7 +326,7 @@ def split_sentences(unit: Unit) -> list[Sentence]:
 def _sentence(unit: Unit, text: str, begin: int, end: int) -> Sentence:
     lead = len(text[begin:end]) - len(text[begin:end].lstrip())
     line = unit.line + text[:begin + lead].count("\n")
-    return Sentence(text[begin:end].strip(), line, unit.in_step, unit.paragraph)
+    return Sentence(text[begin:end].strip(), line, unit.in_step, unit.paragraph, unit.item)
 
 
 # ------------------------------------------------------------------ checks
@@ -321,10 +349,23 @@ class Page:
 
 Finding = tuple[int, str]          # (line, message), before a check id and severity
 
-_BE = r"\b(?:am|is|are|was|were|be|been|being)\s+(\w+(?:ed|en))\b"
+_BE = re.compile(
+    r"\b(?:am|is|are|was|were|be|been|being)\s+"
+    r"(?:(?:\w+ly|often|not|also|always|never|still|then|now|already|just|even|usually)\s+)?"
+    r"(\w+(?:ed|en))\b",
+    re.IGNORECASE,
+)
+# Words ending -ed / -en that are not past participles.
+PASSIVE_STOP_LIST = frozenset({
+    "open", "often", "even", "then", "when", "token", "seven", "eleven", "ten",
+    "men", "women", "children", "garden", "kitchen", "chicken", "heaven", "golden",
+    "wooden", "sudden", "listen", "oxygen", "citizen", "linen", "omen", "screen",
+    "green", "queen", "teen", "between", "red", "bed", "seed", "speed", "feed",
+    "need", "indeed", "hundred", "shed", "sled", "embed",
+})
 _CONTRACTION = re.compile(
     r"\b\w+n't\b|\b\w+'(?:re|ll|ve|d)\b"
-    r"|\b(?:it|he|she|that|there|what|who|where|here|how|let)'s\b",
+    r"|\b(?:it|he|she|that|there|what|who|where|here|how|let)'s\b|\bI'm\b",
     re.IGNORECASE,
 )
 ING_STOP_LIST = frozenset({
@@ -334,9 +375,19 @@ ING_STOP_LIST = frozenset({
 })
 
 
-def _first_word(text: str) -> str:
-    m = re.match(r"[\s*_\"'(\[]*([A-Za-z]+)", text)
-    return m.group(1).lower() if m else ""
+def _opening_verb(text: str) -> str:
+    """The sentence's first word, lowercased; past a leading `Then`."""
+    m = re.match(r"[\s*_\"'(\[]*([A-Za-z]+)(?:,?\s+([A-Za-z]+))?", text)
+    if not m:
+        return ""
+    if m.group(1).lower() == "then" and m.group(2):
+        return m.group(2).lower()
+    return m.group(1).lower()
+
+
+# A second instruction joined to the first: `and`, `and then`, `, then`, `then`,
+# followed by a lowercase word (a capitalised word mid-sentence is a name).
+_JOINED = re.compile(r"(?:\b[Aa]nd(?:\s+then)?|,?\s*\b[Tt]hen)\s+([a-z]+)\b")
 
 
 def _word_pattern(word: str) -> re.Pattern:
@@ -362,19 +413,18 @@ def match_contractions(page: Page, p: dict) -> list[Finding]:
 
 def match_one_instruction(page: Page, p: dict) -> list[Finding]:
     verbs = {str(v).lower() for v in p["step_verbs"]}
-    joined = re.compile(r"(?:\band|,?\s*\bthen)\s+([A-Za-z]+)\b", re.IGNORECASE)
-    by_unit: dict[int, list[Sentence]] = {}
+    by_item: dict[int | None, list[Sentence]] = {}
     for s in page.sentences:
         if s.in_step:
-            by_unit.setdefault(s.paragraph, []).append(s)
+            by_item.setdefault(s.item, []).append(s)
     out = []
-    for sents in by_unit.values():
-        starts = [s for s in sents if _first_word(s.text) in verbs]
+    for sents in by_item.values():
+        starts = [s for s in sents if _opening_verb(s.text) in verbs]
         if len(starts) > 1:
             out.append((sents[0].line, "step holds more than one instruction: make one step for each"))
             continue
         for s in starts:
-            m = next((m for m in joined.finditer(s.text) if m.group(1).lower() in verbs), None)
+            m = next((m for m in _JOINED.finditer(s.text) if m.group(1) in verbs), None)
             if m:
                 out.append((s.line, f"step joins a second instruction ({m.group(1)!r}): "
                                     "make one step for each"))
@@ -382,9 +432,9 @@ def match_one_instruction(page: Page, p: dict) -> list[Finding]:
 
 
 def match_passive(page: Page, p: dict) -> list[Finding]:
-    return [(s.line, f"passive voice {m.group(0)!r}: name who does the action")
+    return [(s.line, f"passive voice {m.group(0)!r} ({m.group(1)}): name who does the action")
             for s in page.sentences if p["scope"] == "all" or s.in_step
-            for m in re.finditer(_BE, s.text, re.IGNORECASE)]
+            for m in _BE.finditer(s.text) if m.group(1).lower() not in PASSIVE_STOP_LIST]
 
 
 def match_ing_forms(page: Page, p: dict) -> list[Finding]:
@@ -453,9 +503,16 @@ def build_page(text: str, terms=()) -> Page:
     return Page(units, sentences, frozenset(str(t).lower() for t in terms))
 
 
-def run_checks(text: str, standard: Standard, terms=(), severities: dict | None = None) -> list[Hit]:
-    """Every hit of *standard* on page *text*. *severities* maps a check id to
-    its effective severity (default: the standard's); `off` skips the check."""
+@dataclass(frozen=True)
+class CheckResult:
+    hits: list[Hit]
+    page: Page
+
+
+def run_checks(text: str, standard: Standard, terms=(), severities: dict | None = None) -> CheckResult:
+    """Every hit of *standard* on page *text*, and the page it built.
+    *severities* maps a check id to its effective severity (default: the
+    standard's); `off` skips the check."""
     page = build_page(text, list(standard.terms) + list(terms))
     hits: list[Hit] = []
     for cid, spec in standard.checks.items():
@@ -466,7 +523,7 @@ def run_checks(text: str, standard: Standard, terms=(), severities: dict | None 
         if matcher is None:
             raise StandardError(f"{standard.path}: check {cid!r}: kind {spec.kind} is not implemented yet")
         hits.extend(Hit(cid, severity, line, msg) for line, msg in matcher(page, spec.params))
-    return sorted(hits, key=lambda h: (h.line, h.check))
+    return CheckResult(sorted(hits, key=lambda h: (h.line, h.check)), page)
 
 
 # ------------------------------------------------------------------ configuration
@@ -550,9 +607,11 @@ def effective_severity(standard: Standard, cid: str, layers: list[dict[str, str]
 
 def parse_waivers(text: str) -> tuple[dict[int, list[str]], list[Hit]]:
     """In-source waivers: {line the waiver covers: [check, ...]}, and a
-    `waiver_reason` failure for each waiver with no reason. A waiver covers
-    the next non-blank line after its comment."""
-    lines = text.splitlines()
+    `waiver_reason` failure for each waiver with no reason. Only prose lines
+    count (never fenced or inline code). A waiver covers the next line that is
+    neither blank nor itself only waivers, so waivers can stack."""
+    lines = _mask_code("\n".join(_prose_source_lines(text))).splitlines()
+    waiver_only = re.compile(r"(?:\s*" + _WAIVER.pattern + r")+\s*")
     covers: dict[int, list[str]] = {}
     bad: list[Hit] = []
     for i, line in enumerate(lines):
@@ -561,18 +620,26 @@ def parse_waivers(text: str) -> tuple[dict[int, list[str]], list[Hit]]:
                 bad.append(Hit("waiver_reason", "fail", i + 1,
                                f"waiver for {m.group(1)} gives no reason"))
                 continue
-            target = next((j for j in range(i + 1, len(lines)) if lines[j].strip()), i + 1)
+            target = next((j for j in range(i + 1, len(lines))
+                           if lines[j].strip() and not waiver_only.fullmatch(lines[j])), i + 1)
             covers.setdefault(target + 1, []).append(m.group(1))
     return covers, bad
 
 
-def front_matter_waivers(fm: dict, standard: Standard) -> tuple[set[str], list[Hit]]:
+def front_matter_waivers(fm: dict, standard: Standard,
+                         standards: dict[str, Standard]) -> tuple[set[str], list[Hit]]:
+    """Page-level waivers from `writing_standard_waive`. A key that names no
+    check of any standard (nor a page-level kind) is a ConfigError, like an
+    unknown --severity key; a sentence-level check of this standard fails."""
     raw = fm.get("writing_standard_waive") or {}
     if not isinstance(raw, dict):
-        return set(), [Hit("waiver_reason", "fail", 1, "writing_standard_waive is not a mapping")]
+        raise ConfigError("writing_standard_waive is not a mapping")
+    known = {cid for std in standards.values() for cid in std.checks} | PAGE_LEVEL_KINDS
     waived, bad = set(), []
     for cid, reason in raw.items():
         cid = str(cid)
+        if cid not in known:
+            raise ConfigError(f"writing_standard_waive: no writing standard has a check {cid!r}")
         spec = standard.checks.get(cid)
         if not str(reason or "").strip():
             bad.append(Hit("waiver_reason", "fail", 1, f"front matter waiver for {cid} gives no reason"))
@@ -642,8 +709,8 @@ def split_page(text: str) -> dict:
     return {}
 
 
-def page_stats(text: str, standard: Standard) -> str:
-    sentences = build_page(text).sentences
+def page_stats(page: Page, standard: Standard) -> str:
+    sentences = page.sentences
     lengths = [count_words(s.text) for s in sentences]
     limit = next((c.params for c in standard.checks.values() if c.kind == "sentence_length"), None)
     over = 0
@@ -662,7 +729,7 @@ def _expand(paths: list[str]) -> list[str]:
     out = []
     for p in paths:
         if any(c in p for c in "*?["):
-            matches = sorted(glob.glob(p, recursive=True))
+            matches = sorted(m for m in glob.glob(p, recursive=True) if Path(m).is_file())
             if not matches:
                 raise ConfigError(f"{p}: no files match")
             out.extend(matches)
@@ -688,14 +755,44 @@ def _parser():
     return ap
 
 
-def _setup(args):
-    """Everything that is the same for every page: config, severities, extra terms."""
+def load_config(path: str) -> dict:
+    """The blog config, shape-checked where the checker reads it (exit 2 on a bad one)."""
     import yaml
+    try:
+        config = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError as e:
+        raise ConfigError(f"{path}: does not parse: {e}") from e
+    if not isinstance(config, dict):
+        raise ConfigError(f"{path}: is not a mapping")
+    if not isinstance(config.get("series") or [], list):
+        raise ConfigError(f"{path}: series is not a list")
+    quality = config.get("quality") or {}
+    if not isinstance(quality, dict):
+        raise ConfigError(f"{path}: quality is not a mapping")
+    ws = quality.get("writing_standard") or {}
+    if not isinstance(ws, dict):
+        raise ConfigError(f"{path}: quality.writing_standard is not a mapping")
+    if not isinstance(ws.get("severities") or {}, dict):
+        raise ConfigError(f"{path}: quality.writing_standard.severities is not a mapping")
+    if not isinstance(ws.get("terms") or [], list):
+        raise ConfigError(f"{path}: quality.writing_standard.terms is not a list")
+    return config
+
+
+@dataclass(frozen=True)
+class Setup:
+    """Everything that is the same for every page of one run."""
+    config: dict | None
+    standards: dict[str, Standard]
+    config_terms: list
+    layers: list[dict[str, str]]
+    extra_terms: list[str]
+
+
+def _setup(args) -> Setup:
     if args.preserve_from:
         raise ConfigError("--preserve-from: not implemented yet")
-    config = None
-    if args.config:
-        config = yaml.safe_load(Path(args.config).read_text(encoding="utf-8")) or {}
+    config = load_config(args.config) if args.config else None
     ws = ((config or {}).get("quality") or {}).get("writing_standard") or {}
     standards = {n: load_standard(n) for n in list_standards()}
     layers = []
@@ -705,29 +802,26 @@ def _setup(args):
         validate_severity_keys(layer, standards, source)
         layers.append(layer)
     extra = [t for f in args.terms for t in read_terms_file(f)] + list(args.term)
-    return config, ws.get("terms") or [], layers, extra
+    return Setup(config, standards, ws.get("terms") or [], layers, extra)
 
 
-def _check_page(path, text, args, config, config_terms, layers, extra):
-    """Hits for one page, or None when it is skipped."""
+def _check_page(path: str, text: str, default: str | None, setup: Setup):
+    """(standard, hits, page) for one page, or (None, None, None) when it is skipped."""
     fm = split_page(text)
-    try:
-        name = resolve_standard(fm, config, args.default)
-    except ConfigError as e:
-        raise ConfigError(f"{path}: {e}") from e
+    name = resolve_standard(fm, setup.config, default)
     if name is None:
-        return None, None
-    try:
-        standard = load_standard(name)
-    except StandardError as e:
-        raise ConfigError(f"{path}: {e}") from e
-    severities = {cid: effective_severity(standard, cid, layers) for cid in standard.checks}
-    terms = load_terms(path, config_terms, extra)
-    hits = run_checks(text, standard, terms=terms, severities=severities)
+        return None, None, None
+    if name not in setup.standards:
+        raise ConfigError(f"unknown writing standard {name!r} "
+                          f"(available: {', '.join(sorted(setup.standards)) or 'none'})")
+    standard = setup.standards[name]
+    severities = {cid: effective_severity(standard, cid, setup.layers) for cid in standard.checks}
+    terms = load_terms(path, setup.config_terms, setup.extra_terms)
+    result = run_checks(text, standard, terms=terms, severities=severities)
     covers, bad = parse_waivers(text)
-    page_waived, bad_fm = front_matter_waivers(fm, standard)
-    hits = apply_waivers(hits, covers, page_waived) + bad + bad_fm
-    return standard, sorted(hits, key=lambda h: (h.line, h.check))
+    page_waived, bad_fm = front_matter_waivers(fm, standard, setup.standards)
+    hits = apply_waivers(result.hits, covers, page_waived) + bad + bad_fm
+    return standard, sorted(hits, key=lambda h: (h.line, h.check)), result.page
 
 
 def main(argv: list[str]) -> int:
@@ -736,7 +830,7 @@ def main(argv: list[str]) -> int:
     except SystemExit as e:
         return 2 if e.code else 0
     try:
-        config, config_terms, layers, extra = _setup(args)
+        setup = _setup(args)
         paths = _expand(args.paths)
     except (ConfigError, StandardError, OSError) as e:
         print(f"ERROR: {e}", file=sys.stderr)
@@ -744,11 +838,11 @@ def main(argv: list[str]) -> int:
     checked = skipped = 0
     failed = errored = False
     for path in paths:
-        text = Path(path).read_text(encoding="utf-8")
         try:
-            standard, hits = _check_page(path, text, args, config, config_terms, layers, extra)
-        except (ConfigError, StandardError) as e:
-            print(f"ERROR: {e}", file=sys.stderr)
+            text = Path(path).read_text(encoding="utf-8")
+            standard, hits, page = _check_page(path, text, args.default, setup)
+        except (ConfigError, StandardError, OSError, UnicodeDecodeError) as e:
+            print(f"ERROR: {path}: {e}", file=sys.stderr)
             errored = True
             continue
         if standard is None:
@@ -759,7 +853,7 @@ def main(argv: list[str]) -> int:
             print(f"{h.severity.upper()}: {path}:{h.line}: {h.check}: {h.message}")
             failed = failed or h.severity == "fail"
         if args.stats:
-            print(f"STATS: {path}: {standard.name}: {page_stats(text, standard)}")
+            print(f"STATS: {path}: {standard.name}: {page_stats(page, standard)}")
     if errored:
         return 2
     if failed:
