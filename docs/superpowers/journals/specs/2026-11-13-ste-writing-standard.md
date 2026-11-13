@@ -287,3 +287,6 @@ run_kind: none
 
 <!-- fr:journal kind=decision scope=spec id=phase-split-2026-11-13-writing-standards-p3 created=2026-11-13T13:40:25+00:00 -->
 ### phase-split-2026-11-13-writing-standards-p3 · decision · ask: the apply-writing-standard rewrite with preservation and fact check (R12, R14-R18)
+
+<!-- fr:journal kind=decision scope=spec id=phase-split-2026-11-13-writing-standards-p4 created=2026-11-13T13:40:26+00:00 -->
+### phase-split-2026-11-13-writing-standards-p4 · decision · ask: blog integration, materialization and release (R19-R21)
