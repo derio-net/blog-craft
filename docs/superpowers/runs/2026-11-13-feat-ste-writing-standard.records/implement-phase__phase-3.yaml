@@ -40,5 +40,10 @@ journal:
       README.md lists every user-invocable skill; no phase of the plan adds the new skill there.
       Left out of phase 3 (scope is P3.T1-P3.T2); a one-bullet README addition belongs to phase 4
       or a follow-up.
+  - kind: discovery
+    id: p3-opencode-mirror
+    phase: 3
+    title: "A new skill needs its generated OpenCode mirror"
+    body: "scripts/sync-opencode.py generates .opencode/ copies; test_opencode_sync and test_opencode_namespace fail CI without them."
 resolves: []
 evidence: {tests: ci}
