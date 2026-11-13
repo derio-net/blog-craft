@@ -430,3 +430,33 @@ ccb0b20; test_setext_headings_get_slugs, test_a_thematic_break_after_a_blank_lin
 ### p3-readme-skill-list-resolved · finding [out-of-scope] · resolves p3-readme-skill-list: README's skill list does not mention /apply-writing-standard (phase 3)
 
 Same gap as spec-review finding s19 (README skill list); no decision requires it and this change's behaviour does not depend on it. Listed in the PR body for the operator.
+
+<!-- fr:journal kind=decision scope=plan id=p4-severity-keys-refused created=2026-11-13T15:30:29+00:00 phase=4 -->
+### p4-severity-keys-refused · decision · quality.writing_standard.severities refuses unknown keys, unlike quality.lint (phase 4)
+
+validate_config checks each severity key with the checker's own
+validate_severity_keys (loaded lazily, so a config without writing-standard
+keys needs neither the checker nor yaml). quality.lint allows unknown keys for
+forward compatibility; here the checker exits 2 on an unknown key, so accepting
+it in the validator would only move the error to the gate.
+
+<!-- fr:journal kind=discovery scope=plan id=p4-checker-needs-validate-educational created=2026-11-13T15:30:29+00:00 phase=4 -->
+### p4-checker-needs-validate-educational · discovery · The materialized checker imports validate_educational from scripts/ (phase 4)
+
+validate_writing_standard.py imports validate_educational._prose_lines. A blog's
+scripts/ ships validate_educational.py too, so the materialized checker runs; the
+test copies the whole template scripts/ tree (no PYTHONPATH) and runs every
+standard from it. The super-fr standalone contract runs the tools/ copy, where
+the sibling import also resolves.
+
+<!-- fr:journal kind=decision scope=plan id=p4-ci-step-placement created=2026-11-13T15:30:29+00:00 phase=4 -->
+### p4-ci-step-placement · decision · CI writing-standard step sits after the educational step, gated on quality.writing_standard.enabled only (phase 4)
+
+`{{- with .quality }}{{- with .writing_standard }}{{- if .enabled }}`, independent of
+quality.enabled, so a blog can run either gate alone. FULL_CFG in the site_dir
+byte-identity test has no writing_standard, so already-synced blogs render unchanged.
+
+<!-- fr:journal kind=discovery scope=plan id=no-refactor-p4-t3 created=2026-11-13T15:30:29+00:00 phase=4 -->
+### no-refactor-p4-t3 · discovery · no-refactor-because P4.T3 (phase 4)
+
+P4.T3 is release bookkeeping (CHANGELOG entry, version check); there is no code to clean
