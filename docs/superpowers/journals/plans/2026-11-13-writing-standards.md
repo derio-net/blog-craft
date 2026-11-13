@@ -300,3 +300,133 @@ or a follow-up.
 ### p3-opencode-mirror · discovery · A new skill needs its generated OpenCode mirror (phase 3)
 
 scripts/sync-opencode.py generates .opencode/ copies; test_opencode_sync and test_opencode_namespace fail CI without them.
+
+<!-- fr:journal kind=review scope=plan id=review-p3 created=2026-11-13T15:16:06+00:00 phase=3 -->
+### review-p3 · review · phase 3 code review: 12 findings, all in scope, all fixed (phase 3)
+
+Independent reviewer (separate context, read-only) over spec + plan + diff 360a56d..992ee51, weighted to tests and simplicity, probing preservation with throwaway git repos. Fixes in ccb0b20, 7dbbb2e, e24a60d, 14d6836, f1f9378 (mirror); 306 tests pass locally; CI test green on f1f9378. Reviewer suggested adversarial-input and agent-procedure lenses.
+
+<!-- fr:journal kind=finding scope=plan id=p3-r1 created=2026-11-13T15:16:06+00:00 phase=3 state=open review_scope=in -->
+### p3-r1 · finding [open] (reviewer: in scope) · numerals in link text never compared (phase 3)
+
+Raised by the phase 3 reviewer.
+
+<!-- fr:journal kind=finding scope=plan id=p3-r2 created=2026-11-13T15:16:06+00:00 phase=3 state=open review_scope=in -->
+### p3-r2 · finding [open] (reviewer: in scope) · angle, Hugo ref/relref and HTML href/src link targets not extracted (phase 3)
+
+Raised by the phase 3 reviewer.
+
+<!-- fr:journal kind=finding scope=plan id=p3-r3 created=2026-11-13T15:16:06+00:00 phase=3 state=open review_scope=in -->
+### p3-r3 · finding [open] (reviewer: in scope) · anchor move accepted while the old heading still exists (phase 3)
+
+Raised by the phase 3 reviewer.
+
+<!-- fr:journal kind=finding scope=plan id=p3-r4 created=2026-11-13T15:16:06+00:00 phase=3 state=open review_scope=in -->
+### p3-r4 · finding [open] (reviewer: in scope) · ordered-marker strip applied to any line starting N. (phase 3)
+
+Raised by the phase 3 reviewer.
+
+<!-- fr:journal kind=finding scope=plan id=p3-r5 created=2026-11-13T15:16:06+00:00 phase=3 state=open review_scope=in -->
+### p3-r5 · finding [open] (reviewer: in scope) · skipped pages got no preserve check; skill guard silent and late (phase 3)
+
+Raised by the phase 3 reviewer.
+
+<!-- fr:journal kind=finding scope=plan id=p3-r6 created=2026-11-13T15:16:06+00:00 phase=3 state=open review_scope=in -->
+### p3-r6 · finding [open] (reviewer: in scope) · baseline copies collide on same basename (phase 3)
+
+Raised by the phase 3 reviewer.
+
+<!-- fr:journal kind=finding scope=plan id=p3-r7 created=2026-11-13T15:16:06+00:00 phase=3 state=open review_scope=in -->
+### p3-r7 · finding [open] (reviewer: in scope) · unresolvable anchor updates were an unwaivable dead end (phase 3)
+
+Raised by the phase 3 reviewer.
+
+<!-- fr:journal kind=finding scope=plan id=p3-r8 created=2026-11-13T15:16:06+00:00 phase=3 state=open review_scope=in -->
+### p3-r8 · finding [open] (reviewer: in scope) · inbound-link search incomplete and under-specified (phase 3)
+
+Raised by the phase 3 reviewer.
+
+<!-- fr:journal kind=finding scope=plan id=p3-r9 created=2026-11-13T15:16:06+00:00 phase=3 state=open review_scope=in -->
+### p3-r9 · finding [open] (reviewer: in scope) · tests pinned less than claimed (phase 3)
+
+Raised by the phase 3 reviewer.
+
+<!-- fr:journal kind=finding scope=plan id=p3-r10 created=2026-11-13T15:16:06+00:00 phase=3 state=open review_scope=in -->
+### p3-r10 · finding [open] (reviewer: in scope) · bad ref reported as no version (exit 1); non-UTF-8 old version traceback (phase 3)
+
+Raised by the phase 3 reviewer.
+
+<!-- fr:journal kind=finding scope=plan id=p3-r11 created=2026-11-13T15:16:06+00:00 phase=3 state=open review_scope=in -->
+### p3-r11 · finding [open] (reviewer: in scope) · fact-keeper over-share rule forbade the rewrite itself (phase 3)
+
+Raised by the phase 3 reviewer.
+
+<!-- fr:journal kind=finding scope=plan id=p3-r12 created=2026-11-13T15:16:06+00:00 phase=3 state=open review_scope=in -->
+### p3-r12 · finding [open] (reviewer: in scope) · setext headings unslugged; adjacent fences merged (phase 3)
+
+Raised by the phase 3 reviewer.
+
+<!-- fr:journal kind=finding scope=plan id=p3-r1-resolved created=2026-11-13T15:16:06+00:00 phase=3 state=fixed resolves=p3-r1 -->
+### p3-r1-resolved · finding [fixed] · resolves p3-r1: numerals in link text never compared (phase 3)
+
+ccb0b20; test_numerals_in_link_text_are_compared, test_link_text_numerals_unchanged_pass
+
+<!-- fr:journal kind=finding scope=plan id=p3-r2-resolved created=2026-11-13T15:16:06+00:00 phase=3 state=fixed resolves=p3-r2 -->
+### p3-r2-resolved · finding [fixed] · resolves p3-r2: angle, Hugo ref/relref and HTML href/src link targets not extracted (phase 3)
+
+ccb0b20; test_each_link_form_gives_its_target, test_a_changed_hugo_ref_target_fails, test_a_changed_html_href_fails, test_an_anchor_move_into_a_hugo_ref_is_accepted
+
+<!-- fr:journal kind=finding scope=plan id=p3-r3-resolved created=2026-11-13T15:16:06+00:00 phase=3 state=fixed resolves=p3-r3 -->
+### p3-r3-resolved · finding [fixed] · resolves p3-r3: anchor move accepted while the old heading still exists (phase 3)
+
+ccb0b20; test_an_anchor_move_is_refused_when_the_old_heading_still_exists
+
+<!-- fr:journal kind=finding scope=plan id=p3-r4-resolved created=2026-11-13T15:16:06+00:00 phase=3 state=fixed resolves=p3-r4 -->
+### p3-r4-resolved · finding [fixed] · resolves p3-r4: ordered-marker strip applied to any line starting N. (phase 3)
+
+ccb0b20; test_a_wrapped_sentence_ending_in_a_number_is_not_a_list_marker, test_a_changed_year_at_a_wrapped_line_start_fails, test_list_markers_after_a_blank_line_or_in_a_list_are_not_numerals
+
+<!-- fr:journal kind=finding scope=plan id=p3-r5-resolved created=2026-11-13T15:16:06+00:00 phase=3 state=fixed resolves=p3-r5 -->
+### p3-r5-resolved · finding [fixed] · resolves p3-r5: skipped pages got no preserve check; skill guard silent and late (phase 3)
+
+ccb0b20+7dbbb2e; test_a_page_with_no_standard_is_still_preserve_checked, test_step_2_resolves_each_pages_standard_before_any_rewrite, test_the_batch_stops_when_stats_lines_do_not_match_the_pages
+
+<!-- fr:journal kind=finding scope=plan id=p3-r6-resolved created=2026-11-13T15:16:06+00:00 phase=3 state=fixed resolves=p3-r6 -->
+### p3-r6-resolved · finding [fixed] · resolves p3-r6: baseline copies collide on same basename (phase 3)
+
+7dbbb2e; test_the_baseline_keeps_the_repository_relative_path
+
+<!-- fr:journal kind=finding scope=plan id=p3-r7-resolved created=2026-11-13T15:16:06+00:00 phase=3 state=fixed resolves=p3-r7 -->
+### p3-r7-resolved · finding [fixed] · resolves p3-r7: unresolvable anchor updates were an unwaivable dead end (phase 3)
+
+ccb0b20+7dbbb2e; test_a_root_relative_anchor_resolves_against_the_content_root, test_a_url_encoded_anchor_is_decoded, test_an_anchor_the_checker_cannot_resolve_is_restored_and_listed
+
+<!-- fr:journal kind=finding scope=plan id=p3-r8-resolved created=2026-11-13T15:16:06+00:00 phase=3 state=fixed resolves=p3-r8 -->
+### p3-r8-resolved · finding [fixed] · resolves p3-r8: inbound-link search incomplete and under-specified (phase 3)
+
+7dbbb2e; test_the_inbound_link_search_catches_every_link_form
+
+<!-- fr:journal kind=finding scope=plan id=p3-r9-resolved created=2026-11-13T15:16:06+00:00 phase=3 state=fixed resolves=p3-r9 -->
+### p3-r9-resolved · finding [fixed] · resolves p3-r9: tests pinned less than claimed (phase 3)
+
+e24a60d+14d6836; test_the_preserve_hit_cannot_be_waived (strengthened), test_a_front_matter_preserve_waiver_is_refused, test_preserved_items_lists_each_kind_of_a_known_page, contract tests for the mismatch stop, two paths, summary fields, count line
+
+<!-- fr:journal kind=finding scope=plan id=p3-r10-resolved created=2026-11-13T15:16:06+00:00 phase=3 state=fixed resolves=p3-r10 -->
+### p3-r10-resolved · finding [fixed] · resolves p3-r10: bad ref reported as no version (exit 1); non-UTF-8 old version traceback (phase 3)
+
+ccb0b20; test_an_unknown_ref_is_a_usage_error, test_an_old_version_that_is_not_utf8_is_a_usage_error
+
+<!-- fr:journal kind=finding scope=plan id=p3-r11-resolved created=2026-11-13T15:16:06+00:00 phase=3 state=fixed resolves=p3-r11 -->
+### p3-r11-resolved · finding [fixed] · resolves p3-r11: fact-keeper over-share rule forbade the rewrite itself (phase 3)
+
+7dbbb2e; test_the_over_share_rule_does_not_forbid_the_rewrite_itself
+
+<!-- fr:journal kind=finding scope=plan id=p3-r12-resolved created=2026-11-13T15:16:06+00:00 phase=3 state=fixed resolves=p3-r12 -->
+### p3-r12-resolved · finding [fixed] · resolves p3-r12: setext headings unslugged; adjacent fences merged (phase 3)
+
+ccb0b20; test_setext_headings_get_slugs, test_a_thematic_break_after_a_blank_line_is_no_heading, test_an_anchor_move_to_a_setext_heading_is_accepted, test_adjacent_fences_are_two_items
+
+<!-- fr:journal kind=finding scope=plan id=p3-readme-skill-list-resolved created=2026-11-13T15:16:06+00:00 phase=3 state=open resolves=p3-readme-skill-list out_of_scope=true -->
+### p3-readme-skill-list-resolved · finding [out-of-scope] · resolves p3-readme-skill-list: README's skill list does not mention /apply-writing-standard (phase 3)
+
+Same gap as spec-review finding s19 (README skill list); no decision requires it and this change's behaviour does not depend on it. Listed in the PR body for the operator.
