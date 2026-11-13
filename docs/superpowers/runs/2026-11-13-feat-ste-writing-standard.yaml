@@ -3,7 +3,7 @@ run: 2026-11-13-feat-ste-writing-standard
 workflow: fr-goal@1
 branch: feat/ste-writing-standard
 started: '2026-11-13T11:49:33+00:00'
-cursor: implement
+cursor: journal-check
 steps:
   brainstorm:
     state: done
@@ -49,8 +49,8 @@ steps:
     stdout: |
       self-review passed
   implement:
-    state: running
-    at: '2026-11-13T15:30:33+00:00'
+    state: done
+    at: '2026-11-13T15:44:48+00:00'
     members:
     - implement-phase
     - review-phase
@@ -157,11 +157,20 @@ steps:
           tests: ci:7e515e77eefabe0c1d5c831f0e0c8a748034e50f+cdff7a66b4dc383b66aa8e5465d0d978117dd3c0;tree=e512438d2f940f2e7e4d91545248ddcbe1a9afe5dd2508eb00feeb1113bbe6d1
           visual: none
       phase/4/review-phase:
-        state: running
+        state: done
         attempts:
         - dispatched: '2026-11-13T15:30:33+00:00'
           harness: claude-code
+          model: claude-opus-5-5
           session: 2ae187b3-8892-590d-8ab7-d7c2dc9e646f
+          returned: '2026-11-13T15:44:48+00:00'
+          outcome: done
+        evidence:
+          review: review-p4
+          reviewer: a9e1caf31f29222e4
+          visual: none
+          findings: p4-r1,p4-r2,p4-r3,p4-r4,p4-r5
+          unobserved: reviewer,reviewer-return
   journal-check:
     state: pending
   deliver:

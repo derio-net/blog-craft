@@ -460,3 +460,58 @@ byte-identity test has no writing_standard, so already-synced blogs render uncha
 ### no-refactor-p4-t3 · discovery · no-refactor-because P4.T3 (phase 4)
 
 P4.T3 is release bookkeeping (CHANGELOG entry, version check); there is no code to clean
+
+<!-- fr:journal kind=review scope=plan id=review-p4 created=2026-11-13T15:44:47+00:00 phase=4 -->
+### review-p4 · review · phase 4 code review: 5 findings (4 in, 1 reclassified in), all fixed (phase 4)
+
+Independent reviewer (separate context, read-only) over spec + plan + diff 9c34c7b..7e515e7, weighted to tests and simplicity; verified materialization end to end (bootstrap renders all scripts/, /update adds the new files, the copied checker imports and runs in a throwaway blog). Fixes in 9277d6c, 38155d7, 1a87fc4, 5f9d1a7; 506 tests pass locally; CI test green on 5f9d1a7. Reviewer suggested a config-yaml-round-trip lens.
+
+<!-- fr:journal kind=finding scope=plan id=p4-r1 created=2026-11-13T15:44:47+00:00 phase=4 state=open review_scope=in -->
+### p4-r1 · finding [open] (reviewer: in scope) · unquoted `off` severity (the CONFIG.md example) loads as YAML False and was refused by both validators (phase 4)
+
+Raised by the phase 4 reviewer.
+
+<!-- fr:journal kind=finding scope=plan id=p4-r2 created=2026-11-13T15:44:47+00:00 phase=4 state=open review_scope=in -->
+### p4-r2 · finding [open] (reviewer: in scope) · CONFIG.md schema overview omitted the writing_standard keys (phase 4)
+
+Raised by the phase 4 reviewer.
+
+<!-- fr:journal kind=finding scope=plan id=p4-r3 created=2026-11-13T15:44:47+00:00 phase=4 state=open review_scope=in -->
+### p4-r3 · finding [open] (reviewer: in scope) · unknown keys in quality.writing_standard accepted; null treated differently by the two validators (phase 4)
+
+Raised by the phase 4 reviewer.
+
+<!-- fr:journal kind=finding scope=plan id=p4-r4 created=2026-11-13T15:44:47+00:00 phase=4 state=open review_scope=in -->
+### p4-r4 · finding [open] (reviewer: in scope) · CHANGELOG 0.23.0 announced the two new standards twice (phase 4)
+
+Raised by the phase 4 reviewer.
+
+<!-- fr:journal kind=finding scope=plan id=p4-r5 created=2026-11-13T15:44:47+00:00 phase=4 state=open review_scope=in -->
+### p4-r5 · finding [open] (reviewer: in scope) · test_mirrors docstring said validate_educational ships only with the quality gate on (phase 4)
+
+The reviewer tagged it out of scope as an old docstring; reclassified in scope because this change made validate_educational's unconditional shipping load-bearing for the new checker.
+
+<!-- fr:journal kind=finding scope=plan id=p4-r1-resolved created=2026-11-13T15:44:47+00:00 phase=4 state=fixed resolves=p4-r1 -->
+### p4-r1-resolved · finding [fixed] · resolves p4-r1: unquoted `off` severity (the CONFIG.md example) loads as YAML False and was refused by both validators (phase 4)
+
+9277d6c; test_r1_config_md_example_passes_validate_config, test_r1_config_md_example_passes_the_checker_config_and_turns_the_check_off, test_r1_parse_severity_overrides_maps_false_to_off_and_refuses_true, test_r1_a_bare_on_is_refused_with_a_clear_message
+
+<!-- fr:journal kind=finding scope=plan id=p4-r2-resolved created=2026-11-13T15:44:47+00:00 phase=4 state=fixed resolves=p4-r2 -->
+### p4-r2-resolved · finding [fixed] · resolves p4-r2: CONFIG.md schema overview omitted the writing_standard keys (phase 4)
+
+38155d7; test_r2_config_md_overview_names_the_writing_standard_keys
+
+<!-- fr:journal kind=finding scope=plan id=p4-r3-resolved created=2026-11-13T15:44:47+00:00 phase=4 state=fixed resolves=p4-r3 -->
+### p4-r3-resolved · finding [fixed] · resolves p4-r3: unknown keys in quality.writing_standard accepted; null treated differently by the two validators (phase 4)
+
+9277d6c; test_r3_both_validators_refuse[enable, null]
+
+<!-- fr:journal kind=finding scope=plan id=p4-r4-resolved created=2026-11-13T15:44:47+00:00 phase=4 state=fixed resolves=p4-r4 -->
+### p4-r4-resolved · finding [fixed] · resolves p4-r4: CHANGELOG 0.23.0 announced the two new standards twice (phase 4)
+
+1a87fc4; test_r4_changelog_announces_each_standard_once
+
+<!-- fr:journal kind=finding scope=plan id=p4-r5-resolved created=2026-11-13T15:44:47+00:00 phase=4 state=fixed resolves=p4-r5 -->
+### p4-r5-resolved · finding [fixed] · resolves p4-r5: test_mirrors docstring said validate_educational ships only with the quality gate on (phase 4)
+
+5f9d1a7; docstring only
