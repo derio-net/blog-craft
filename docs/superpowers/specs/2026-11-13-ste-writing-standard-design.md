@@ -170,7 +170,7 @@ terms: []
 name: plain-language
 title: Plain language rules, based on the US Federal Plain Language Guidelines
 checks:
-  average_length:   {kind: average_sentence_length, severity: fail, max: 20}
+  average_sentence_length: {kind: average_sentence_length, severity: fail, max: 20}
   long_sentence:    {kind: sentence_length, severity: warn, procedural_max: 35, descriptive_max: 35}
   must_not_shall:   {kind: replacements, severity: fail, words: {shall: must}}
   active_voice:     {kind: passive, severity: warn, scope: all}
@@ -241,7 +241,7 @@ validate_writing_standard.py [--config .blog-craft.yaml] [--default <standard>]
   |---|---|---|---|
   | `sentence_length` | exact | `procedural_max`, `descriptive_max` | a sentence over the limit for its class; inline code counts as one word |
   | `average_sentence_length` | exact | `max` | a page whose mean prose sentence length is over `max` (reported on line 1) |
-  | `contractions` | exact | — | `n't`, `'re`, `'ll`, `'ve`, `'d`, and `'s` after a pronoun |
+  | `contractions` | exact | — | `n't`, `'re`, `'ll`, `'ve`, `'d`, `'m` after *I*, and `'s` after a pronoun (typographic apostrophes normalised first) |
   | `one_instruction` | exact | `step_verbs` | a numbered step with two sentences that each START with a step verb, or one sentence that starts with a step verb and joins a second one directly after `and`, `, then` or `then`; verbs elsewhere in a clause never count |
   | `replacements` | exact | `words` (word → replacement) | a listed word or phrase on word boundaries, minus the terms; the message gives the replacement |
   | `phrases` | exact | `phrases` (phrase → hint) | a listed multi-word phrase, case-insensitive; the message gives the hint |
