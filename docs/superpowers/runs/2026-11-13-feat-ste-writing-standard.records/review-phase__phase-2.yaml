@@ -1,0 +1,81 @@
+schema_version: 10
+run: 2026-11-13-feat-ste-writing-standard
+step: review-phase
+item: phase/2
+outcome: done
+journal:
+- kind: review
+  id: review-p2
+  phase: 2
+  title: 'phase 2 code review: 7 findings (6 in, 1 reclassified in), all fixed'
+  body: 'Independent reviewer (separate context, read-only) over spec + plan + diff 03bea73..86631a8, weighted to tests and simplicity; real-world probe of both standards on super-fr''s fr-isolation explainer
+    and two hand drafts found the hits sensible. Licensing checked: eos rules map to Strunk 1918 rules, nothing copied from later editions. Fixes in c82fe87; 222 writing-standard tests pass locally; CI
+    test green on c82fe87. Reviewer suggested a heuristic-precision lens (false-positive pass of warn-level heuristics on a real corpus).'
+- kind: finding
+  id: p2-r1
+  phase: 2
+  review_scope: in
+  title: abbreviations misses a sentence-final token
+  body: Raised by the phase 2 reviewer.
+- kind: finding
+  id: p2-r2
+  phase: 2
+  review_scope: in
+  title: nominalizations fires on -al adjectives and common nouns; stop-lists real nominalizations
+  body: Raised by the phase 2 reviewer.
+- kind: finding
+  id: p2-r3
+  phase: 2
+  review_scope: in
+  title: loose_sentences counts Oxford-comma lists as clause joins
+  body: Raised by the phase 2 reviewer.
+- kind: finding
+  id: p2-r4
+  phase: 2
+  review_scope: in
+  title: abbreviations flags all-caps emphasis and Roman numerals
+  body: Raised by the phase 2 reviewer.
+- kind: finding
+  id: p2-r5
+  phase: 2
+  review_scope: in
+  title: README misstates which exact kinds ship at warn; 'capitalized' vs all-capitals
+  body: Raised by the phase 2 reviewer.
+- kind: finding
+  id: p2-r6
+  phase: 2
+  review_scope: in
+  title: README kinds test only checked names appear anywhere
+  body: Raised by the phase 2 reviewer.
+- kind: finding
+  id: p2-r7
+  phase: 2
+  review_scope: in
+  title: front-matter waiver keyed by kind name accepted but never applied when the check id differs
+  body: The reviewer tagged it out of scope as phase 1 code; reclassified in scope by the orchestrator because this feature (phase 1) introduced it, so this change is what is wrong.
+resolves:
+- id: p2-r1
+  state: fixed
+  body: c82fe87; test_r1_sentence_final_abbreviation_hits, test_r1_dotted_token_is_not_an_abbreviation
+- id: p2-r2
+  state: fixed
+  body: c82fe87; test_r2_nouns_that_hide_no_verb_pass, test_r2_real_al_nominalizations_hit (spec kind row amended)
+- id: p2-r3
+  state: fixed
+  body: c82fe87; test_r3_oxford_comma_lists_are_not_loose_sentences, test_r3_a_clause_join_after_a_list_still_counts
+- id: p2-r4
+  state: fixed
+  body: c82fe87; test_r4_emphasis_caps_and_roman_numerals_pass
+- id: p2-r5
+  state: fixed
+  body: c82fe87; test_readme_names_long_sentence_as_an_exception, test_readme_and_plain_language_say_all_capitals
+- id: p2-r6
+  state: fixed
+  body: c82fe87; test_readme_kind_table_matches_kinds
+- id: p2-r7
+  state: fixed
+  body: c82fe87; test_r7_a_kind_name_waiver_applies_to_the_standards_check_of_that_kind
+evidence:
+  review: review-p2
+  reviewer: a110a414c262f0cba
+  model: claude-opus-5-5
