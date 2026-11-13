@@ -1505,7 +1505,8 @@ rows:
     - blog-craft:docs/superpowers/specs/2026-11-13-ste-writing-standard-design.md#R11
     levels: {}
     status: not-implemented
-    notes: ''
+    notes: covers all three shipped standards (ste, elements-of-style, plain-language;
+      R22); the acceptance text predates them and fr 6.2 has no reword command
     verify: none
   - id: writing-standard-checker
     capability: writing-standards
