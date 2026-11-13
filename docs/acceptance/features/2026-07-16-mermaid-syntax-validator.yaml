@@ -1,0 +1,37 @@
+# Acceptance rows owned by one feature (spec 2026-11-04-repo-feature-settings R16).
+# The effective matrix is a fold over every fragment in this directory
+# (`fr acceptance status`); it is never stored. Write rows with
+# `fr acceptance add` / `set-status`, never by hand. Keep `rows:` before
+# `amendments:`.
+schema_version: 1
+feature: 2026-07-16-mermaid-syntax-validator
+repo: derio-net/blog-craft
+rows:
+  - id: mermaid-syntax-flags-dead-forms
+    capability: mermaid syntax gate
+    acceptance: validate_mermaid flags dead-on-render forms (bare <br>, unbalanced brackets)
+      with file:line and fails CI, and does not flag edges with a subgraph endpoint,
+      which are valid mermaid
+    origin:
+    - spec:2026-07-16-mermaid-syntax-validator
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_mermaid_validator.py
+      - blog-craft:tests/unit/test_mermaid_layout_gate.py
+    status: ci
+    notes: 'standalone tools/validate_mermaid.py, all content types, blocking, on by
+      default (#27). Was mermaid-syntax-flags-subgraph-edge: rule R1 rejected subgraph
+      edges as dead on render, but real mermaid renders them, so R1 was dropped (#74).
+      test_subgraph_edges_render_in_real_mermaid renders every former-R1 form next to
+      a real syntax error in headless Chrome; it skips in CI, which has no built mermaid
+      bundle (set BLOG_CRAFT_MERMAID_BUNDLE to run it).'
+  - id: mermaid-syntax-opt-out
+    capability: mermaid syntax gate
+    acceptance: quality.mermaid_syntax false disables the mermaid syntax gate
+    origin:
+    - spec:2026-07-16-mermaid-syntax-validator
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_mermaid_validator.py
+    status: ci
+    notes: flag validated as bool in validate_config; default on (#27)

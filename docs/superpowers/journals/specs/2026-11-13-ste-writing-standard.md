@@ -1,4 +1,4 @@
-<!-- fr:journal-schema=3 -->
+<!-- fr:journal-schema=4 -->
 # Journal: 2026-11-13-ste-writing-standard
 
 <!-- fr:journal kind=discovery scope=spec id=brief created=2026-11-13T11:50:19+00:00 input=true -->

@@ -1,0 +1,59 @@
+# Acceptance rows owned by one feature (spec 2026-11-04-repo-feature-settings R16).
+# The effective matrix is a fold over every fragment in this directory
+# (`fr acceptance status`); it is never stored. Write rows with
+# `fr acceptance add` / `set-status`, never by hand. Keep `rows:` before
+# `amendments:`.
+schema_version: 1
+feature: 2026-07-15-opencode-compatibility
+repo: derio-net/blog-craft
+rows:
+  - id: OC-1
+    capability: opencode-compatibility
+    acceptance: OpenCode discovers every blog-craft skill in .opencode/skills/
+    origin:
+    - spec:2026-07-15-opencode-compatibility
+    levels: {}
+    status: not-implemented
+    notes: 'Manual: run opencode in repo root, check skill list'
+  - id: OC-2
+    capability: opencode-compatibility
+    acceptance: Slash commands for every blog-craft skill work (e.g. /blog-post)
+    origin:
+    - spec:2026-07-15-opencode-compatibility
+    levels: {}
+    status: not-implemented
+    notes: 'Manual: type /blog-post in opencode, skill loads'
+  - id: OC-3
+    capability: opencode-compatibility
+    acceptance: sync-opencode.py --check exits 0 when mirrors are in sync
+    origin:
+    - spec:2026-07-15-opencode-compatibility
+    levels: {}
+    status: ci
+    notes: 'Automated: uv run scripts/sync-opencode.py --check'
+  - id: OC-4
+    capability: opencode-compatibility
+    acceptance: install.sh registers marketplace, enables plugin, delivers OpenCode
+      skills/commands
+    origin:
+    - spec:2026-07-15-opencode-compatibility
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_install_marketplace_namespace.py
+      - blog-craft:tests/unit/test_opencode_namespace.py
+    status: ci
+    notes: 'Both halves now CI-pinned end-to-end (install.sh run against a fake HOME).
+      Marketplace registration + plugin enable/disable: own-name registration, unconditional
+      convergence of our own keys, migration off the derio-net squat, --uninstall removing
+      only keys we own. OpenCode skills/commands delivery: prefixed (blog-craft-<name>)
+      skills+commands land in ~/.config/opencode/, a stale bare-named copy is migrated
+      away, and a same-named third-party skill is preserved. Live OpenCode-runtime discovery
+      of the delivered files is the only remaining manual step.'
+  - id: OC-5
+    capability: opencode-compatibility
+    acceptance: Claude Code plugin path is not regressed
+    origin:
+    - spec:2026-07-15-opencode-compatibility
+    levels: {}
+    status: not-implemented
+    notes: 'Manual: restart Claude Code, verify /blog-post works'

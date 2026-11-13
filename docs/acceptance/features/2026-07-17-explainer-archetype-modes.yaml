@@ -1,0 +1,31 @@
+# Acceptance rows owned by one feature (spec 2026-11-04-repo-feature-settings R16).
+# The effective matrix is a fold over every fragment in this directory
+# (`fr acceptance status`); it is never stored. Write rows with
+# `fr acceptance add` / `set-status`, never by hand. Keep `rows:` before
+# `amendments:`.
+schema_version: 1
+feature: 2026-07-17-explainer-archetype-modes
+repo: derio-net/blog-craft
+rows:
+  - id: explainer-archetype-scaffold
+    capability: explainer archetypes
+    acceptance: scaffold-explainer.sh --archetype <id> emits that archetype's section
+      structure for all 6 archetypes
+    origin:
+    - spec:2026-07-17-explainer-archetype-modes
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_scaffold_explainer.py
+    status: ci
+    notes: ''
+  - id: explainer-archetype-structure-validation
+    capability: explainer archetypes
+    acceptance: 'validate_explainers rejects a post whose ## sections do not match its
+      declared archetype, and rejects unknown archetypes'
+    origin:
+    - spec:2026-07-17-explainer-archetype-modes
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_explainers_validators.py
+    status: ci
+    notes: ''

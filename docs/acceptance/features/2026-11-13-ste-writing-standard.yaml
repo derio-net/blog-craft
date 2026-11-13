@@ -1,0 +1,147 @@
+# Acceptance rows owned by one feature (spec 2026-11-04-repo-feature-settings R16).
+# The effective matrix is a fold over every fragment in this directory
+# (`fr acceptance status`); it is never stored. Write rows with
+# `fr acceptance add` / `set-status`, never by hand. Keep `rows:` before
+# `amendments:`.
+schema_version: 1
+feature: 2026-11-13-ste-writing-standard
+repo: derio-net/blog-craft
+rows:
+  - id: writing-standard-registry
+    capability: writing-standards
+    acceptance: A writing standard is one reference file (rules prose + checker YAML);
+      blog-craft ships ste, and a new standard using existing checks needs no code change;
+      unknown check or standard names are errors.
+    origin:
+    - spec:2026-11-13-ste-writing-standard#R1
+    - spec:2026-11-13-ste-writing-standard#R2
+    - spec:2026-11-13-ste-writing-standard#R3
+    - spec:2026-11-13-ste-writing-standard#R11
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_writing_standard_registry.py
+    status: ci
+    notes: unit tests in CI (test job), green on 5f9d1a7
+    verify: none
+  - id: writing-standard-checker
+    capability: writing-standards
+    acceptance: The checker validates prose in any Markdown file, inside or outside
+      a blog, with Python and PyYAML only, reporting FAIL/WARN lines and exiting 0/1/2.
+    origin:
+    - spec:2026-11-13-ste-writing-standard#R4
+    - spec:2026-11-13-ste-writing-standard#R6
+    - spec:2026-11-13-ste-writing-standard#R13
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_writing_standard_checker.py
+    status: ci
+    notes: unit tests in CI (test job), green on 5f9d1a7
+    verify: none
+  - id: writing-standard-selection
+    capability: writing-standards
+    acceptance: Each page's standard resolves front matter, then series default, then
+      --default, else skipped; none opts out; an unknown name is an error.
+    origin:
+    - spec:2026-11-13-ste-writing-standard#R5
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_writing_standard_selection.py
+    status: ci
+    notes: unit tests in CI (test job), green on 5f9d1a7
+    verify: none
+  - id: writing-standard-ste-checks
+    capability: writing-standards
+    acceptance: Under ste, sentence length, contractions and multi-instruction steps
+      fail; passive in steps, -ing forms, replacement-list words and long paragraphs
+      warn; severities, reasoned waivers and exempt terms adjust them.
+    origin:
+    - spec:2026-11-13-ste-writing-standard#R7
+    - spec:2026-11-13-ste-writing-standard#R8
+    - spec:2026-11-13-ste-writing-standard#R9
+    - spec:2026-11-13-ste-writing-standard#R10
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_writing_standard_ste_checks.py
+    status: ci
+    notes: unit tests in CI (test job), green on 5f9d1a7
+    verify: none
+  - id: writing-standard-preservation
+    capability: writing-standards
+    acceptance: Compared with a git ref, a page whose code blocks, inline code, link
+      targets or numbers changed fails.
+    origin:
+    - spec:2026-11-13-ste-writing-standard#R12
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_writing_standard_preserve.py
+    status: ci
+    notes: unit tests in CI (test job), green on 5f9d1a7
+    verify: none
+  - id: writing-standard-apply-skill
+    capability: writing-standards
+    acceptance: apply-writing-standard rewrites pages in batches, language only, fixes
+      or lists broken heading links, runs the checker and a blind fact-keeper per page
+      in one session, and waits for approval between batches.
+    origin:
+    - spec:2026-11-13-ste-writing-standard#R14
+    - spec:2026-11-13-ste-writing-standard#R15
+    - spec:2026-11-13-ste-writing-standard#R16
+    - spec:2026-11-13-ste-writing-standard#R17
+    - spec:2026-11-13-ste-writing-standard#R18
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_apply_writing_standard_contract.py
+      - blog-craft:tests/unit/test_fact_keeper_contract.py
+    status: ci
+    notes: unit tests in CI (test job), green on 5f9d1a7
+    verify: none
+  - id: writing-standard-blog-integration
+    capability: writing-standards
+    acceptance: In a blog, a per-series writing_standard and quality.writing_standard
+      are validated and documented, blog-post/post-rewrite apply the standard, batch-gate
+      and CI run the checker, and materialized blogs get byte-identical copies.
+    origin:
+    - spec:2026-11-13-ste-writing-standard#R19
+    - spec:2026-11-13-ste-writing-standard#R20
+    - spec:2026-11-13-ste-writing-standard#R21
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_mirrors.py
+      - blog-craft:tests/unit/test_config_schema.py
+      - blog-craft:tests/unit/test_batch_gate.py
+      - blog-craft:tests/unit/test_ci_template.py
+      - blog-craft:tests/unit/test_writing_standard_wiring.py
+    status: ci
+    notes: unit tests in CI (test job), green on 5f9d1a7
+    verify: none
+  - id: writing-standard-elements-of-style
+    capability: writing-standards
+    acceptance: Under elements-of-style, needless-word phrases fail; passive voice,
+      negative-form phrases and runs of loose sentences warn; there is no length limit;
+      the rules cite only Strunk's 1918 edition.
+    origin:
+    - spec:2026-11-13-ste-writing-standard#R22
+    - spec:2026-11-13-ste-writing-standard#R23
+    - spec:2026-11-13-ste-writing-standard#R25
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_writing_standard_elements_of_style.py
+    status: ci
+    notes: unit tests in CI (test job), green on 5f9d1a7
+    verify: none
+  - id: writing-standard-plain-language
+    capability: writing-standards
+    acceptance: Under plain-language, a page averaging over 20 words per sentence and
+      the word 'shall' fail; long sentences, passive voice, words with simpler replacements,
+      nominalizations, unexplained abbreviations and long paragraphs warn; the rules
+      cite the US Federal Plain Language Guidelines.
+    origin:
+    - spec:2026-11-13-ste-writing-standard#R22
+    - spec:2026-11-13-ste-writing-standard#R24
+    - spec:2026-11-13-ste-writing-standard#R25
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_writing_standard_plain_language.py
+    status: ci
+    notes: unit tests in CI (test job), green on 5f9d1a7
+    verify: none

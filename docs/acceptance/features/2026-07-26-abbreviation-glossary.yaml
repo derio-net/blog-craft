@@ -1,0 +1,144 @@
+# Acceptance rows owned by one feature (spec 2026-11-04-repo-feature-settings R16).
+# The effective matrix is a fold over every fragment in this directory
+# (`fr acceptance status`); it is never stored. Write rows with
+# `fr acceptance add` / `set-status`, never by hand. Keep `rows:` before
+# `amendments:`.
+schema_version: 1
+feature: 2026-07-26-abbreviation-glossary
+repo: derio-net/blog-craft
+rows:
+  - id: GL-1
+    capability: abbreviation-glossary
+    acceptance: An author can scan one post, one series, or a whole blog and get abbreviation
+      definitions proposed into data/glossary.yaml
+    origin:
+    - spec:2026-07-26-abbreviation-glossary
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_glossary_scan.py
+    status: ci
+    notes: '34 unit tests over glossary_scan.py: token shape, stoplist, every exclusion
+      region, inflected display forms, registry awareness, dedup with occurrence counts,
+      JSON CLI.'
+  - id: GL-2
+    capability: abbreviation-glossary
+    acceptance: A marked abbreviation renders as a clickable element that opens the
+      proper name and description, with no JavaScript
+    origin:
+    - spec:2026-07-26-abbreviation-glossary
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_glossary_hugo.py
+    status: ci
+    notes: 'Builds a real bootstrapped site and asserts on emitted HTML: button/popover
+      pair, name and description in the panel, optional url link, distinct ids for a
+      twice-marked term, inner abbr title, build failure on an unknown key. Zero JS
+      by construction. Dismissal behaviour is GL-3.'
+  - id: GL-3
+    capability: abbreviation-glossary
+    acceptance: The definition panel is keyboard-reachable and dismissible by Esc and
+      click-away, on desktop and touch
+    origin:
+    - spec:2026-07-26-abbreviation-glossary
+    levels:
+      ui:
+      - blog-craft:docs/superpowers/implemented/plans/2026-07-26-abbreviation-glossary/08.yaml
+    status: unwired
+    notes: 'Proven live once (2026-07-26) via browser-harness against Brave: click opens
+      the panel with name + description, Esc closes, click-away closes, the trigger
+      is keyboard-focusable and activates from the keyboard, readable and fully on-screen
+      at 500px width, dark mode correct. Manual walk, not automatable in CI, so it rests
+      at skipped and a backfill is owed if this is ever scriptable. Placement is NOT
+      covered here - see GL-9 and blog-craft#49.'
+  - id: GL-4
+    capability: abbreviation-glossary
+    acceptance: Marker insertion never rewrites code blocks, headings, frontmatter or
+      link text, and is idempotent across runs
+    origin:
+    - spec:2026-07-26-abbreviation-glossary
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_glossary_apply.py
+    status: ci
+    notes: First-occurrence-only vs --all, idempotence across repeated runs, no rewrite
+      inside frontmatter or heading or link or fence, unchanged files left untouched
+      by mtime, CLI config plumbing.
+  - id: GL-5
+    capability: abbreviation-glossary
+    acceptance: CI fails when a post references an abbreviation that has no registry
+      entry
+    origin:
+    - spec:2026-07-26-abbreviation-glossary
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_glossary_validator.py
+      - blog-craft:tests/unit/test_ci_template.py
+      - blog-craft:tests/unit/test_mirrors.py
+    status: ci
+    notes: Validator errors, warnings and exit codes; CI template wires the step only
+      when features.glossary.enabled; scripts/ mirrors stay byte-identical so a plugin-free
+      blog CI can run it.
+  - id: GL-6
+    capability: abbreviation-glossary
+    acceptance: The glossary surface materializes only when features.glossary.enabled
+      is true; a blog that did not opt in carries none of it
+    origin:
+    - spec:2026-07-26-abbreviation-glossary
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_glossary_gating.py
+      - blog-craft:tests/unit/test_config_schema.py
+    status: ci
+    notes: Bootstrap materializes both shortcodes and glossary.css only when features.glossary.enabled,
+      and nothing when the key is false or absent; config validator rejects a malformed
+      glossary block.
+  - id: GL-7
+    capability: abbreviation-glossary
+    acceptance: The glossary-index shortcode renders every registered term alphabetically
+      with its description
+    origin:
+    - spec:2026-07-26-abbreviation-glossary
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_glossary_hugo.py
+    status: ci
+    notes: glossary-index renders every registry term alphabetically from a deliberately
+      unsorted fixture, and emits nothing without failing the build when no registry
+      exists.
+  - id: GL-8
+    capability: abbreviation-glossary
+    acceptance: An existing blog adopts the feature through /update with no conflicts,
+      and operator-authored definitions are never overwritten
+    origin:
+    - spec:2026-07-26-abbreviation-glossary
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_update_flow.py
+      - blog-craft:tests/unit/test_glossary_gating.py
+    status: ci
+    notes: 'Planner-level and manifest-level evidence is CI-pinned: the three shipped
+      files arrive as clean adds on a blog that never had the feature, the registry
+      is content-class so /update never plans an action on it, and an operator-tweaked
+      glossary.css 3-way merges instead of being clobbered. A real end-to-end /update
+      against a live blog config remains Test Plan step 8.'
+  - id: GL-9
+    capability: abbreviation-glossary
+    acceptance: The definition panel appears adjacent to the abbreviation it defines,
+      not over unrelated page content
+    origin:
+    - spec:2026-07-26-abbreviation-glossary
+    levels:
+      unit:
+      - blog-craft:tests/unit/test_glossary_hugo.py
+      - blog-craft:tests/unit/test_glossary_css.py
+    status: unwired
+    notes: 'Verified live 2026-07-26 post-merge (Test Plan step 3a, blog-craft#51 on
+      main): panel 6px below its own trigger with dx=0 at 1280x850, inline flip at 500px,
+      block-start flip with the term 30px from the viewport foot, and the unanchored
+      fallback docked 1rem above the foot and inline-centred at both widths — no viewport-corner
+      placement and no h1 overlap on any path. Stays skipped rather than ci because
+      that evidence is a browser walk and CI has no layout engine. What CI does pin:
+      test_glossary_hugo.py asserts the emitted anchor names are paired and unique per
+      occurrence, and test_glossary_css.py asserts the stylesheet contract (anchored
+      rules gated behind @supports, block-end preferred, both try-fallbacks declared,
+      UA popover inset/margin reset, fallback that cannot regress to the corner).'
