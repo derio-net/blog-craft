@@ -1,0 +1,129 @@
+"""The writing-standard registry: reference files with one check-instance yaml block."""
+import os
+import re
+
+import pytest
+
+import validate_writing_standard as vws
+
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+STANDARDS = os.path.join(ROOT, "skills", "apply-writing-standard", "standards")
+
+
+def _write_standard(dirpath, name, block, prose="A fixture standard.\n"):
+    path = os.path.join(str(dirpath), f"{name}.md")
+    with open(path, "w") as f:
+        f.write(f"# {name}\n\n{prose}\n```yaml\n{block}```\n")
+    return path
+
+
+def test_load_ste_has_name_title_checks_terms():
+    std = vws.load_standard("ste")
+    assert std.name == "ste"
+    assert std.title.startswith("STE writing rules")
+    assert isinstance(std.terms, list)
+    assert set(std.checks) >= {
+        "sentence_length", "contractions", "one_instruction", "passive_in_steps",
+        "ing_forms", "vocabulary", "paragraph_length",
+    }
+    spec = std.checks["sentence_length"]
+    assert isinstance(spec, vws.CheckSpec)
+    assert spec.kind == "sentence_length"
+    assert spec.severity == "fail"
+    assert spec.params == {"procedural_max": 20, "descriptive_max": 25}
+
+
+def test_ste_severities_match_spec():
+    std = vws.load_standard("ste")
+    sev = {cid: c.severity for cid, c in std.checks.items()}
+    assert sev == {
+        "sentence_length": "fail", "contractions": "fail", "one_instruction": "fail",
+        "passive_in_steps": "warn", "ing_forms": "warn", "vocabulary": "warn",
+        "paragraph_length": "warn",
+    }
+
+
+def test_ste_vocabulary_has_at_least_25_words():
+    words = vws.load_standard("ste").checks["vocabulary"].params["words"]
+    assert len(words) >= 25
+    for w in ("ensure", "utilize", "commence", "terminate", "assist"):
+        assert w in words
+
+
+def test_first_yaml_block_is_the_data(tmp_path):
+    block = "name: two\ntitle: Two\nchecks:\n  c: {kind: contractions, severity: warn}\nterms: [x]\n"
+    path = os.path.join(str(tmp_path), "two.md")
+    with open(path, "w") as f:
+        f.write(f"# two\n\n```yaml\n{block}```\n\nLater example:\n\n```yaml\nname: other\n```\n")
+    std = vws.load_standard("two", dirs=[str(tmp_path)])
+    assert std.name == "two"
+    assert std.terms == ["x"]
+
+
+def test_unknown_kind_names_check_and_kind(tmp_path):
+    _write_standard(tmp_path, "bad", "name: bad\ntitle: Bad\nchecks:\n  mine: {kind: telepathy, severity: warn}\n")
+    with pytest.raises(vws.StandardError) as e:
+        vws.load_standard("bad", dirs=[str(tmp_path)])
+    assert "mine" in str(e.value) and "telepathy" in str(e.value)
+
+
+def test_unexpected_parameter_is_an_error(tmp_path):
+    _write_standard(tmp_path, "bad", "name: bad\ntitle: Bad\nchecks:\n  c: {kind: contractions, severity: warn, limit: 3}\n")
+    with pytest.raises(vws.StandardError) as e:
+        vws.load_standard("bad", dirs=[str(tmp_path)])
+    assert "limit" in str(e.value) and "c" in str(e.value)
+
+
+def test_missing_required_parameter_is_an_error(tmp_path):
+    _write_standard(tmp_path, "bad", "name: bad\ntitle: Bad\nchecks:\n  len: {kind: sentence_length, severity: fail, procedural_max: 20}\n")
+    with pytest.raises(vws.StandardError) as e:
+        vws.load_standard("bad", dirs=[str(tmp_path)])
+    assert "descriptive_max" in str(e.value)
+
+
+def test_bad_severity_is_an_error(tmp_path):
+    _write_standard(tmp_path, "bad", "name: bad\ntitle: Bad\nchecks:\n  c: {kind: contractions, severity: loud}\n")
+    with pytest.raises(vws.StandardError) as e:
+        vws.load_standard("bad", dirs=[str(tmp_path)])
+    assert "loud" in str(e.value)
+
+
+def test_unknown_standard_lists_available(tmp_path):
+    _write_standard(tmp_path, "alpha", "name: alpha\ntitle: A\nchecks: {}\n")
+    with pytest.raises(vws.StandardError) as e:
+        vws.load_standard("nope", dirs=[str(tmp_path)])
+    assert "nope" in str(e.value) and "alpha" in str(e.value)
+
+
+def test_list_standards_ignores_readme(tmp_path):
+    _write_standard(tmp_path, "alpha", "name: alpha\ntitle: A\nchecks: {}\n")
+    _write_standard(tmp_path, "README", "name: example\ntitle: E\nchecks: {}\n")
+    assert vws.list_standards(dirs=[str(tmp_path)]) == ["alpha"]
+
+
+def test_two_instances_of_one_kind_are_both_kept(tmp_path):
+    block = (
+        "name: twice\ntitle: Twice\nchecks:\n"
+        "  must_not_shall: {kind: replacements, severity: fail, words: {shall: must}}\n"
+        "  simple_words: {kind: replacements, severity: warn, words: {utilize: use}}\n"
+    )
+    _write_standard(tmp_path, "twice", block)
+    std = vws.load_standard("twice", dirs=[str(tmp_path)])
+    assert std.checks["must_not_shall"].kind == "replacements"
+    assert std.checks["simple_words"].kind == "replacements"
+    assert std.checks["must_not_shall"].params["words"] == {"shall": "must"}
+
+
+def test_all_twelve_kinds_are_declared():
+    assert set(vws.KINDS) == {
+        "sentence_length", "average_sentence_length", "contractions", "one_instruction",
+        "replacements", "phrases", "passive", "ing_forms", "paragraph_length",
+        "loose_sentences", "nominalizations", "abbreviations",
+    }
+
+
+def test_ste_names_its_source_and_never_claims_conformance():
+    with open(os.path.join(STANDARDS, "ste.md")) as f:
+        text = f.read()
+    assert "based on ASD-STE100" in text
+    assert not re.search(r"conformant|compliant", text, re.IGNORECASE)

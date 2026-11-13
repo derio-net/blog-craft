@@ -12,7 +12,151 @@ Needs only Python 3 and PyYAML. Exit 0 when nothing fails, 1 when a check fails,
 """
 from __future__ import annotations
 
+import re
 import sys
+from dataclasses import dataclass, field
+from pathlib import Path
+
+SEVERITIES = ("fail", "warn", "off")
+
+# The closed set of check kinds: kind -> (required params, optional params),
+# each a mapping param -> accepted type. A standard may only use these.
+KINDS: dict[str, tuple[dict[str, type | tuple], dict[str, type | tuple]]] = {
+    "sentence_length": ({"procedural_max": int, "descriptive_max": int}, {}),
+    "average_sentence_length": ({"max": (int, float)}, {}),
+    "contractions": ({}, {}),
+    "one_instruction": ({"step_verbs": list}, {}),
+    "replacements": ({"words": dict}, {}),
+    "phrases": ({"phrases": dict}, {}),
+    "passive": ({"scope": str}, {}),
+    "ing_forms": ({}, {}),
+    "paragraph_length": ({"max_sentences": int}, {}),
+    "loose_sentences": ({"run": int}, {}),
+    "nominalizations": ({}, {}),
+    "abbreviations": ({}, {}),
+}
+
+
+class StandardError(Exception):
+    """A standard that cannot be loaded or used: always an error, never a skip."""
+
+
+@dataclass(frozen=True)
+class CheckSpec:
+    kind: str
+    severity: str
+    params: dict = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class Standard:
+    name: str
+    title: str
+    checks: dict[str, CheckSpec]
+    terms: list[str]
+    path: str = ""
+
+
+# ------------------------------------------------------------------ registry
+
+def standards_dirs() -> list[str]:
+    """Where standards live: the plugin checkout, else writing-standards/ next
+    to this script (a materialized blog's scripts/writing-standards/)."""
+    here = Path(__file__).resolve().parent
+    return [
+        str(here.parent / "skills" / "apply-writing-standard" / "standards"),
+        str(here / "writing-standards"),
+    ]
+
+
+def _standard_files(dirs: list[str] | None) -> dict[str, Path]:
+    """name -> file, first directory wins; README.md is never a standard."""
+    found: dict[str, Path] = {}
+    for d in dirs if dirs is not None else standards_dirs():
+        p = Path(d)
+        if not p.is_dir():
+            continue
+        for f in sorted(p.glob("*.md")):
+            if f.name == "README.md":
+                continue
+            found.setdefault(f.stem, f)
+    return found
+
+
+def list_standards(dirs: list[str] | None = None) -> list[str]:
+    return sorted(_standard_files(dirs))
+
+
+def _parse_block(path: Path) -> dict:
+    """The first fenced yaml block of a reference file, as a mapping."""
+    import yaml
+    m = re.search(r"```yaml\n(.*?)```", path.read_text(encoding="utf-8"), re.DOTALL)
+    if not m:
+        raise StandardError(f"{path}: no fenced yaml block")
+    try:
+        data = yaml.safe_load(m.group(1))
+    except yaml.YAMLError as e:
+        raise StandardError(f"{path}: yaml block does not parse: {e}") from e
+    if not isinstance(data, dict):
+        raise StandardError(f"{path}: yaml block is not a mapping")
+    return data
+
+
+def _validate_check(path: Path, cid: str, raw) -> CheckSpec:
+    """One check instance: a known kind, a valid severity, exactly its kind's params."""
+    where = f"{path}: check {cid!r}"
+    if not isinstance(raw, dict):
+        raise StandardError(f"{where}: is not a mapping")
+    kind = raw.get("kind")
+    if kind not in KINDS:
+        raise StandardError(
+            f"{where}: unknown kind {kind!r} (known: {', '.join(sorted(KINDS))})"
+        )
+    severity = raw.get("severity")
+    if severity not in SEVERITIES:
+        raise StandardError(
+            f"{where}: severity {severity!r} is not one of {'|'.join(SEVERITIES)}"
+        )
+    required, optional = KINDS[kind]
+    params = {k: v for k, v in raw.items() if k not in ("kind", "severity")}
+    for key in params:
+        if key not in required and key not in optional:
+            raise StandardError(f"{where}: kind {kind} takes no parameter {key!r}")
+    for key in required:
+        if key not in params:
+            raise StandardError(f"{where}: kind {kind} needs parameter {key!r}")
+    for key, value in params.items():
+        expected = required.get(key) or optional.get(key)
+        if isinstance(value, bool) or not isinstance(value, expected):
+            raise StandardError(f"{where}: parameter {key!r} has the wrong type")
+    if kind == "passive" and params["scope"] not in ("steps", "all"):
+        raise StandardError(f"{where}: parameter 'scope' must be steps or all")
+    return CheckSpec(kind=kind, severity=severity, params=params)
+
+
+def load_standard(name: str, dirs: list[str] | None = None) -> Standard:
+    files = _standard_files(dirs)
+    if name not in files:
+        raise StandardError(
+            f"unknown writing standard {name!r} (available: "
+            f"{', '.join(sorted(files)) or 'none'})"
+        )
+    path = files[name]
+    data = _parse_block(path)
+    checks_raw = data.get("checks") or {}
+    if not isinstance(checks_raw, dict):
+        raise StandardError(f"{path}: 'checks' is not a mapping")
+    terms = data.get("terms") or []
+    if not isinstance(terms, list):
+        raise StandardError(f"{path}: 'terms' is not a list")
+    checks = {str(cid): _validate_check(path, str(cid), raw) for cid, raw in checks_raw.items()}
+    return Standard(
+        name=str(data.get("name") or name),
+        title=str(data.get("title") or name),
+        checks=checks,
+        terms=[str(t) for t in terms],
+        path=str(path),
+    )
 
 
 def main(argv: list[str]) -> int:
