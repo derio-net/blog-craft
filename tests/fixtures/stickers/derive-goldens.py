@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import os
 import sys
 import types
 from pathlib import Path
@@ -43,6 +44,9 @@ HERE = Path(__file__).resolve().parent
 VENDORED = HERE / "frank-stickers.yaml"
 GOLDEN = HERE / "golden"
 REL_SRC = "blog/_private/frank-stickers/generate-stickers.py"
+# Where frank is checked out, when --frank is not given: $FRANK_REPO, else a sibling of
+# this blog-craft checkout (<dir>/blog-craft beside <dir>/frank). No machine path here.
+DEFAULT_FRANK = os.environ.get("FRANK_REPO") or str(HERE.parents[2].parent / "frank")
 
 # The five API-only modules. Each is imported at frank's module level and used
 # ONLY on the generation path (genai client / PIL image objects / the deleted
@@ -86,8 +90,9 @@ def derive(frank_root: Path) -> dict[str, tuple[str, list[str]]]:
 
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--frank", default="/Users/derio/Docs/projects/DERIO_NET/frank",
-                    help="path to a frank checkout")
+    ap.add_argument("--frank", default=DEFAULT_FRANK,
+                    help="path to a frank checkout (default: $FRANK_REPO, else ../frank "
+                         "beside this blog-craft checkout)")
     ap.add_argument("--check", action="store_true",
                     help="diff against the committed goldens instead of writing")
     a = ap.parse_args(argv)
